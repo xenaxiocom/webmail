@@ -2,7 +2,7 @@ import { render, screen } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 import { MenuBrand } from "../menu-brand";
 
-const config = vi.hoisted(() => ({ appName: "xenaxio", appLogoLightUrl: "/api/portal/logo?v=1", appLogoDarkUrl: "/api/portal/logo?v=1" }));
+const config = vi.hoisted(() => ({ appName: "Xenaxio", appLogoLightUrl: "/api/portal/logo?v=1", appLogoDarkUrl: "/api/portal/logo?v=1" }));
 
 vi.mock("@/lib/xenaxio/bff", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/bff")>()), XENAXIO_BFF: true }));
 vi.mock("@/hooks/use-config", () => ({ useConfig: () => config }));

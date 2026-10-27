@@ -1,27 +1,27 @@
-# xenaxio webmail
+# Xenaxio webmail
 
-This is the web client of **xenaxio**, a sovereign AI workspace (mail, calendar, contacts and an AI assistant) for small companies in Germany. It is a fork of [Bulwark Mail](https://github.com/bulwarkmail/webmail) (AGPL-3.0-only); everything below the line is Bulwark's own README.
+This is the web client of **Xenaxio**, a sovereign AI workspace (mail, calendar, contacts and an AI assistant) for small companies in Germany. It is a fork of [Bulwark Mail](https://github.com/bulwarkmail/webmail) (AGPL-3.0-only); everything below the line is Bulwark's own README.
 
-## What xenaxio changes
+## What Xenaxio changes
 
-- The client talks only to the xenaxio platform API under `/api` (a backend-for-frontend with an httpOnly session cookie). It never connects to the mail server directly and holds no mail credentials.
+- The client talks only to the Xenaxio platform API under `/api` (a backend-for-frontend with an httpOnly session cookie). It never connects to the mail server directly and holds no mail credentials.
 - Own pages: sign-in, company onboarding, workspace (domain and DNS, employees, AI settings, audit log, MCP tokens, password) and the operator console.
 - AI assistant side panel: questions about the mailbox with sources, "Kurz" (summary), "Mit KI antworten" (reply draft), meeting proposals that run only after "Bestätigen".
 - Files: the Bulwark file manager on the mail server's JMAP file storage, through the same proxy; up to 100 MB per file in the cloud. Office editing is switched off.
 - Sharing within a company: files, calendars, address books and mail folders through Bulwark's Share dialog. The platform serves the colleague directory and allows sharing only with people of the same company.
-- xenaxio branding, German and English only, features that call external services switched off.
+- Xenaxio branding, German and English only, features that call external services switched off.
 
-xenaxio code lives in `lib/xenaxio/`, `components/xenaxio/` and `app/(main)/[locale]/{login,onboarding,workspace,operator}`; changes to upstream files are kept small.
+Xenaxio code lives in `lib/xenaxio/`, `components/xenaxio/` and `app/(main)/[locale]/{login,onboarding,workspace,operator}`; changes to upstream files are kept small.
 
 ## Building
 
-The xenaxio deployment uses the static Lite build:
+The Xenaxio deployment uses the static Lite build:
 
 ```bash
-docker build -f Dockerfile.lite --build-arg LITE_LOCALES=en,de --build-arg LITE_APP_NAME=xenaxio -t xenaxio/web .
+docker build -f Dockerfile.lite --build-arg LITE_LOCALES=en,de --build-arg LITE_APP_NAME=Xenaxio -t xenaxio/web .
 ```
 
-`config.json` and `policy.json` are mounted at deploy time (see the platform's `deploy/` folder). Without the xenaxio platform API the client cannot sign in.
+`config.json` and `policy.json` are mounted at deploy time (see the platform's `deploy/` folder). Without the Xenaxio platform API the client cannot sign in.
 
 ## License
 
@@ -37,7 +37,7 @@ AGPL-3.0-only, like Bulwark Mail (see [LICENSE](LICENSE) and [NOTICE](NOTICE)). 
 | nginx (Alpine image) | BSD-2-Clause | Serves the static build |
 | Other npm packages | see `package.json` / `npm ls` | As inherited from Bulwark Mail |
 
-The xenaxio platform (API, AI agent, MCP server) is a separate, proprietary service; it is not part of this repository.
+The Xenaxio platform (API, AI agent, MCP server) is a separate, proprietary service; it is not part of this repository.
 
 ---
 

@@ -18,7 +18,7 @@ describe("MailApps (step 23)", () => {
     expect(screen.getAllByText("mail.xenaxio.com")).toHaveLength(2);
     expect(screen.getByText("993")).toBeTruthy();
     expect(screen.getByText("465")).toBeTruthy();
-    expect(screen.getByText("Ihr xenaxio-Passwort")).toBeTruthy();
+    expect(screen.getByText("Ihr Xenaxio-Passwort")).toBeTruthy();
     expect(screen.queryByText(/noch nicht verbunden/)).toBeNull();
   });
 
