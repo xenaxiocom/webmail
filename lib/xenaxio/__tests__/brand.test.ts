@@ -20,8 +20,8 @@ describe('rebrandMessages', () => {
 
   it('keeps sentences readable', () => {
     expect(rebrandMessages({ a: 'Willkommen bei Bulwark Mail', b: { c: 'Bulwark Webmail' }, n: 3 })).toEqual({
-      a: 'Willkommen bei xenaxio',
-      b: { c: 'xenaxio' },
+      a: 'Willkommen bei Xenaxio',
+      b: { c: 'Xenaxio' },
       n: 3,
     });
   });

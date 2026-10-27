@@ -3,7 +3,7 @@
 // upstream strings are covered automatically.
 type Messages = Record<string, unknown>;
 
-export const PRODUCT_NAME = "xenaxio";
+export const PRODUCT_NAME = "Xenaxio";
 
 const BRAND = /Bulwark(?: Webmail| Mail(?: App)?)?/g;
 

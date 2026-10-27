@@ -41,7 +41,7 @@ describe("CustomModelList (step 45)", () => {
     unmount();
     render(<CustomModelList custom={base} platformConfigured={false} onChanged={async () => {}} />);
     expect((screen.getByRole("checkbox") as HTMLInputElement).disabled).toBe(true);
-    expect(screen.getByText(/keine KI von xenaxio als Ersatz/)).toBeTruthy();
+    expect(screen.getByText(/keine KI von Xenaxio als Ersatz/)).toBeTruthy();
   });
 
   it("says since when the model is down, without an empty status", () => {

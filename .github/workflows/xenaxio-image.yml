@@ -48,13 +48,13 @@ jobs:
             ${{ env.IMAGE }}:${{ github.sha }}
             ${{ env.IMAGE }}:main
           labels: |
-            org.opencontainers.image.title=xenaxio web client
+            org.opencontainers.image.title=Xenaxio web client
             org.opencontainers.image.source=https://github.com/${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.licenses=AGPL-3.0-only
           build-args: |
             LITE_LOCALES=en,de
-            LITE_APP_NAME=xenaxio
+            LITE_APP_NAME=Xenaxio
             GIT_COMMIT=${{ github.sha }}
           cache-from: type=gha,scope=xenaxio-web
           cache-to: type=gha,mode=max,scope=xenaxio-web

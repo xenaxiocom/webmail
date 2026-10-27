@@ -40,7 +40,7 @@ export const chatHooks = {
 
 /** A ready-to-run test command, like Slack shows one. */
 export function curlExample(url: string): string {
-  return `curl -X POST -H 'Content-type: application/json' --data '{"text":"Hallo aus xenaxio!"}' ${url}`;
+  return `curl -X POST -H 'Content-type: application/json' --data '{"text":"Hallo aus Xenaxio!"}' ${url}`;
 }
 
 export function IntegrationsDialog({ room, roomName, onClose }: { room: Room; roomName: string; onClose: () => void }) {

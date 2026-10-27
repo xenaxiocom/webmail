@@ -32,7 +32,7 @@ describe("DeliveryStatus (step 15)", () => {
     expect(screen.getByText("Nicht zugestellt: 2 von 3 Empfängern")).toBeTruthy();
     // Which server answered: the recipient's or ours.
     expect(screen.getByText("Antwort von: mx.firma.de")).toBeTruthy();
-    expect(screen.getByText("Antwort von: diesem Server (xenaxio)")).toBeTruthy();
+    expect(screen.getByText("Antwort von: diesem Server (Xenaxio)")).toBeTruthy();
     expect(screen.getByText(/vermutlich ein Tippfehler/)).toBeTruthy();
     expect(screen.getByText("DNS lookup failed: no MX record found.")).toBeTruthy();
   });
