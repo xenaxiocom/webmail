@@ -429,6 +429,7 @@
     "tool_get_email": "Lese eine E-Mail…",
     "tool_get_thread": "Lese die Unterhaltung…",
     "tool_create_draft": "Speichere einen Entwurf…",
+    "tool_update_draft": "Ändere den Entwurf…",
     "tool_search_contacts": "Suche Kontakte…",
     "tool_error": "Ein Schritt ist fehlgeschlagen. Bitte fragen Sie noch einmal, gern mit anderen Worten.",
     "not_sent": "Ohne Ihre Bestätigung wird nichts gesendet: Entwürfe werden nur gespeichert, Termine und Aufgaben erst nach „Bestätigen“ angelegt oder geändert.",
