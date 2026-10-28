@@ -42,6 +42,7 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { TaskCard } from "@/components/xenaxio/task-card";
 import { ScheduleCard } from "@/components/xenaxio/schedule-card";
 import { showCalendar } from "@/lib/xenaxio/calendar-visibility";
+import { DraftDeleteCard } from "./draft-card";
 import { ProposalSeriesNote, ProposalSeriesRows } from "./proposal-series";
 import { AssistantButton, useAssistantDevice, useAssistantPositions } from "./assistant-button";
 import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
@@ -765,6 +766,8 @@ export function AssistantPanel() {
                   <MemoryCard key={p.id} proposal={p} onDecide={decide} />
                 ) : p.tool === "schedule_task" || p.tool === "update_schedule" || p.tool === "delete_schedule" ? (
                   <ScheduleCard key={p.id} proposal={p} locale={locale} onDecide={(_card, confirm) => decide(p, confirm)} />
+                ) : p.tool === "delete_draft" ? (
+                  <DraftDeleteCard key={p.id} proposal={p} onDecide={(_draft, confirm) => decide(p, confirm)} />
                 ) : p.tool === "create_task" || p.tool === "update_task" ? (
                   <TaskCard key={p.id} proposal={p} locale={locale} onDecide={(_task, confirm) => decide(p, confirm)} />
                 ) : (

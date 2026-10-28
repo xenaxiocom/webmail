@@ -11,7 +11,7 @@ import { auditQuery, type AuditEntry, type AuditFilter, errorKey, type Workspace
 import { withBasePath } from "@/lib/browser-navigation";
 import { useXT } from "@/lib/xenaxio/i18n";
 
-const TOOLS = ["search_mail", "get_email", "get_thread", "create_draft", "update_draft", "search_contacts", "list_events", "find_free_time", "create_event", "llm:chat", "llm:summarize", "llm:reply"];
+const TOOLS = ["search_mail", "get_email", "get_thread", "create_draft", "update_draft", "delete_draft", "search_contacts", "list_events", "find_free_time", "create_event", "llm:chat", "llm:summarize", "llm:reply"];
 
 const select = "w-full rounded-md border border-input bg-background px-2 py-1.5 text-sm";
 

@@ -56,6 +56,12 @@ export interface ProposalSummary {
   emailCopy?: boolean;
   maySend?: boolean;
   sendTo?: string[];
+  /** delete_draft (step 69): the draft that would be deleted. */
+  draftId?: string;
+  subject?: string;
+  to?: string[];
+  preview?: string;
+  attachments?: string[];
 }
 
 /** Step 49: a chat in the history; scheduled tasks have their own, unread until opened. */
