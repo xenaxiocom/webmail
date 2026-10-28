@@ -450,6 +450,7 @@
     "tool_read_file": "Reading a file…",
     "tool_save_file": "Saving a file…",
     "tool_create_folder": "Creating a folder…",
+    "tool_read_attachment": "Reading the attachment…",
     "tool_save_attachment": "Saving the attachment to Files…",
     "proposal": {
       "event": "Proposed event",

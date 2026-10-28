@@ -450,6 +450,7 @@
     "tool_read_file": "Lese eine Datei…",
     "tool_save_file": "Speichere eine Datei…",
     "tool_create_folder": "Lege einen Ordner an…",
+    "tool_read_attachment": "Lese den Anhang…",
     "tool_save_attachment": "Speichere den Anhang in Dateien…",
     "proposal": {
       "event": "Terminvorschlag",
