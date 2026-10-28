@@ -630,7 +630,7 @@ export function AssistantPanel() {
       <button
         type="button"
         onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 md:bottom-6 md:right-6"
+        className="fixed bottom-[max(6rem,var(--xenaxio-assistant-lift,0px))] right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 md:bottom-[max(1.5rem,var(--xenaxio-assistant-lift,0px))] md:right-6"
         aria-label={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")}
         title={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")}
       >

@@ -6,6 +6,7 @@
 // stays while switching.
 import { IconBold, IconCode, IconItalic, IconList, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconStrikethrough } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { uploadFile } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Room } from "@/lib/xenaxio/chat/client";
 import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
@@ -89,7 +90,11 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const writable = client.can(room, "send");
+
+  // Keep the floating assistant button off the send button.
+  useEffect(() => (writable && box.current ? avoidAssistantButton(box.current) : undefined), [writable]);
 
   useEffect(() => {
     setText(drafts.get(key) ?? "");
@@ -195,7 +200,7 @@ export function Composer({
 
   const tool = "flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground";
   return (
-    <div className={cn("relative mx-4 mb-4", threadRoot && "mx-3 mb-3")}>
+    <div ref={box} className={cn("relative mx-4 mb-4", threadRoot && "mx-3 mb-3")}>
       {options.length > 0 && (
         <div className="absolute bottom-full left-0 z-30 mb-1 w-72 overflow-hidden rounded-md border border-border bg-popover shadow-lg" role="listbox">
           {options.map((o, i) => (
