@@ -91,6 +91,13 @@ describe("step 56: public booking page", () => {
 
     expect(await screen.findByRole("heading", { name: "Demo" })).toBeTruthy();
     expect(screen.getByText("Datenschutz").getAttribute("href")).toBe("https://acme.de/datenschutz");
+    // Step 58: the tab title as in the link preview, kept when Next puts its own back.
+    await waitFor(() => expect(document.title).toBe("Demo – Eugen Schmidt · Acme"));
+    const appTitle = document.createElement("title");
+    appTitle.textContent = "Webmail";
+    document.head.prepend(appTitle);
+    await waitFor(() => expect(document.title).toBe("Demo – Eugen Schmidt · Acme"));
+    appTitle.remove();
     // The slot may fall into next month for the calendar: open the month that holds it.
     const time = await screen.findByRole("button", { name: hhmm(start) }).catch(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Nächster Monat" }));
