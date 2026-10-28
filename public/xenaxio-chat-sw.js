@@ -74,7 +74,7 @@ async function handlePush(event) {
   // Someone reading the chat right now on this device needs no ping (like Slack).
   if (open.some((c) => c.focused && c.visibilityState === "visible" && isChatWindow(c))) return;
 
-  const title = typeof data.title === "string" && data.title ? data.title : "Chat";
+  const title = typeof data.title === "string" && data.title ? data.title : "Rooms";
   const body = typeof data.body === "string" ? data.body : "";
   await self.registration.showNotification(title, {
     body,
