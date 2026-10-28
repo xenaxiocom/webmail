@@ -638,9 +638,11 @@ export function AssistantPanel() {
   }
 
   return (
+    // Full height under viewport-fit=cover: in the installed app (PWA) the top
+    // would sit under the iOS status bar and hide the close button.
     <aside
       data-xenaxio-glass=""
-      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background text-foreground shadow-xl sm:w-[400px]"
+      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] text-foreground shadow-xl sm:w-[400px]"
       aria-label={t("assistant.title")}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("Files")) return;
@@ -816,7 +818,7 @@ export function AssistantPanel() {
           <p className="text-[11px] text-muted-foreground">{uploading ? t("assistant.attach_uploading") : t("assistant.attach_saved")}</p>
         </div>
       )}
-      <form onSubmit={send} className="relative flex items-end gap-2 border-t border-border p-3">
+      <form onSubmit={send} className="relative flex items-end gap-2 border-t border-border p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <input
           ref={fileInput}
           type="file"
