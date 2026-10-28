@@ -8,6 +8,8 @@ import { useAccountStore } from "@/stores/account-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { usePolicyStore } from "@/stores/policy-store";
 import { useSettingsStore } from "@/stores/settings-store";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { useXenaxioHint } from "@/lib/xenaxio/me-store";
 import {
   enableWebPush,
   isWebPushEnabled,
@@ -105,6 +107,10 @@ export function PushNotificationPrompt() {
   const policyLoaded = usePolicyStore((state) => state.loaded);
   const policy = usePolicyStore((state) => state.policy);
   const userPushRelayUrl = useSettingsStore((state) => state.pushRelayUrl);
+  // xenaxio (step 64): "Don't remind me again" is kept for the user on the
+  // platform (every browser and company address); the card waits for /api/me.
+  const { dismissed: serverDismissed, dismiss: dismissOnServer } = useXenaxioHint("push-prompt");
+  const hiddenByServer = XENAXIO_BFF && serverDismissed !== false;
 
   const [showPrompt, setShowPrompt] = useState(false);
   const [isEnabling, setIsEnabling] = useState(false);
@@ -236,6 +242,7 @@ export function PushNotificationPrompt() {
       || sessionDismissedAccountIds.has(accountId)
       || pwaPromptVisible
       || wasDismissed(accountId)
+      || hiddenByServer
       || !isWebPushSupported()
       || Notification.permission === "denied"
     ) {
@@ -261,6 +268,7 @@ export function PushNotificationPrompt() {
     accountId,
     client,
     emailNotificationsEnabled,
+    hiddenByServer,
     isAuthenticated,
     isDemoMode,
     pathname,
@@ -299,6 +307,7 @@ export function PushNotificationPrompt() {
       dismissPermanently(accountId);
       dismissForSession(accountId);
     }
+    if (XENAXIO_BFF) dismissOnServer();
     setShowPrompt(false);
   };
 
