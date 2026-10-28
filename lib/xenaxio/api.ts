@@ -262,6 +262,24 @@ export interface ChatAdmin {
   aiAccess: boolean;
 }
 
+/** Step 63: a channel of the company as its admin manages it. */
+export interface ChatChannelAdmin {
+  roomId: string;
+  name: string | null;
+  topic: string | null;
+  isPublic: boolean;
+  archived: boolean;
+  /** People in the channel (not integrations or the platform). */
+  members: number;
+  /** False: no active moderator could hand the channel to the platform. */
+  managed: boolean;
+  external: boolean;
+  /** The company's "Alle" (cannot be archived). */
+  general: boolean;
+}
+
+export type ChatChannelChange = { name?: string; topic?: string; archived?: boolean };
+
 /** Step 44: result of the connection test of a company's own model. */
 export interface CustomModelCheck {
   ok: boolean;
@@ -662,6 +680,9 @@ export const xenaxio = {
   chatAdmin: () => request<ChatAdmin>("GET", "/api/admin/chat"),
   setChatAdmin: (enabled: boolean) => request<ChatAdmin>("PUT", "/api/admin/chat", { enabled }),
   setChatAi: (enabled: boolean) => request<ChatAdmin>("PUT", "/api/admin/chat/ai", { enabled }),
+  /** Step 63: every channel of the company, and changing one as the company admin. */
+  chatChannels: () => request<{ channels: ChatChannelAdmin[] }>("GET", "/api/admin/chat/channels"),
+  changeChatChannel: (roomId: string, change: ChatChannelChange) => request<ChatChannelAdmin>("PATCH", `/api/admin/chat/channels/${encodeURIComponent(roomId)}`, change),
   aiAdmin: () => request<AiAdmin>("GET", "/api/admin/ai"),
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
   saveCustomModel: (input: CustomModelInput) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom", input),

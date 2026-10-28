@@ -148,7 +148,11 @@
     "proposal_past": "This time has already passed.",
     "time_zone_invalid": "Unknown time zone.",
     "step_invalid": "Invalid interval.",
-    "link_invalid": "The link must start with https://."
+    "link_invalid": "The link must start with https://.",
+    "channel_unmanaged": "This channel cannot be managed: there is no active moderator left.",
+    "channel_not_found": "Channel not found.",
+    "general_channel": "The channel for everyone cannot be archived.",
+    "chat_not_ready": "The chat is not ready yet. Please try again in a moment."
   },
   "login": {
     "title": "Sign in",
@@ -1329,7 +1333,10 @@
     "report": "Report",
     "report_title": "Report message",
     "report_text": "The report goes to your company's administrators. Why are you reporting the message? (optional)",
-    "report_sent": "Reported."
+    "report_sent": "Reported.",
+    "restored_event": "{name} restored the channel",
+    "by_admin": "{name} (admin)",
+    "restore": "Restore channel"
   },
   "chatadmin": {
     "title": "Chat",
@@ -1372,7 +1379,19 @@
     "fed_way_dns_text": "If you cannot change your website: two records at your domain's DNS provider. We then get the certificate ourselves.",
     "fed_cname_missing": "The second record (for the certificate) cannot be shown right now – please open this page again later.",
     "ai_access": "Share the chat with AI and MCP",
-    "ai_access_hint": "The assistant and connected AI chats such as Claude can read and search the chat, only the channels and direct messages the person is in. They never write in the chat."
+    "ai_access_hint": "The assistant and connected AI chats such as Claude can read and search the chat, only the channels and direct messages the person is in. They never write in the chat.",
+    "channels_title": "Channels",
+    "channels_intro": "Every channel of your company, also closed ones you are not in. You can rename them, change the topic and archive them – you do not see messages here. The channel shows that the change comes from you as admin.",
+    "channels_none": "No channels yet.",
+    "channels_unnamed": "(no name)",
+    "channels_open": "Open",
+    "channels_closed": "Closed",
+    "channels_members": "Members: {count}",
+    "channels_general": "Channel for everyone",
+    "channels_archived": "Archived",
+    "channels_show_archived": "Show archived ({count})",
+    "channels_restore": "Restore",
+    "channels_unmanaged": "Cannot be managed: no active moderator is left in this channel to hand it over to the administration."
   },
   "ownmodel": {
     "title": "Own AI model",

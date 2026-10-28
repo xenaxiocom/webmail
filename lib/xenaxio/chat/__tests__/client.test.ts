@@ -178,6 +178,21 @@ describe("chat client", () => {
     expect(calls.filter((x) => x.path.includes("/join/")).map((x) => x.path)).toEqual(["/_matrix/client/v3/join/!dm%3Aacme.de"]);
   });
 
+  it("step 63: shows a change an admin asked the platform for, never the platform itself", () => {
+    c.processSync(
+      sync([
+        ev({ type: "m.room.member", sender: "@xenaxio:acme.de", state_key: "@xenaxio:acme.de", content: { membership: "join" } }),
+        ev({ type: "m.room.name", sender: "@xenaxio:acme.de", state_key: "", content: { name: "projekt-alpha", "com.xenaxio.by": "@max:acme.de" } }),
+        ev({ type: "com.xenaxio.archived", sender: "@xenaxio:acme.de", state_key: "", content: { archived: true, "com.xenaxio.by": "@max:acme.de" } }),
+      ]),
+      true,
+    );
+    const room = c.rooms.get(ROOM)!;
+    expect(room.timeline.map((m) => m.type)).toEqual(["m.room.name", "com.xenaxio.archived"]);
+    expect(room.name).toBe("projekt-alpha");
+    expect(room.archived).toBe(true);
+  });
+
   it("marks read once and only what is unread", async () => {
     c.processSync(sync([text("a")], {}, { unread_notifications: { notification_count: 1, highlight_count: 0 } }), true);
     await c.markRead(ROOM);

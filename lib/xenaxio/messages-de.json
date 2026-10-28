@@ -148,7 +148,11 @@
     "proposal_past": "Diese Zeit ist schon vorbei.",
     "time_zone_invalid": "Unbekannte Zeitzone.",
     "step_invalid": "Ungültiger Zeitabstand.",
-    "link_invalid": "Der Link muss mit https:// beginnen."
+    "link_invalid": "Der Link muss mit https:// beginnen.",
+    "channel_unmanaged": "Dieser Kanal lässt sich nicht verwalten: Es gibt keinen aktiven Moderator mehr.",
+    "channel_not_found": "Kanal nicht gefunden.",
+    "general_channel": "Der Kanal für alle kann nicht archiviert werden.",
+    "chat_not_ready": "Der Chat ist noch nicht bereit. Bitte versuchen Sie es gleich noch einmal."
   },
   "login": {
     "title": "Anmelden",
@@ -1329,7 +1333,10 @@
     "report": "Melden",
     "report_title": "Nachricht melden",
     "report_text": "Die Meldung geht an die Administratoren Ihrer Firma. Warum melden Sie die Nachricht? (optional)",
-    "report_sent": "Gemeldet."
+    "report_sent": "Gemeldet.",
+    "restored_event": "{name} hat den Kanal wiederhergestellt",
+    "by_admin": "{name} (Admin)",
+    "restore": "Kanal wiederherstellen"
   },
   "chatadmin": {
     "title": "Chat",
@@ -1372,7 +1379,19 @@
     "fed_way_dns_text": "Wenn Sie Ihre Website nicht ändern können: zwei Einträge beim DNS-Anbieter Ihrer Domain. Das Zertifikat besorgen wir dann selbst.",
     "fed_cname_missing": "Der zweite Eintrag (für das Zertifikat) ist gerade nicht abrufbar – bitte später erneut öffnen.",
     "ai_access": "Chat für KI und MCP freigeben",
-    "ai_access_hint": "Der Assistent und verbundene KI-Chats wie Claude können den Chat lesen und durchsuchen, nur die Kanäle und Direktnachrichten der jeweiligen Person. Schreiben können sie im Chat nie."
+    "ai_access_hint": "Der Assistent und verbundene KI-Chats wie Claude können den Chat lesen und durchsuchen, nur die Kanäle und Direktnachrichten der jeweiligen Person. Schreiben können sie im Chat nie.",
+    "channels_title": "Kanäle",
+    "channels_intro": "Alle Kanäle Ihrer Firma, auch geschlossene, in denen Sie nicht Mitglied sind. Sie können sie umbenennen, das Thema ändern und archivieren – Nachrichten sehen Sie hier nicht. Im Kanal steht, dass die Änderung von Ihnen als Admin kommt.",
+    "channels_none": "Noch keine Kanäle.",
+    "channels_unnamed": "(ohne Namen)",
+    "channels_open": "Offen",
+    "channels_closed": "Geschlossen",
+    "channels_members": "Mitglieder: {count}",
+    "channels_general": "Kanal für alle",
+    "channels_archived": "Archiviert",
+    "channels_show_archived": "Archivierte zeigen ({count})",
+    "channels_restore": "Wiederherstellen",
+    "channels_unmanaged": "Nicht verwaltbar: In diesem Kanal ist kein aktiver Moderator mehr, der ihn an die Verwaltung übergeben kann."
   },
   "ownmodel": {
     "title": "Eigenes KI-Modell",
