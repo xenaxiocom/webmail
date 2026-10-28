@@ -5,7 +5,7 @@ import { useConfig } from '@/hooks/use-config';
 import { useIsFocusedProTab, usePaneId } from '@/hooks/use-pane-context';
 import { useAccountStore } from '@/stores/account-store';
 import { formatTabTitle } from '@/lib/tab-title';
-import { useCompanyName, withCompanyName } from '@/lib/xenaxio/portal';
+import { ROOMS_NAME, useCompanyName, usePortal, withCompanyName } from '@/lib/xenaxio/portal';
 
 // The surface that set the title last owns it. One that is still mounted
 // (during a route transition) stops re-applying, so two titles never fight.
@@ -22,7 +22,9 @@ let owner: symbol | null = null;
  * back. So the title is re-applied whenever <head> changes and it is not ours.
  */
 export function useDocumentTitle(context?: string | null, { withAccount = true }: { withAccount?: boolean } = {}): void {
-  const { appName } = useConfig();
+  const { appName: configName } = useConfig();
+  // xenaxio, step 67: on XenRooms the app is XenRooms.
+  const appName = usePortal()?.kind === 'rooms' ? ROOMS_NAME : configName;
   // The account actually in view, so two windows on two accounts stay apart.
   const account = useAccountStore(
     (s) => s.accounts.find((a) => a.id === s.activeAccountId)?.email || null,

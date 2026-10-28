@@ -119,6 +119,19 @@ export interface BrowserAccount {
   company: string;
   portalUrl: string;
   active: boolean;
+  /** Step 67: the company's colour and logo for the XenRooms switcher. */
+  color?: string | null;
+  logoUrl?: string | null;
+}
+
+/** Step 67: unread counts of the browser's other accounts (XenRooms switcher). */
+export interface AccountUnread {
+  userId: string;
+  /** Rooms with anything unread. */
+  unread: number;
+  /** Mentions and direct messages: the red count. */
+  important: number;
+  available: boolean;
 }
 
 /** Step 23: settings for mail apps; the password is the one for xenaxio. */
@@ -152,6 +165,8 @@ export interface PortalInfo {
 export type PortalState =
   | ({ kind: "tenant" } & PortalInfo)
   | { kind: "app"; portals: boolean; baseDomain: string | null }
+  /** Step 67: XenRooms (only the team chat), one address for every company. */
+  | { kind: "rooms" }
   | { kind: "moved"; url: string }
   | { kind: "unknown" };
 
@@ -610,6 +625,8 @@ export const xenaxio = {
   accounts: () => request<{ accounts: BrowserAccount[]; max: number }>("GET", "/api/auth/accounts"),
   switchAccount: (userId: string, next: string) => request<{ url: string }>("POST", "/api/auth/switch", { userId, next }),
   forgetAccount: (userId: string) => request<{ ok: true }>("POST", "/api/auth/forget", { userId }),
+  /** Step 67: unread counts of the other accounts of this browser. */
+  accountsUnread: () => request<{ accounts: AccountUnread[] }>("GET", "/api/chat/accounts/unread"),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: true }>("POST", "/api/me/password", { currentPassword, newPassword }),
 
