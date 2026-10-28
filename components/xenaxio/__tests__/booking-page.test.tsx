@@ -232,6 +232,7 @@ describe("step 56: look of the booking page", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(false);
     expect(container.querySelector("main")!.style.getPropertyValue("--color-primary")).toBe("#dc2626");
     expect(container.querySelector("style")?.textContent).toContain("background:transparent");
+    expect(document.documentElement.style.colorScheme).toBe("normal");
   });
 });
 

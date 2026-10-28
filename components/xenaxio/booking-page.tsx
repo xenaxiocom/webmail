@@ -96,24 +96,30 @@ function useIsDark(): boolean {
 /**
  * Light or dark as the company (or the embedding website) wants, only on this
  * page: the visitor's own setting in the app is neither changed nor stored.
+ * A transparent frame needs the page's colour scheme left "normal": with a
+ * scheme other than the website's, browsers paint an opaque frame.
  */
-function useForcedTheme(theme: "light" | "dark" | null) {
+function useForcedTheme(theme: "light" | "dark" | null, transparent: boolean) {
   useEffect(() => {
-    if (!theme) return;
+    if (!theme && !transparent) return;
     const root = document.documentElement;
-    const other = theme === "dark" ? "light" : "dark";
     const apply = () => {
-      if (root.classList.contains(theme) && !root.classList.contains(other)) return;
-      root.classList.remove(other);
-      root.classList.add(theme);
-      root.style.colorScheme = theme;
+      if (theme) {
+        const other = theme === "dark" ? "light" : "dark";
+        if (!root.classList.contains(theme) || root.classList.contains(other)) {
+          root.classList.remove(other);
+          root.classList.add(theme);
+        }
+      }
+      const scheme = transparent ? "normal" : (theme ?? root.style.colorScheme);
+      if (root.style.colorScheme !== scheme) root.style.colorScheme = scheme;
     };
     apply();
-    // The app's theme may set its own class later (system change): this page keeps its choice.
+    // The app's theme may set its own class and scheme later (system change): this page keeps its choice.
     const obs = new MutationObserver(apply);
-    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+    obs.observe(root, { attributes: true, attributeFilter: ["class", "style"] });
     return () => obs.disconnect();
-  }, [theme]);
+  }, [theme, transparent]);
 }
 
 /** The accent as CSS variables; null when it would be hard to read on the dark page. */
@@ -160,7 +166,8 @@ function Shell({
   return (
     <main
       lang={lang}
-      style={{ ...pageStyle, ...accentStyle(embed.color ?? accent, dark) }}
+      // In a transparent frame the form controls still follow the page's light or dark.
+      style={{ ...pageStyle, ...accentStyle(embed.color ?? accent, dark), ...(transparent ? { colorScheme: dark ? "dark" : "light" } : {}) }}
       className={`min-h-dvh ${transparent ? "bg-transparent" : pageStyle ? "" : embed.embed ? "bg-background" : "bg-muted/40"} ${embed.embed ? "p-1 sm:p-2" : "px-4 py-6 sm:py-10"}`}
     >
       {/* A transparent frame shows the website behind it. */}
@@ -940,7 +947,7 @@ export function BookingPage() {
   const [embed, setEmbed] = useState<EmbedOptions>(() => parseEmbed(""));
   const t: T = useCallback((k, v) => translate(lang, k, v), [lang]);
   const company = meta?.look?.theme;
-  useForcedTheme(embed.theme ?? (company === "light" || company === "dark" ? company : null));
+  useForcedTheme(embed.theme ?? (company === "light" || company === "dark" ? company : null), embed.embed && embed.background === "transparent");
 
   useEffect(() => {
     setLang(guestLocale());
