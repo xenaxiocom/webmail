@@ -24,6 +24,7 @@ import { apiFetch } from '@/lib/browser-navigation';
 import { CALENDAR_COLORS, sharedCalendarColorKey } from '@/lib/shared-calendar-colors';
 import { IS_LITE } from '@/lib/lite';
 import { CalendarLinksSettings } from '@/components/xenaxio/calendar-links';
+import { BookingSettings } from '@/components/xenaxio/booking-settings';
 import { shareRecipientNames, useShareRecipientLabels } from '@/hooks/use-share-recipient-labels';
 import { calendarAccountKey, moveCalendar } from '@/lib/calendar-sort';
 
@@ -840,6 +841,9 @@ export function CalendarManagementSettings() {
 
       {/* xenaxio step 48: calendars from Google, Outlook & co. by link, both ways (kept by the platform). */}
       <CalendarLinksSettings calendars={orderableCalendars} onChanged={() => { if (client) void fetchCalendars(client); }} />
+
+      {/* xenaxio step 56: online booking pages, like Calendly. */}
+      <BookingSettings />
 
       {/* iCal Subscriptions */}
       {icalSubscriptions.length > 0 && (

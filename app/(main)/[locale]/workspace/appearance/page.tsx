@@ -17,6 +17,7 @@ import { contrastRatio } from "@/lib/xenaxio/portal";
 import { cn } from "@/lib/utils";
 import { BackgroundPicker } from "@/components/xenaxio/background-picker";
 import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
+import { BookingAdmin } from "@/components/xenaxio/booking-admin";
 
 const LOGO_MAX_BYTES = 256 * 1024;
 const HEX = /^#[0-9a-f]{6}$/i;
@@ -404,6 +405,8 @@ export default function AppearancePage() {
   return (
     <WorkspaceShell title={t("appearance.title")} backHref="/workspace" requireAdmin>
       <AppearanceView />
+      {/* Step 56: online booking pages of the company. */}
+      <BookingAdmin />
     </WorkspaceShell>
   );
 }
