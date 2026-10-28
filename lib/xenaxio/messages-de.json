@@ -451,6 +451,13 @@
     "tool_save_file": "Speichere eine Datei…",
     "tool_create_folder": "Lege einen Ordner an…",
     "tool_save_attachment": "Speichere den Anhang in Dateien…",
+    "tool_list_booking_links": "Suche Ihre Buchungslinks…",
+    "tool_list_booking_requests": "Sehe die Terminanfragen durch…",
+    "tool_list_resources": "Sehe die Räume und Ressourcen durch…",
+    "tool_read_attachment": "Lese einen Anhang…",
+    "tool_read_chat": "Lese den Chat…",
+    "tool_search_chat": "Durchsuche den Chat…",
+    "tool_send_email": "Bereite eine E-Mail vor…",
     "proposal": {
       "event": "Terminvorschlag",
       "when": "Wann",
