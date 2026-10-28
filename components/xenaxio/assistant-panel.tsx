@@ -9,7 +9,7 @@ import { type ClipboardEvent, type DragEvent, Fragment, type FormEvent, type Rea
 import { useLocale } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
-import { Brain, CalendarClock, CalendarDays, Check, File as FileIcon, FileText, FolderOpen, Image as ImageIcon, Loader2, MessageSquare, Paperclip, PenLine, Plus, Send, Sparkles, Square, Trash2, Upload, X } from "@/components/icons";
+import { Brain, CalendarClock, CalendarDays, Check, File as FileIcon, FileText, FolderOpen, Image as ImageIcon, Loader2, MessageSquare, Paperclip, PenLine, Plus, RotateCcw, Send, Sparkles, Square, Trash2, Upload, X } from "@/components/icons";
 import { FilePickerDialog } from "@/components/files/file-picker-dialog";
 import type { FileNode } from "@/lib/jmap/types";
 import { useAuthStore } from "@/stores/auth-store";
@@ -43,6 +43,9 @@ import { TaskCard } from "@/components/xenaxio/task-card";
 import { ScheduleCard } from "@/components/xenaxio/schedule-card";
 import { showCalendar } from "@/lib/xenaxio/calendar-visibility";
 import { ProposalSeriesNote, ProposalSeriesRows } from "./proposal-series";
+import { AssistantButton, useAssistantDevice, useAssistantPositions } from "./assistant-button";
+import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
+import { toast } from "@/stores/toast-store";
 
 type ProposalState = "pending" | "running" | "done" | "done_invited" | "invite_failed" | "rejected" | "expired" | "already" | "failed" | "memory_full" | "memory_off" | "schedule_limit";
 
@@ -133,8 +136,9 @@ function FileChip({ name, size, type, preview, href, deleted, busy, error, onOpe
   );
 }
 
-// Step 43, part D: also the team chat (not its admin page under /workspace).
-const SURFACES = /\/(mail|calendar|contacts)(\/|$)|^\/$|^\/chat(\/|$)/;
+// Step 61: everywhere after sign-in; not on the sign-in and setup pages, public
+// booking pages, the AI chat consent screen and the operator console.
+const HIDDEN = /^\/(login|onboarding|auth|book|connect|operator|plugins|pro)(\/|$)/;
 /** Per-tab only; cleared with the tab and on sign-out. Holds the visible chat, nothing else. */
 const STORAGE_KEY = ASSISTANT_STORAGE_KEY;
 
@@ -341,6 +345,9 @@ export function AssistantPanel() {
   const fileInput = useRef<HTMLInputElement>(null);
   const filesClient = useAuthStore((s) => s.client);
   const canPickFiles = !!filesClient?.supportsFiles();
+  const device = useAssistantDevice();
+  const moved = !!useAssistantPositions()[device];
+  const resetPosition = useXenaxioMeStore((s) => s.setAssistantPosition);
 
   // Keep the panel and the current chat across page changes (e.g. opening a source).
   useEffect(() => {
@@ -623,21 +630,10 @@ export function AssistantPanel() {
     void loadConversation(id);
   }, [available, loadConversation, pathname]);
 
-  if (!available || !SURFACES.test(pathname)) return null;
+  if (!available || HIDDEN.test(pathname)) return null;
 
   if (!open) {
-    return (
-      <button
-        type="button"
-        onClick={() => setOpen(true)}
-        className="fixed bottom-24 right-4 z-40 flex h-12 w-12 items-center justify-center rounded-full bg-primary text-primary-foreground shadow-lg hover:bg-primary/90 md:bottom-6 md:right-6"
-        aria-label={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")}
-        title={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")}
-      >
-        <Sparkles className="h-5 w-5" />
-        {unread > 0 && <span className="absolute right-0.5 top-0.5 h-3 w-3 rounded-full border-2 border-background bg-red-500" aria-hidden="true" />}
-      </button>
-    );
+    return <AssistantButton label={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")} unread={unread > 0} onOpen={() => setOpen(true)} />;
   }
 
   return (
@@ -673,6 +669,17 @@ export function AssistantPanel() {
           <Button variant="ghost" size="sm" onClick={newChat} title={t("assistant.new_chat")} aria-label={t("assistant.new_chat")}>
             <Plus className="h-4 w-4" />
           </Button>
+          {moved && (
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => void resetPosition(device, null).catch(() => toast.error(t("assistant.position_error")))}
+              title={t("assistant.position_reset")}
+              aria-label={t("assistant.position_reset")}
+            >
+              <RotateCcw className="h-4 w-4" />
+            </Button>
+          )}
           <Button variant="ghost" size="sm" onClick={() => setOpen(false)} title={t("assistant.close")} aria-label={t("assistant.close")}>
             <X className="h-4 w-4" />
           </Button>

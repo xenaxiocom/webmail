@@ -3,9 +3,11 @@
 // Step 43, part B: the message box. Enter sends, Shift+Enter breaks the line;
 // Markdown shortcuts and a small toolbar; "@" suggests people (and @channel),
 // "#" channels; files by paperclip, paste or drop; the draft of each channel
-// stays while switching.
-import { IconBold, IconCode, IconItalic, IconList, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconStrikethrough } from "@tabler/icons-react";
+// stays while switching. Step 62: files wait in the box (several, with text)
+// and go out together on "send".
+import { IconBold, IconCode, IconFile, IconItalic, IconList, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { uploadFile } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Room } from "@/lib/xenaxio/chat/client";
 import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
@@ -14,11 +16,11 @@ import { suggestionAt } from "@/lib/xenaxio/chat/view";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { translate } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
-import { cn } from "@/lib/utils";
+import { cn, formatFileSize } from "@/lib/utils";
+import { addPendingFiles, composerKey, MAX_FILE_BYTES, MAX_PENDING_FILES, removePendingFile, takePendingFiles, usePendingFiles } from "@/lib/xenaxio/chat/pending-files";
 import { PersonAvatar } from "./common";
 import { EmojiPicker } from "./emoji-picker";
 
-const MAX_FILE_BYTES = 100 * 1024 * 1024;
 /** Drafts per channel and thread, for this page load. */
 const drafts = new Map<string, string>();
 
@@ -33,8 +35,9 @@ async function imageSize(file: File): Promise<{ w: number; h: number } | null> {
   }
 }
 
-/** Uploads files and sends each as a message (images show inline). */
-export async function sendFiles(client: ChatClient, roomId: string, files: File[], locale: string, threadRoot?: string): Promise<void> {
+/** Uploads files and sends each as a message (images show inline); returns those that failed. */
+export async function sendFiles(client: ChatClient, roomId: string, files: File[], locale: string, threadRoot?: string): Promise<File[]> {
+  const failed: File[] = [];
   for (const file of files) {
     if (file.size > MAX_FILE_BYTES) {
       toast.error(translate(locale, "chat.too_large", { name: file.name }));
@@ -50,9 +53,26 @@ export async function sendFiles(client: ChatClient, roomId: string, files: File[
         threadRoot ? { threadRoot } : {},
       );
     } catch {
+      failed.push(file);
       toast.error(translate(locale, "chat.upload_failed", { name: file.name }));
     }
   }
+  return failed;
+}
+
+/** Puts files into a composer to send with the next message; says what does not fit. */
+export function addToComposer(key: string, files: File[], locale: string): void {
+  const { tooLarge, overLimit } = addPendingFiles(key, files);
+  for (const f of tooLarge) toast.error(translate(locale, "chat.too_large", { name: f.name }));
+  if (overLimit) toast.error(translate(locale, "chat.too_many_files", { max: MAX_PENDING_FILES }));
+}
+
+/**
+ * Office apps put a picture of the copied text next to the text itself; then
+ * the text is what the person wants. A screenshot or a copied image has no plain text.
+ */
+export function pastesAsText(types: readonly string[], files: File[]): boolean {
+  return types.includes("text/plain") && types.includes("text/html") && files.every((f) => f.type.startsWith("image/"));
 }
 
 interface Suggestion {
@@ -79,7 +99,8 @@ export function Composer({
   locale: string;
 }) {
   const t = useXT();
-  const key = `${room.id}|${threadRoot ?? ""}`;
+  const key = composerKey(room.id, threadRoot);
+  const pending = usePendingFiles(key);
   const colleagues = useChatStore((s) => s.colleagues);
   const [text, setText] = useState(() => drafts.get(key) ?? "");
   const [cursor, setCursor] = useState(0);
@@ -89,7 +110,11 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
+  const box = useRef<HTMLDivElement>(null);
   const writable = client.can(room, "send");
+
+  // Keep the floating assistant button off the send button.
+  useEffect(() => (writable && box.current ? avoidAssistantButton(box.current) : undefined), [writable]);
 
   useEffect(() => {
     setText(drafts.get(key) ?? "");
@@ -166,10 +191,23 @@ export function Composer({
 
   const send = async () => {
     const body = text.trim();
-    if (!body || busy) return;
+    if ((!body && !pending.length) || busy) return;
     setText("");
     drafts.delete(key);
     void client.setTyping(room.id, false);
+    // Files first, then the text under them; one that fails goes back into the box.
+    const { files: list, done } = takePendingFiles(key);
+    if (list.length) {
+      setBusy(true);
+      try {
+        const failed = await sendFiles(client, room.id, list, locale, threadRoot);
+        if (failed.length) addPendingFiles(key, failed);
+      } finally {
+        done();
+        setBusy(false);
+      }
+    }
+    if (!body) return;
     const content = textContent(body, people);
     try {
       await client.send(room.id, content, threadRoot ? { threadRoot } : {});
@@ -179,14 +217,10 @@ export function Composer({
     }
   };
 
-  const upload = async (list: File[]) => {
+  const attach = (list: File[]) => {
     if (!list.length) return;
-    setBusy(true);
-    try {
-      await sendFiles(client, room.id, list, locale, threadRoot);
-    } finally {
-      setBusy(false);
-    }
+    addToComposer(key, list, locale);
+    requestAnimationFrame(() => area.current?.focus());
   };
 
   if (!writable) {
@@ -195,7 +229,7 @@ export function Composer({
 
   const tool = "flex h-7 w-7 items-center justify-center rounded text-muted-foreground hover:bg-accent hover:text-foreground";
   return (
-    <div className={cn("relative mx-4 mb-4", threadRoot && "mx-3 mb-3")}>
+    <div ref={box} className={cn("relative mx-4 mb-4", threadRoot && "mx-3 mb-3")}>
       {options.length > 0 && (
         <div className="absolute bottom-full left-0 z-30 mb-1 w-72 overflow-hidden rounded-md border border-border bg-popover shadow-lg" role="listbox">
           {options.map((o, i) => (
@@ -254,9 +288,9 @@ export function Composer({
           onBlur={() => void client.setTyping(room.id, false)}
           onPaste={(e) => {
             const pasted = [...e.clipboardData.files];
-            if (pasted.length) {
+            if (pasted.length && !pastesAsText([...e.clipboardData.types], pasted)) {
               e.preventDefault();
-              void upload(pasted);
+              attach(pasted);
             }
           }}
           onKeyDown={(e) => {
@@ -301,8 +335,37 @@ export function Composer({
             }
           }}
         />
+        {pending.length > 0 && (
+          <ul className="flex flex-wrap gap-2 px-2.5 pb-2" aria-label={t("chat.attached_files")}>
+            {pending.map((p) => (
+              <li key={p.id} className="group relative">
+                {p.preview ? (
+                  <img src={p.preview} alt={p.file.name} title={p.file.name} className="h-16 w-16 rounded-md border border-border object-cover" />
+                ) : (
+                  <div className="flex h-16 w-40 items-center gap-2 rounded-md border border-border bg-muted/40 px-2 text-xs" title={p.file.name}>
+                    <IconFile size={18} className="shrink-0 text-muted-foreground" />
+                    <span className="min-w-0">
+                      <span className="block truncate font-medium">{p.file.name}</span>
+                      <span className="block text-muted-foreground">{formatFileSize(p.file.size)}</span>
+                    </span>
+                  </div>
+                )}
+                <button
+                  type="button"
+                  onClick={() => removePendingFile(key, p.id)}
+                  disabled={busy}
+                  className="absolute -right-1.5 -top-1.5 flex h-5 w-5 items-center justify-center rounded-full border border-border bg-background text-muted-foreground shadow-sm hover:text-foreground"
+                  title={t("chat.remove_file", { name: p.file.name })}
+                  aria-label={t("chat.remove_file", { name: p.file.name })}
+                >
+                  <IconX size={12} />
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
         <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
-          <button type="button" className={tool} onClick={() => files.current?.click()} title={t("chat.attach")} aria-label={t("chat.attach")} disabled={busy}>
+          <button type="button" className={tool} onClick={() => files.current?.click()} title={t("chat.attach")} aria-label={t("chat.attach")} disabled={busy || pending.length >= MAX_PENDING_FILES}>
             <IconPaperclip size={16} />
           </button>
           <input
@@ -311,7 +374,7 @@ export function Composer({
             multiple
             hidden
             onChange={(e) => {
-              void upload([...(e.target.files ?? [])]);
+              attach([...(e.target.files ?? [])]);
               e.target.value = "";
             }}
           />
@@ -343,11 +406,11 @@ export function Composer({
           <button
             type="button"
             onClick={() => void send()}
-            disabled={!text.trim()}
+            disabled={(!text.trim() && !pending.length) || busy}
             className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40"
             aria-label={t("chat.send")}
           >
-            <IconSend size={14} />
+            {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />}
           </button>
         </div>
       </div>

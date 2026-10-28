@@ -3,6 +3,7 @@
 import { apiFetch } from "@/lib/browser-navigation";
 import { buildFilesPath } from "@/lib/deep-links";
 import { XenaxioApiError } from "./api";
+import { clearCachedPositions } from "@/lib/xenaxio/assistant-position";
 
 export interface SourceEmail {
   id: string;
@@ -299,6 +300,7 @@ export const ASSISTANT_STORAGE_KEY = "xenaxio.assistant";
 
 /** Called on sign-out so the next person in this tab never sees the chat. */
 export function clearAssistantState(): void {
+  clearCachedPositions();
   try {
     sessionStorage.removeItem(ASSISTANT_STORAGE_KEY);
   } catch {
