@@ -5,6 +5,7 @@
 import { useCallback, useEffect } from "react";
 import { create } from "zustand";
 import { type DismissableHint, type Me, xenaxio } from "@/lib/xenaxio/api";
+import { type AssistantDevice, type AssistantSpot, cleanPositions } from "@/lib/xenaxio/assistant-position";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 
 const REFRESH_MS = 5 * 60_000;
@@ -15,6 +16,8 @@ interface MeState {
   loading: boolean;
   load: () => Promise<void>;
   dismissHint: (hint: DismissableHint) => void;
+  /** Step 61: the assistant button moved (null: back to its usual place). */
+  setAssistantPosition: (device: AssistantDevice, spot: AssistantSpot | null) => Promise<void>;
 }
 
 export const useXenaxioMeStore = create<MeState>((set, get) => ({
@@ -38,6 +41,18 @@ export const useXenaxioMeStore = create<MeState>((set, get) => ({
     if (me) set({ me: { ...me, dismissedHints: [...new Set([...(me.dismissedHints ?? []), hint])] } });
     // Offline or signed out: it shows again next time, nothing else breaks.
     void xenaxio.dismissHint(hint).catch(() => {});
+  },
+  setAssistantPosition: async (device, spot) => {
+    const me = get().me;
+    if (me) {
+      const next = { ...cleanPositions(me.assistantPosition) };
+      if (spot) next[device] = spot;
+      else delete next[device];
+      set({ me: { ...me, assistantPosition: next } });
+    }
+    const saved = await xenaxio.setAssistantPosition(device, spot);
+    const now = get().me;
+    if (now) set({ me: { ...now, assistantPosition: saved.assistantPosition } });
   },
 }));
 

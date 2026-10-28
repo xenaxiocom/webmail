@@ -13,7 +13,8 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 import { PersonAvatar, presenceOf, useDisplayName } from "./common";
-import { sendFiles, Composer } from "./composer";
+import { addToComposer, Composer } from "./composer";
+import { composerKey } from "@/lib/xenaxio/chat/pending-files";
 import { PeoplePicker, useChatDialogs } from "./dialogs";
 import { IntegrationsDialog } from "./integrations";
 import { MessageList } from "./message-list";
@@ -203,7 +204,8 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
         if (!e.dataTransfer.files.length) return;
         e.preventDefault();
         setDragging(false);
-        void sendFiles(client, room.id, [...e.dataTransfer.files], locale);
+        // Step 62: into the message box, sent with the next message.
+        addToComposer(composerKey(room.id), [...e.dataTransfer.files], locale);
       }}
     >
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">

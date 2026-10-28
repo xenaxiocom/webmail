@@ -2,6 +2,7 @@
 // The browser never talks to the mail server directly: the session lives in an
 // httpOnly cookie that only the BFF can read (spec A1, A4).
 import { apiFetch } from "@/lib/browser-navigation";
+import type { AssistantDevice, AssistantPositions, AssistantSpot } from "@/lib/xenaxio/assistant-position";
 
 export class XenaxioApiError extends Error {
   constructor(
@@ -102,6 +103,8 @@ export interface Me {
   background?: string | null;
   /** Hints the user has closed for good (kept by the platform, the same on every device). */
   dismissedHints?: string[];
+  /** Step 61: where the person put the assistant button, per kind of screen (shares of the window). */
+  assistantPosition?: AssistantPositions;
 }
 
 /** Hints of the web client a user can close for good (the platform's list). */
@@ -530,6 +533,9 @@ const CALENDAR_FEEDS = "/api/calendar/feeds";
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
   dismissHint: (hint: DismissableHint) => request<{ dismissedHints: string[] }>("POST", `/api/me/hints/${hint}`),
+  /** Step 61: the assistant button moved on this kind of screen; null puts it back. */
+  setAssistantPosition: (device: AssistantDevice, spot: AssistantSpot | null) =>
+    request<{ assistantPosition: AssistantPositions }>("POST", "/api/me/assistant-position", spot ? { device, x: spot.x, y: spot.y } : { device, reset: true }),
   // Step 48: calendars from Google, Outlook and others by link, both ways.
   calendarSubscriptions: () => request<{ subscriptions: CalendarSubscription[] }>("GET", CALENDAR_SUBSCRIPTIONS),
   addCalendarSubscription: (input: { url: string; name: string; color?: string | null }) =>
