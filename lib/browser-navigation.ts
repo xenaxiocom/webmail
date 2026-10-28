@@ -37,6 +37,9 @@ export function getPathPrefix(locale?: string): string {
   if (liteMount !== null) return liteMount;
 
   const segments = window.location.pathname.split('/').filter(Boolean);
+  // xenaxio step 56: public booking pages live at /book/<employee>/<type> on
+  // the root; an employee named like a locale ("es", "de") is no mount prefix.
+  if (segments[0] === 'book') return '';
 
   let localeIndex: number;
   if (locale) {
