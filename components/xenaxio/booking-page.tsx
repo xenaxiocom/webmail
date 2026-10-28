@@ -499,6 +499,33 @@ const guestOf = (d: GuestDraft) => ({
 const primaryButton = "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50";
 const plainButton = "inline-flex items-center justify-center gap-2 rounded-md border border-border px-4 py-2 text-sm hover:bg-muted disabled:opacity-50";
 
+/**
+ * Step 58: keeps the tab title of a booking page ("Demo – Eugen · Acme", as in the
+ * link preview). Next puts the app's own <title> back after the page set one, so
+ * the title is set again whenever <head> changes (as in hooks/use-document-title).
+ */
+function useBookingTitle(parts: (string | null | undefined)[] | null) {
+  const portal = usePortal();
+  const company = portal?.kind === "tenant" ? portal.name : null;
+  const title = parts ? [parts.filter(Boolean).join(" – "), company].filter(Boolean).join(" · ") : null;
+  useEffect(() => {
+    if (!title) return;
+    // The browser reads the title back with its spaces collapsed; comparing with
+    // that ends the round, otherwise every write would set off the observer again.
+    let readBack: string | null = null;
+    const apply = () => {
+      const current = document.title;
+      if (current === title || current === readBack) return;
+      document.title = title;
+      readBack = document.title;
+    };
+    apply();
+    const observer = new MutationObserver(apply);
+    observer.observe(document.head, { childList: true, subtree: true, characterData: true });
+    return () => observer.disconnect();
+  }, [title]);
+}
+
 // --- One meeting type ------------------------------------------------------------
 
 type Step = { kind: "pick" } | { kind: "form"; start: string } | { kind: "done"; start: string; end: string; ics: string; manageUrl: string } | { kind: "request" } | { kind: "requested"; proposals: string[] };
@@ -513,6 +540,7 @@ interface PageMeta {
 function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: Lang; user: string; typeSlug: string; details: boolean; onMeta: (m: PageMeta) => void }) {
   const [data, setData] = useState<{ person: PublicPerson; type: PublicType } | null>(null);
   const [missing, setMissing] = useState(false);
+  useBookingTitle(data && [data.type.title, data.person.name]);
   const [timeZone, setTimeZone] = useState("Europe/Berlin");
   const [step, setStep] = useState<Step>({ kind: "pick" });
   const [draft, setDraft] = useState<GuestDraft>({ name: "", email: "", phone: "", message: "", website: "" });
@@ -529,7 +557,6 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
       .then((r) => {
         setData({ person: r.person, type: r.type });
         onMeta({ legal: r.legal, look: r.look, color: r.type.color });
-        document.title = `${r.type.title} – ${r.person.name}`;
       })
       .catch(() => setMissing(true));
   }, [user, typeSlug, onMeta]);
@@ -754,13 +781,13 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
 function PersonPage({ t, user, onMeta }: { t: T; user: string; onMeta: (m: PageMeta) => void }) {
   const [data, setData] = useState<{ person: PublicPerson; types: PublicType[] } | null>(null);
   const [missing, setMissing] = useState(false);
+  useBookingTitle(data && [t("booking.book"), data.person.name]);
   useEffect(() => {
     booking
       .page(user)
       .then((r) => {
         setData(r);
         onMeta({ legal: r.legal, look: r.look });
-        document.title = r.person.name;
       })
       .catch(() => setMissing(true));
   }, [user, onMeta]);
