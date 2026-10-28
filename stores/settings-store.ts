@@ -12,6 +12,8 @@ import { writePushPreferences } from '@/lib/push-preferences';
 import { settingsHooks } from '@/lib/plugin-hooks';
 import { generateAccountId } from '@/lib/account-utils';
 import { subscriptionOwnerFor } from '@/lib/calendar-subscription-sync';
+import { XENAXIO_BFF } from '@/lib/xenaxio/bff';
+import { pushSettingsToPlatform } from '@/lib/xenaxio/settings-sync';
 import type { FolderCountMode } from '@/lib/folder-counts';
 import { orderForMailbox, sanitizeSortLevels, type MessageListOrderScope, type SortLevel } from '@/lib/message-list-order';
 import {
@@ -165,11 +167,14 @@ export function registerCalendarSubscriptionSyncBridge(
 
 async function syncSettingsJob(job: SettingsSyncJob, retries = 1): Promise<void> {
   syncLog('Syncing settings to server for', job.username);
-  const res = await apiFetch('/api/settings', {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(job),
-  });
+  // xenaxio (step 64): the platform keeps the settings; the merge happens here.
+  const res = XENAXIO_BFF
+    ? await pushSettingsToPlatform(job)
+    : await apiFetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(job),
+      });
   if (res.status === 404) {
     syncWarn('Settings sync endpoint returned 404, disabling sync');
     syncEnabled = false;
@@ -1694,7 +1699,9 @@ export const useSettingsStore = create<SettingsState>()(
             // previous account left in this browser (#1185).
             if (heldByOther) resetSyncedState({ keepCrossAccountViews });
             writeSettingsOwner(accountId);
-            pushTemplatesAfterLoad = localTemplatesAhead(null);
+            // xenaxio (step 64): the first sign-in after the platform started
+            // keeping settings saves what this browser has, not only templates.
+            pushTemplatesAfterLoad = XENAXIO_BFF || localTemplatesAhead(null);
             return false;
           }
           if (settings && typeof settings === 'object') {

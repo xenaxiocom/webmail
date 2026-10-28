@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { X, Download } from "@/components/icons";
 import { useConfig } from "@/hooks/use-config";
 import { withBasePath } from "@/lib/browser-navigation";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { useXenaxioHint } from "@/lib/xenaxio/me-store";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -29,6 +31,10 @@ export function PWAInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false);
   const { appName, faviconUrl, appLogoLightUrl, appLogoDarkUrl } = useConfig();
   const t = useTranslations("pwa_install");
+  // xenaxio (step 64): "Don't remind me again" is kept for the user on the
+  // platform (every browser and company address); the card waits for /api/me.
+  const { dismissed: serverDismissed, dismiss: dismissOnServer } = useXenaxioHint("pwa-install");
+  const visible = showPrompt && !(XENAXIO_BFF && serverDismissed !== false);
 
   useEffect(() => {
     if (localStorage.getItem(DISMISSED_KEY)) return;
@@ -49,16 +55,16 @@ export function PWAInstallPrompt() {
   }, []);
 
   useEffect(() => {
-    promptVisible = showPrompt;
+    promptVisible = visible;
     window.dispatchEvent(
       new CustomEvent(PWA_INSTALL_PROMPT_VISIBILITY_EVENT, {
-        detail: { visible: showPrompt },
+        detail: { visible },
       }),
     );
     return () => {
-      if (showPrompt) promptVisible = false;
+      if (visible) promptVisible = false;
     };
-  }, [showPrompt]);
+  }, [visible]);
 
   const handleInstall = async () => {
     if (!deferredPrompt) return;
@@ -79,10 +85,11 @@ export function PWAInstallPrompt() {
 
   const handleDismissForever = () => {
     localStorage.setItem(DISMISSED_KEY, "1");
+    if (XENAXIO_BFF) dismissOnServer();
     setShowPrompt(false);
   };
 
-  if (!showPrompt || !deferredPrompt) {
+  if (!visible || !deferredPrompt) {
     return null;
   }
 
