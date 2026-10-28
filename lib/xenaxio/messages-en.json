@@ -451,6 +451,13 @@
     "tool_save_file": "Saving a file…",
     "tool_create_folder": "Creating a folder…",
     "tool_save_attachment": "Saving the attachment to Files…",
+    "tool_list_booking_links": "Looking up your booking links…",
+    "tool_list_booking_requests": "Checking booking requests…",
+    "tool_list_resources": "Checking rooms and resources…",
+    "tool_read_attachment": "Reading an attachment…",
+    "tool_read_chat": "Reading the chat…",
+    "tool_search_chat": "Searching the chat…",
+    "tool_send_email": "Preparing an email…",
     "proposal": {
       "event": "Proposed event",
       "when": "When",
