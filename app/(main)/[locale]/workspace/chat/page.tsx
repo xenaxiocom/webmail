@@ -2,10 +2,11 @@
 
 // xenaxio, step 43: the admin turns the company's team chat on or off and sees
 // its state (being set up, on, a problem). Step 54: and whether the assistant
-// and connected AI chats (MCP) may read it.
+// and connected AI chats (MCP) may read it. Step 63: every channel of the company.
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
+import { ChannelsAdmin } from "@/components/xenaxio/chat/channels-admin";
 import { FederationAdmin } from "@/components/xenaxio/chat/federation-admin";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { Link } from "@/i18n/navigation";
@@ -98,6 +99,8 @@ function ChatSettings() {
           </label>
         )}
       </section>
+      {/* Step 63: every channel of the company: name, topic, archive. */}
+      {data.state === "active" && <ChannelsAdmin />}
       {/* Step 43, part E: other companies (federation), once the chat runs. */}
       {data.state === "active" && <FederationAdmin />}
     </div>

@@ -9,7 +9,7 @@ import { IconBold, IconCode, IconFile, IconItalic, IconList, IconLoader2, IconMo
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { uploadFile } from "@/lib/xenaxio/chat/api";
-import type { ChatClient, Room } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
 import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { suggestionAt } from "@/lib/xenaxio/chat/view";
@@ -134,7 +134,7 @@ export function Composer({
   const people = useMemo<Mention[]>(() => {
     const byId = new Map<string, Mention>();
     for (const c of colleagues.values()) byId.set(c.address, { userId: c.address, displayName: c.displayName });
-    for (const m of room.members.values()) if (m.membership === "join" && !byId.has(m.userId)) byId.set(m.userId, { userId: m.userId, displayName: m.displayName });
+    for (const m of room.members.values()) if (m.membership === "join" && !isPlatformAccount(m.userId) && !byId.has(m.userId)) byId.set(m.userId, { userId: m.userId, displayName: m.displayName });
     byId.delete(client.userId);
     return [...byId.values()];
   }, [colleagues, room.members, client.userId]);

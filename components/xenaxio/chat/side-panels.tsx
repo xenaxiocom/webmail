@@ -5,7 +5,7 @@
 import { IconSparkles, IconX } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
-import { type ChatClient, serverOfUser } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { type SidePanel, useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { sendAssistantCommand } from "@/lib/xenaxio/assistant";
@@ -95,7 +95,7 @@ function MembersPanel({ client, roomId }: { client: ChatClient; roomId: string }
     void client.loadMembers(roomId).catch(() => undefined);
   }, [client, roomId]);
   if (!room) return null;
-  const members = [...room.members.values()].filter((m) => m.membership === "join").sort((a, b) => name(a.userId).localeCompare(name(b.userId)));
+  const members = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).sort((a, b) => name(a.userId).localeCompare(name(b.userId)));
   return (
     <PanelFrame title={t("chat.members")} subtitle={t("chat.members_count", { count: members.length })}>
       <div className="flex-1 overflow-y-auto p-2">

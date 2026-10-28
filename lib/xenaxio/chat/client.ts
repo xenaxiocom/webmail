@@ -144,6 +144,13 @@ export const SERVICE_LOCALPART = "xenaxio";
 export const SAVED_TYPE = "com.xenaxio.saved";
 /** Our own room state: an archived channel (read-only, out of the directory). */
 export const ARCHIVED_TYPE = "com.xenaxio.archived";
+/** Step 63: on a change the platform made in a channel, the admin who asked for it. */
+export const BY_FIELD = "com.xenaxio.by";
+
+/** The platform's own account (it sets channels up; never shown as a person). */
+export function isPlatformAccount(userId: string): boolean {
+  return userId.startsWith(`@${SERVICE_LOCALPART}:`);
+}
 
 /** Events shown in a timeline; the rest only change room state. */
 /** Step 43, part E: our mark in a room's creation — made for people of other companies. */
@@ -519,8 +526,9 @@ export class ChatClient {
     const message = toMessage(room.id, ev);
     if (!isVisible(message)) return;
     // The platform's service account sets channels up; that is not news.
-    if (message.stateKey !== undefined && message.sender.startsWith(`@${SERVICE_LOCALPART}:`)) return;
-    if (message.type === "m.room.member" && message.stateKey?.startsWith(`@${SERVICE_LOCALPART}:`)) return;
+    // Step 63: a change an admin asked for is (it names the admin).
+    if (message.stateKey !== undefined && isPlatformAccount(message.sender) && typeof message.content[BY_FIELD] !== "string") return;
+    if (message.type === "m.room.member" && message.stateKey && isPlatformAccount(message.stateKey)) return;
     room.byId.set(message.id, message);
     if (message.threadRoot) this.addThreadReply(room, message, direction);
     else if (direction === "forward") room.timeline.push(message);

@@ -8,7 +8,7 @@ import { useLocale } from "next-intl";
 import { useCallback, useState } from "react";
 import { mediaUrl } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
-import { serverOfUser } from "@/lib/xenaxio/chat/client";
+import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { reportMessage } from "@/lib/xenaxio/chat/api";
 import { appOf, messageHtml, mentionsUser, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatDialogs } from "./dialogs";
@@ -33,12 +33,14 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
   const t = useXT();
   const name = useDisplayName();
   const { time } = useChatTime();
-  const who = name(message.type === "m.room.member" ? (message.stateKey ?? message.sender) : message.sender);
+  // Step 63: a change the platform made for a company admin names the admin.
+  const by = isPlatformAccount(message.sender) && typeof message.content[BY_FIELD] === "string" ? (message.content[BY_FIELD] as string) : null;
+  const who = by ? t("chat.by_admin", { name: name(by) }) : name(message.type === "m.room.member" ? (message.stateKey ?? message.sender) : message.sender);
   let text = "";
   if (message.type === "m.room.member") text = t(message.content.membership === "join" ? "chat.joined" : "chat.left", { name: who });
   else if (message.type === "m.room.name") text = t("chat.renamed", { name: who, value: String(message.content.name ?? "") });
   else if (message.type === "m.room.topic") text = t("chat.topic_changed", { name: who, value: String(message.content.topic ?? "") });
-  else text = t("chat.archived_event", { name: who });
+  else text = t(message.content.archived === false ? "chat.restored_event" : "chat.archived_event", { name: who });
   return (
     <div className="flex items-baseline gap-2 px-5 py-1 text-xs text-muted-foreground" data-room={room.id}>
       <span className="w-9 shrink-0 text-right tabular-nums">{time(message.ts)}</span>

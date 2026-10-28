@@ -6,11 +6,13 @@
 import { IconBell, IconChevronDown, IconHash, IconLock, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
-import type { ChatClient, Room } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, isPlatformAccount, type Room, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { plainPreview } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
+import { type ChatChannelChange, errorText, xenaxio, XenaxioApiError } from "@/lib/xenaxio/api";
+import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { cn } from "@/lib/utils";
 import { PersonAvatar, presenceOf, useDisplayName } from "./common";
 import { addToComposer, Composer } from "./composer";
@@ -55,11 +57,16 @@ function ChannelMenu({ client, room, onClose, onInvite, onIntegrations }: { clie
   const { confirm, prompt } = useChatDialogs();
   const setView = useChatStore((s) => s.setView);
   const name = client.roomName(room);
-  const isAdmin = client.can(room, "state");
+  const moderator = client.can(room, "state");
+  // Step 63: the company admin manages every channel of the company through the platform.
+  const me = useXenaxioMe();
+  const companyAdmin = me?.user.role === "admin" && !!room.creator && serverOfUser(room.creator) === client.homeServer;
+  const isAdmin = moderator || companyAdmin;
+  const asAdmin = (change: ChatChannelChange) => xenaxio.changeChatChannel(room.id, change);
   const item = "block w-full px-3 py-1.5 text-left text-sm hover:bg-accent";
   const run = (job: () => Promise<unknown>) => () => {
     onClose();
-    void job().catch(() => toast.error(t("chat.error")));
+    void job().catch((err: unknown) => toast.error(err instanceof XenaxioApiError ? errorText(t, err) : t("chat.error")));
   };
   return (
     <div className="absolute left-0 top-9 z-40 w-60 rounded-md border border-border bg-popover py-1 shadow-lg" onMouseLeave={onClose}>
@@ -75,7 +82,7 @@ function ChannelMenu({ client, room, onClose, onInvite, onIntegrations }: { clie
             className={item}
             onClick={run(async () => {
               const next = await prompt({ title: t("chat.rename"), defaultValue: room.name ?? "", confirmText: t("chat.save_edit") });
-              if (next?.trim()) await client.rename(room.id, next.trim());
+              if (next?.trim()) await (moderator ? client.rename(room.id, next.trim()) : asAdmin({ name: next.trim() }));
             })}
           >
             {t("chat.rename")}
@@ -85,7 +92,7 @@ function ChannelMenu({ client, room, onClose, onInvite, onIntegrations }: { clie
             className={item}
             onClick={run(async () => {
               const next = await prompt({ title: t("chat.set_topic"), defaultValue: room.topic ?? "", confirmText: t("chat.save_edit") });
-              if (next !== null) await client.setTopic(room.id, next.trim());
+              if (next !== null) await (moderator ? client.setTopic(room.id, next.trim()) : asAdmin({ topic: next.trim() }));
             })}
           >
             {t("chat.set_topic")}
@@ -116,10 +123,15 @@ function ChannelMenu({ client, room, onClose, onInvite, onIntegrations }: { clie
           type="button"
           className={cn(item, "text-destructive")}
           onClick={run(async () => {
-            if (await confirm({ title: t("chat.archive"), message: t("chat.archive_confirm", { name }), confirmText: t("chat.archive"), variant: "destructive" })) await client.archive(room.id);
+            if (await confirm({ title: t("chat.archive"), message: t("chat.archive_confirm", { name }), confirmText: t("chat.archive"), variant: "destructive" })) await (moderator ? client.archive(room.id) : asAdmin({ archived: true }));
           })}
         >
           {t("chat.archive")}
+        </button>
+      )}
+      {room.kind === "channel" && companyAdmin && room.archived && (
+        <button type="button" className={item} onClick={run(() => asAdmin({ archived: false }))}>
+          {t("chat.restore")}
         </button>
       )}
     </div>
@@ -157,7 +169,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const [dragging, setDragging] = useState(false);
   const roomName = client.roomName(room);
   const partners = room.kind === "dm" ? client.dmPartners(room) : [];
-  const joined = [...room.members.values()].filter((m) => m.membership === "join").length;
+  const joined = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).length;
   const starred = !!room.tags["m.favourite"];
 
   useEffect(() => {
