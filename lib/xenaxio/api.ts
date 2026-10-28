@@ -108,7 +108,8 @@ export interface Me {
 }
 
 /** Hints of the web client a user can close for good (the platform's list). */
-export type DismissableHint = "welcome";
+/** Step 64: also "Don't remind me again" on the install and notification cards. */
+export type DismissableHint = "welcome" | "pwa-install" | "push-prompt";
 
 /** Step 29: an account signed in in this browser; `portalUrl` is where it opens. */
 export interface BrowserAccount {

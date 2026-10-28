@@ -48,6 +48,7 @@ import { bffJmapUrl, goToPage, redirectToLogin as redirectToBffLogin, XENAXIO_BF
 import { xenaxio as xenaxioApi } from '@/lib/xenaxio/api';
 import { clearAssistantState } from '@/lib/xenaxio/assistant';
 import * as browserAccounts from '@/lib/xenaxio/accounts';
+import { reloadSettingsOnReturn } from '@/lib/xenaxio/settings-sync';
 
 /** Logins restored at once after the one on screen: enough to overlap round trips, few enough not to crowd the server. */
 const RESTORE_CONCURRENCY = 4;
@@ -793,7 +794,8 @@ function loadIdentities(rawIdentities: Identity[], username: string): { identiti
  */
 function resumeSettingsSync(account: Pick<AccountEntry, 'id' | 'username' | 'serverUrl'>): void {
   fetchConfig().then(config => {
-    if (!config.settingsSyncEnabled) return;
+    // xenaxio (step 64): the platform keeps the settings; Lite pins the flag off.
+    if (!config.settingsSyncEnabled && !XENAXIO_BFF) return;
     useSettingsStore.getState().loadFromServer(account.username, account.serverUrl).finally(() => {
       useSettingsStore.getState().enableSync(account.username, account.serverUrl);
       applyPreferredIdentity(account.id);
@@ -1090,6 +1092,17 @@ async function restoreBffSession(set: AuthSet, get: AuthGet): Promise<void> {
     authMode: 'basic',
     activeAccountId: accountId,
   });
+
+  // Step 64: the settings come from the platform, the same on every device,
+  // and are read again when the tab comes back after a while.
+  resumeSettingsSync({ id: accountId, username, serverUrl });
+  reloadSettingsOnReturn(async () => {
+    const { isAuthenticated, username: current, serverUrl: currentUrl } = get();
+    if (!isAuthenticated || current !== username || currentUrl !== serverUrl) return;
+    const settings = useSettingsStore.getState();
+    await settings.flushSync();
+    await settings.loadFromServer(username, serverUrl);
+  }, () => useSettingsStore.getState().flushSync());
 }
 
 /**
@@ -2267,6 +2280,8 @@ export const useAuthStore = create<AuthState>()(
         // xenaxio: end the platform session; the cookie is what signs the browser in.
         if (XENAXIO_BFF) {
           clearAssistantState();
+          // Step 64: the last edits go out while the session is still this account's.
+          await useSettingsStore.getState().flushSync();
           // Step 29: the next account signed in in this browser takes over.
           const next = await browserAccounts.signOut(false);
           if (next) {
@@ -2432,6 +2447,7 @@ export const useAuthStore = create<AuthState>()(
         // xenaxio (step 29): every account signed in in this browser.
         if (XENAXIO_BFF) {
           clearAssistantState();
+          await useSettingsStore.getState().flushSync();
           await browserAccounts.signOut(true);
         }
 
@@ -2479,6 +2495,7 @@ export const useAuthStore = create<AuthState>()(
         if (state.activeAccountId === accountId) return;
         // xenaxio (step 29): the platform switches the session; the page reloads with it.
         if (XENAXIO_BFF) {
+          await useSettingsStore.getState().flushSync();
           const url = await browserAccounts.switchTo(accountId).catch(() => null);
           if (url) {
             clearAssistantState();
