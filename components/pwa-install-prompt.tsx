@@ -32,6 +32,8 @@ export function PWAInstallPrompt() {
 
   useEffect(() => {
     if (localStorage.getItem(DISMISSED_KEY)) return;
+    // xenaxio step 56: visitors of a public booking page are not users of the app.
+    if (/\/book(\/|$)/.test(window.location.pathname)) return;
 
     const handler = (e: Event) => {
       e.preventDefault();

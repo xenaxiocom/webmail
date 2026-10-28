@@ -97,8 +97,11 @@ export function movedUrl(target: string, location: Pick<Location, "pathname" | "
   return `${new URL(target).origin}${path}${location.search}${location.hash}`;
 }
 
-/** Pages that live on the shared address only: operator console, onboarding, AI chat consent. */
-const SHARED_ONLY = /\/(operator|onboarding|connect|auth)(\/|$)/;
+/**
+ * Pages that live on the shared address only: operator console, onboarding, AI chat consent.
+ * Step 56: and the public booking pages, which belong to whoever's page it is, not to the visitor's company.
+ */
+const SHARED_ONLY = /\/(operator|onboarding|connect|auth|book)(\/|$)/;
 
 /** The person is on the shared address but their company has its own: hand over. */
 export function shouldHandOff(portalUrl: string | null | undefined, origin: string, pathname: string): boolean {
