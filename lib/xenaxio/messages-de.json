@@ -1624,7 +1624,16 @@
     "upcoming": "Nächste gebuchte Termine",
     "cancel_meeting": "Absagen",
     "cancel_prompt": "Termin absagen. Nachricht an den Kunden (optional):",
-    "show_all": "Alle {n} zeigen"
+    "show_all": "Alle {n} zeigen",
+    "company_color": "Firmenfarbe",
+    "color_hint": "Akzentfarbe der Buchungsseite: Schaltflächen, freie Tage und Zeiten.",
+    "embed_theme": "Darstellung",
+    "embed_theme_company": "wie eingestellt",
+    "embed_light": "hell",
+    "embed_dark": "dunkel",
+    "embed_transparent": "Transparenter Hintergrund",
+    "embed_no_details": "Ohne Beschreibung",
+    "embed_color_hint": "Eigene Akzentfarbe: an die Adresse &color=RRGGBB anhängen, z. B. &color=0f766e."
   },
   "booking_admin": {
     "title": "Online-Terminbuchung",
@@ -1635,6 +1644,11 @@
     "privacy": "Link zur Datenschutzerklärung",
     "privacy_missing": "Tipp: Kunden geben auf der Buchungsseite Name und E-Mail an. Verlinken Sie dort Ihre Datenschutzerklärung.",
     "save": "Links speichern",
-    "saved": "Gespeichert."
+    "saved": "Gespeichert.",
+    "theme": "Darstellung der Buchungsseiten",
+    "theme_auto": "Wie beim Besucher (hell oder dunkel)",
+    "theme_light": "Immer hell",
+    "theme_dark": "Immer dunkel",
+    "theme_hint": "Logo, Firmenfarbe und Hintergrund kommen von dieser Seite (oben)."
   }
 }

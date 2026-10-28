@@ -19,6 +19,7 @@ import {
   type BookingType,
   type BookingTypeInput,
   type Hours,
+  embedUrl,
   type LocationKind,
   timeZones,
   WEEKDAYS,
@@ -38,7 +39,8 @@ function blankType(): BookingTypeInput {
     slug: "",
     title: "",
     description: "",
-    color: COLORS[0]!,
+    // The company's colour until the employee picks one.
+    color: null,
     durationMinutes: 30,
     locationKind: "video",
     location: "",
@@ -75,11 +77,11 @@ export function slugify(text: string): string {
 }
 
 /** The code a company puts on its website: the page in a frame, or a button. */
-export function embedCode(url: string, title: string, label: string): { frame: string; link: string } {
-  const safe = (s: string) => s.replace(/[<>"&]/g, "");
+export function embedCode(url: string, title: string, label: string, frameUrl: string = url): { frame: string; link: string } {
+  const safe = (s: string) => s.replace(/[<>"]/g, "");
   return {
-    frame: `<iframe src="${safe(url)}" title="${safe(title)}" style="width:100%;min-height:760px;border:0" loading="lazy"></iframe>`,
-    link: `<a href="${safe(url)}" target="_blank" rel="noopener">${safe(label)}</a>`,
+    frame: `<iframe src="${safe(frameUrl)}" title="${safe(title)}" style="width:100%;min-height:760px;border:0" loading="lazy"></iframe>`,
+    link: `<a href="${safe(url)}" target="_blank" rel="noopener">${safe(label).replace(/&/g, "")}</a>`,
   };
 }
 
@@ -218,11 +220,21 @@ function TypeEditor({
         <textarea value={v.description} maxLength={2000} rows={3} onChange={(e) => set("description", e.target.value)} className="w-full rounded-md border border-input bg-background px-3 py-2 text-sm" />
       </Row>
       <Row label={t("booking_settings.color")}>
-        <div className="flex flex-wrap gap-1.5" role="radiogroup" aria-label={t("booking_settings.color")}>
+        <div className="flex flex-wrap items-center gap-1.5" role="radiogroup" aria-label={t("booking_settings.color")}>
+          <button
+            type="button"
+            role="radio"
+            aria-checked={v.color === null}
+            onClick={() => set("color", null)}
+            className={`rounded-full border-2 px-2 py-0.5 text-xs ${v.color === null ? "border-foreground" : "border-border"}`}
+          >
+            {t("booking_settings.company_color")}
+          </button>
           {COLORS.map((c) => (
             <button key={c} type="button" role="radio" aria-checked={v.color === c} aria-label={c} onClick={() => set("color", c)} className={`h-6 w-6 rounded-full border-2 ${v.color === c ? "border-foreground" : "border-transparent"}`} style={{ backgroundColor: c }} />
           ))}
         </div>
+        <p className="text-xs text-muted-foreground">{t("booking_settings.color_hint")}</p>
       </Row>
       <Row label={t("booking_settings.duration")}>
         <div className="flex flex-wrap items-center gap-2">
@@ -413,7 +425,10 @@ function TypeEditor({
 function TypeCard({ type, onEdit, onDelete, onToggle }: { type: BookingType; onEdit: () => void; onDelete: () => void; onToggle: (active: boolean) => void }) {
   const t = useXT();
   const [embed, setEmbed] = useState(false);
-  const code = type.url ? embedCode(type.url, type.title, t("booking_settings.embed_button_label")) : null;
+  const [look, setLook] = useState<{ theme: "" | "light" | "dark"; transparent: boolean; details: boolean }>({ theme: "", transparent: false, details: true });
+  const code = type.url
+    ? embedCode(type.url, type.title, t("booking_settings.embed_button_label"), embedUrl(type.url, { theme: look.theme || null, transparent: look.transparent, details: look.details }))
+    : null;
   return (
     <li className="rounded-lg border border-border p-3" style={type.color ? { borderLeft: `4px solid ${type.color}` } : undefined}>
       <div className="flex flex-wrap items-start justify-between gap-2">
@@ -456,6 +471,25 @@ function TypeCard({ type, onEdit, onDelete, onToggle }: { type: BookingType; onE
       {embed && code && (
         <div className="mt-2 space-y-2">
           <p className="text-xs text-muted-foreground">{t("booking_settings.embed_hint")}</p>
+          <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm">
+            <label className="flex items-center gap-2">
+              {t("booking_settings.embed_theme")}
+              <select className={select} value={look.theme} onChange={(e) => setLook({ ...look, theme: e.target.value as "" | "light" | "dark" })}>
+                <option value="">{t("booking_settings.embed_theme_company")}</option>
+                <option value="light">{t("booking_settings.embed_light")}</option>
+                <option value="dark">{t("booking_settings.embed_dark")}</option>
+              </select>
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={look.transparent} onChange={(e) => setLook({ ...look, transparent: e.target.checked })} />
+              {t("booking_settings.embed_transparent")}
+            </label>
+            <label className="flex items-center gap-2">
+              <input type="checkbox" checked={!look.details} onChange={(e) => setLook({ ...look, details: !e.target.checked })} />
+              {t("booking_settings.embed_no_details")}
+            </label>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("booking_settings.embed_color_hint")}</p>
           {[code.frame, code.link].map((c) => (
             <div key={c} className="flex items-start gap-2">
               <textarea readOnly value={c} rows={2} className="min-w-0 flex-1 rounded-md border border-input bg-muted/40 px-2 py-1 font-mono text-xs" onFocus={(e) => e.currentTarget.select()} />

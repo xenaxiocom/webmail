@@ -2,7 +2,8 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
-vi.mock("@/lib/xenaxio/portal", () => ({ usePortal: () => ({ kind: "tenant", name: "Acme", logoUrl: null }) }));
+const portal = vi.hoisted(() => ({ current: { kind: "tenant", name: "Acme", logoUrl: null, background: null as string | null } }));
+vi.mock("@/lib/xenaxio/portal", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/portal")>()), usePortal: () => portal.current }));
 
 const api = vi.hoisted(() => ({
   type: vi.fn(),
@@ -19,8 +20,8 @@ const api = vi.hoisted(() => ({
 vi.mock("@/lib/xenaxio/booking", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/booking")>()), booking: api }));
 
 import { XenaxioApiError } from "@/lib/xenaxio/api";
-import { addDays, localDate, zonedToUtc } from "@/lib/xenaxio/booking";
-import { BookingPage, parseBookingRoute } from "../booking-page";
+import { addDays, embedUrl, localDate, parseEmbed, zonedToUtc } from "@/lib/xenaxio/booking";
+import { accentStyle, BookingPage, parseBookingRoute } from "../booking-page";
 import { embedCode, slugify } from "../booking-settings";
 
 const TOKEN = "a".repeat(43);
@@ -179,3 +180,58 @@ describe("step 56: public booking page", () => {
     expect(await screen.findByText("Termin nicht verfügbar")).toBeTruthy();
   });
 });
+
+describe("step 56: look of the booking page", () => {
+  beforeEach(() => {
+    for (const fn of Object.values(api)) if (typeof fn === "function" && "mockReset" in fn) fn.mockReset();
+    Object.defineProperty(navigator, "languages", { value: ["de-DE"], configurable: true });
+    document.documentElement.className = "";
+    portal.current = { kind: "tenant", name: "Acme", logoUrl: null, background: null };
+    api.slots.mockResolvedValue({ slots: [] });
+  });
+
+  it("reads and builds the embedding parameters", () => {
+    expect(parseEmbed("?embed=1&theme=dark&bg=transparent&color=0F766E&details=0")).toEqual({ embed: true, theme: "dark", background: "transparent", color: "#0f766e", details: false });
+    expect(parseEmbed("?theme=blue&bg=red&color=javascript:x")).toEqual({ embed: false, theme: null, background: null, color: null, details: true });
+    expect(embedUrl("https://a.test/book/eugen/demo", { theme: "light", transparent: true, details: false })).toBe("https://a.test/book/eugen/demo?embed=1&theme=light&bg=transparent&details=0");
+    expect(embedUrl("https://a.test/book/eugen/demo", {})).toBe("https://a.test/book/eugen/demo?embed=1");
+  });
+
+  it("makes the accent readable or leaves it out", () => {
+    expect(accentStyle("#0f766e", false)).toEqual({ "--color-primary": "#0f766e", "--color-primary-foreground": "#ffffff", "--color-ring": "#0f766e" });
+    expect(accentStyle("#fde047", false)).toMatchObject({ "--color-primary-foreground": "#111111" });
+    // Dark navy on the dark page: unreadable, the company colour stays.
+    expect(accentStyle("#0b1020", true)).toBeUndefined();
+    expect(accentStyle(null, false)).toBeUndefined();
+  });
+
+  it("the company's dark theme, its background and the type's colour", async () => {
+    at("/book/eugen/demo");
+    portal.current = { ...portal.current, background: "img-aurora" };
+    api.type.mockResolvedValue({ person, type: { ...type, color: "#0f766e" }, legal: { imprintUrl: null, privacyUrl: null }, look: { theme: "dark" } });
+    const { container } = render(<BookingPage />);
+    expect(await screen.findByRole("heading", { name: "Demo" })).toBeTruthy();
+    await waitFor(() => expect(document.documentElement.classList.contains("dark")).toBe(true));
+    const main = container.querySelector("main")!;
+    expect(main.style.getPropertyValue("--color-primary")).toBe("#0f766e");
+    expect(main.style.background).toContain("aurora");
+    // The logo row stays outside a frame.
+    expect(screen.getByRole("group", { name: "Sprache" })).toBeTruthy();
+  });
+
+  it("embedded: no header, no description column, transparent, the website's colour", async () => {
+    at("/book/eugen/demo?embed=1&bg=transparent&details=0&color=dc2626&theme=light");
+    api.type.mockResolvedValue({ person, type: { ...type, color: "#0f766e" }, legal: { imprintUrl: null, privacyUrl: "https://acme.de/datenschutz" }, look: { theme: "dark" } });
+    const { container } = render(<BookingPage />);
+    expect(await screen.findByText("Demo")).toBeTruthy();
+    expect(screen.queryByRole("group", { name: "Sprache" })).toBeNull();
+    expect(screen.queryByText("Wir zeigen Xenaxio.")).toBeNull();
+    // The legal links stay.
+    expect(screen.getByText("Datenschutz")).toBeTruthy();
+    await waitFor(() => expect(document.documentElement.classList.contains("light")).toBe(true));
+    expect(document.documentElement.classList.contains("dark")).toBe(false);
+    expect(container.querySelector("main")!.style.getPropertyValue("--color-primary")).toBe("#dc2626");
+    expect(container.querySelector("style")?.textContent).toContain("background:transparent");
+  });
+});
+

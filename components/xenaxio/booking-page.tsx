@@ -7,29 +7,33 @@
 // The platform serves this one page for every /book/… address and it reads the
 // address itself. Times are shown in the visitor's zone (changeable); the page
 // speaks German or English by the browser, with a switch.
-import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
+import { type CSSProperties, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useState } from "react";
 import { ArrowLeft, Calendar, CheckCircle, ChevronLeft, ChevronRight, Clock, Globe, MapPin, Phone, Video } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/xenaxio/ui";
 import { withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
+import { findBackground } from "@/lib/xenaxio/backgrounds";
 import { safeHttpUrl } from "@/lib/xenaxio/brand";
 import {
   addDays,
   booking,
   browserTimeZone,
   downloadIcs,
+  type EmbedOptions,
   guestLocale,
   type Legal,
   localDate,
+  type Look,
   type ManageView,
+  parseEmbed,
   type PublicPerson,
   type PublicType,
   timeZones,
   zonedToUtc,
 } from "@/lib/xenaxio/booking";
 import { translate } from "@/lib/xenaxio/i18n";
-import { usePortal } from "@/lib/xenaxio/portal";
+import { contrastRatio, usePortal } from "@/lib/xenaxio/portal";
 
 type Lang = "de" | "en";
 type T = (key: string, values?: Record<string, string | number>) => string;
@@ -75,47 +79,125 @@ function useFormat(lang: Lang, timeZone: string) {
 
 // --- Frame ---------------------------------------------------------------------
 
-function Shell({ lang, setLang, legal, children }: { lang: Lang; setLang: (l: Lang) => void; legal?: Legal | null; children: ReactNode }) {
+/** Whether the page shows dark right now (the html class, which the theme sets). */
+function useIsDark(): boolean {
+  const [dark, setDark] = useState(false);
+  useEffect(() => {
+    const root = document.documentElement;
+    const read = () => setDark(root.classList.contains("dark"));
+    read();
+    const obs = new MutationObserver(read);
+    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, []);
+  return dark;
+}
+
+/**
+ * Light or dark as the company (or the embedding website) wants, only on this
+ * page: the visitor's own setting in the app is neither changed nor stored.
+ */
+function useForcedTheme(theme: "light" | "dark" | null) {
+  useEffect(() => {
+    if (!theme) return;
+    const root = document.documentElement;
+    const other = theme === "dark" ? "light" : "dark";
+    const apply = () => {
+      if (root.classList.contains(theme) && !root.classList.contains(other)) return;
+      root.classList.remove(other);
+      root.classList.add(theme);
+      root.style.colorScheme = theme;
+    };
+    apply();
+    // The app's theme may set its own class later (system change): this page keeps its choice.
+    const obs = new MutationObserver(apply);
+    obs.observe(root, { attributes: true, attributeFilter: ["class"] });
+    return () => obs.disconnect();
+  }, [theme]);
+}
+
+/** The accent as CSS variables; null when it would be hard to read on the dark page. */
+export function accentStyle(color: string | null | undefined, dark: boolean): CSSProperties | undefined {
+  if (!color || !/^#[0-9a-f]{6}$/i.test(color)) return undefined;
+  if (dark && contrastRatio(color, "#0a0a0a") < 3) return undefined;
+  const fg = contrastRatio(color, "#ffffff") >= contrastRatio(color, "#111111") ? "#ffffff" : "#111111";
+  return { "--color-primary": color, "--color-primary-foreground": fg, "--color-ring": color } as CSSProperties;
+}
+
+function Shell({
+  lang,
+  setLang,
+  legal,
+  embed,
+  accent,
+  children,
+}: {
+  lang: Lang;
+  setLang: (l: Lang) => void;
+  legal?: Legal | null;
+  embed: EmbedOptions;
+  accent: string | null;
+  children: ReactNode;
+}) {
   const t: T = useCallback((k, v) => translate(lang, k, v), [lang]);
   const portal = usePortal();
+  const dark = useIsDark();
   const company = portal?.kind === "tenant" ? portal : null;
   const links = [
     { href: safeHttpUrl(legal?.imprintUrl ?? ""), label: t("booking.imprint") },
     { href: safeHttpUrl(legal?.privacyUrl ?? ""), label: t("booking.privacy") },
   ].filter((l) => l.href);
+  // Step 42: the company's default background behind the card; an embedding website sets its own.
+  const background = embed.embed ? null : findBackground(company?.background);
+  const pageStyle: CSSProperties | undefined = embed.embed
+    ? embed.background && embed.background !== "transparent"
+      ? { background: embed.background }
+      : undefined
+    : background
+      ? { background: dark ? background.css.dark : background.css.light, backgroundAttachment: "fixed" }
+      : undefined;
+  const transparent = embed.embed && embed.background === "transparent";
   return (
-    <main lang={lang} className="min-h-dvh bg-muted/40 px-4 py-6 sm:py-10">
-      <div className="mx-auto w-full max-w-4xl">
-        <header className="mb-4 flex items-center justify-between gap-3">
-          <div className="min-h-8">
-            {company?.logoUrl ? (
-              <img src={withBasePath(company.logoUrl)} alt={company.name} className="max-h-10 max-w-[200px] w-auto object-contain" />
-            ) : company ? (
-              <span className="font-semibold">{company.name}</span>
-            ) : null}
-          </div>
-          <div className="flex gap-1 text-xs" role="group" aria-label={t("booking.language")}>
-            {(["de", "en"] as const).map((l) => (
-              <button
-                key={l}
-                type="button"
-                onClick={() => setLang(l)}
-                aria-pressed={lang === l}
-                className={`rounded px-2 py-1 ${lang === l ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
-              >
-                {l.toUpperCase()}
-              </button>
-            ))}
-          </div>
-        </header>
-        <div className="overflow-hidden rounded-xl border border-border bg-background shadow-sm">{children}</div>
+    <main
+      lang={lang}
+      style={{ ...pageStyle, ...accentStyle(embed.color ?? accent, dark) }}
+      className={`min-h-dvh ${transparent ? "bg-transparent" : pageStyle ? "" : embed.embed ? "bg-background" : "bg-muted/40"} ${embed.embed ? "p-1 sm:p-2" : "px-4 py-6 sm:py-10"}`}
+    >
+      {/* A transparent frame shows the website behind it. */}
+      {transparent && <style>{"html,body{background:transparent!important}"}</style>}
+      <div className={`mx-auto w-full ${embed.embed ? "" : "max-w-4xl"}`}>
+        {!embed.embed && (
+          <header className="mb-4 flex items-center justify-between gap-3">
+            <div className="min-h-8">
+              {company?.logoUrl ? (
+                <img src={withBasePath(company.logoUrl)} alt={company.name} className="max-h-10 max-w-[200px] w-auto object-contain" />
+              ) : company ? (
+                <span className="font-semibold">{company.name}</span>
+              ) : null}
+            </div>
+            <div className="flex gap-1 text-xs" role="group" aria-label={t("booking.language")}>
+              {(["de", "en"] as const).map((l) => (
+                <button
+                  key={l}
+                  type="button"
+                  onClick={() => setLang(l)}
+                  aria-pressed={lang === l}
+                  className={`rounded px-2 py-1 ${lang === l ? "bg-foreground text-background" : "text-muted-foreground hover:bg-muted"}`}
+                >
+                  {l.toUpperCase()}
+                </button>
+              ))}
+            </div>
+          </header>
+        )}
+        <div className={`overflow-hidden rounded-xl bg-background ${transparent ? "" : "border border-border shadow-sm"}`}>{children}</div>
         <footer className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-xs text-muted-foreground">
           {links.map((l) => (
             <a key={l.label} href={l.href} target="_blank" rel="noopener noreferrer" className="hover:underline">
               {l.label}
             </a>
           ))}
-          <span>{t("booking.powered")}</span>
+          <span className={background && !embed.embed ? "rounded bg-background/80 px-1.5 py-0.5" : undefined}>{t("booking.powered")}</span>
         </footer>
       </div>
     </main>
@@ -414,7 +496,14 @@ const plainButton = "inline-flex items-center justify-center gap-2 rounded-md bo
 
 type Step = { kind: "pick" } | { kind: "form"; start: string } | { kind: "done"; start: string; end: string; ics: string; manageUrl: string } | { kind: "request" } | { kind: "requested"; proposals: string[] };
 
-function TypePage({ t, lang, user, typeSlug, onLegal }: { t: T; lang: Lang; user: string; typeSlug: string; onLegal: (l: Legal) => void }) {
+interface PageMeta {
+  legal: Legal;
+  look?: Look;
+  /** The meeting type's colour: the accent of its page. */
+  color?: string | null;
+}
+
+function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: Lang; user: string; typeSlug: string; details: boolean; onMeta: (m: PageMeta) => void }) {
   const [data, setData] = useState<{ person: PublicPerson; type: PublicType } | null>(null);
   const [missing, setMissing] = useState(false);
   const [timeZone, setTimeZone] = useState("Europe/Berlin");
@@ -432,11 +521,11 @@ function TypePage({ t, lang, user, typeSlug, onLegal }: { t: T; lang: Lang; user
       .type(user, typeSlug)
       .then((r) => {
         setData({ person: r.person, type: r.type });
-        onLegal(r.legal);
+        onMeta({ legal: r.legal, look: r.look, color: r.type.color });
         document.title = `${r.type.title} – ${r.person.name}`;
       })
       .catch(() => setMissing(true));
-  }, [user, typeSlug, onLegal]);
+  }, [user, typeSlug, onMeta]);
 
   const load = useCallback((from: Date, to: Date) => booking.slots(user, typeSlug, from, to).then((r) => r.slots), [user, typeSlug]);
 
@@ -525,30 +614,46 @@ function TypePage({ t, lang, user, typeSlug, onLegal }: { t: T; lang: Lang; user
   const maxDate = localDate(new Date(Date.now() + type.horizonDays * 86_400_000), timeZone);
 
   return (
-    <div className="grid md:grid-cols-[280px_minmax(0,1fr)]">
-      <aside className="space-y-3 border-b border-border p-6 md:border-b-0 md:border-r">
-        {step.kind !== "pick" && (
-          <button type="button" onClick={() => (setStep({ kind: "pick" }), setError(null))} className="mb-2 inline-flex items-center gap-1 text-sm text-primary hover:underline">
-            <ArrowLeft className="h-4 w-4" />
-            {t("booking.back")}
-          </button>
-        )}
-        <Avatar person={person} />
-        <p className="text-sm text-muted-foreground">{person.name}</p>
-        <h1 className="text-xl font-semibold">{type.title}</h1>
-        <p className="flex items-center gap-2 text-sm text-muted-foreground">
-          <Clock className="h-4 w-4" />
-          {t("booking.minutes", { n: type.durationMinutes })}
-        </p>
-        <PlaceLine t={t} kind={type.locationKind} value={type.location} />
-        {step.kind === "form" && (
-          <p className="flex items-start gap-2 text-sm font-medium">
-            <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
-            {f.range(step.start, end(step.start))}
+    <div className={details ? "grid md:grid-cols-[280px_minmax(0,1fr)]" : ""}>
+      {/* details=0 (embedded): one line with the title instead of the column. */}
+      {!details && (
+        <div className="flex flex-wrap items-center gap-x-3 gap-y-1 border-b border-border px-6 py-3 text-sm">
+          {step.kind !== "pick" && (
+            <button type="button" onClick={() => (setStep({ kind: "pick" }), setError(null))} className="inline-flex items-center gap-1 text-primary hover:underline">
+              <ArrowLeft className="h-4 w-4" />
+              {t("booking.back")}
+            </button>
+          )}
+          <span className="font-semibold">{type.title}</span>
+          <span className="text-muted-foreground">{t("booking.minutes", { n: type.durationMinutes })}</span>
+          {step.kind === "form" && <span className="font-medium">{f.range(step.start, end(step.start))}</span>}
+        </div>
+      )}
+      {details && (
+        <aside className="space-y-3 border-b border-border p-6 md:border-b-0 md:border-r">
+          {step.kind !== "pick" && (
+            <button type="button" onClick={() => (setStep({ kind: "pick" }), setError(null))} className="mb-2 inline-flex items-center gap-1 text-sm text-primary hover:underline">
+              <ArrowLeft className="h-4 w-4" />
+              {t("booking.back")}
+            </button>
+          )}
+          <Avatar person={person} />
+          <p className="text-sm text-muted-foreground">{person.name}</p>
+          <h1 className="text-xl font-semibold">{type.title}</h1>
+          <p className="flex items-center gap-2 text-sm text-muted-foreground">
+            <Clock className="h-4 w-4" />
+            {t("booking.minutes", { n: type.durationMinutes })}
           </p>
-        )}
-        {type.description && <p className="whitespace-pre-wrap pt-2 text-sm">{type.description}</p>}
-      </aside>
+          <PlaceLine t={t} kind={type.locationKind} value={type.location} />
+          {step.kind === "form" && (
+            <p className="flex items-start gap-2 text-sm font-medium">
+              <Calendar className="mt-0.5 h-4 w-4 shrink-0" />
+              {f.range(step.start, end(step.start))}
+            </p>
+          )}
+          {type.description && <p className="whitespace-pre-wrap pt-2 text-sm">{type.description}</p>}
+        </aside>
+      )}
       <section className="p-6">
         {error && (
           <div className="mb-4">
@@ -639,7 +744,7 @@ function TypePage({ t, lang, user, typeSlug, onLegal }: { t: T; lang: Lang; user
 
 // --- The employee's meeting types --------------------------------------------------
 
-function PersonPage({ t, user, onLegal }: { t: T; user: string; onLegal: (l: Legal) => void }) {
+function PersonPage({ t, user, onMeta }: { t: T; user: string; onMeta: (m: PageMeta) => void }) {
   const [data, setData] = useState<{ person: PublicPerson; types: PublicType[] } | null>(null);
   const [missing, setMissing] = useState(false);
   useEffect(() => {
@@ -647,11 +752,11 @@ function PersonPage({ t, user, onLegal }: { t: T; user: string; onLegal: (l: Leg
       .page(user)
       .then((r) => {
         setData(r);
-        onLegal(r.legal);
+        onMeta({ legal: r.legal, look: r.look });
         document.title = r.person.name;
       })
       .catch(() => setMissing(true));
-  }, [user, onLegal]);
+  }, [user, onMeta]);
   if (missing) return <Message title={t("booking.not_found_title")}>{t("booking.not_found_text")}</Message>;
   if (!data) return <Message title={t("booking.loading")} />;
   return (
@@ -667,7 +772,7 @@ function PersonPage({ t, user, onLegal }: { t: T; user: string; onLegal: (l: Leg
         <ul className="grid gap-3 sm:grid-cols-2">
           {data.types.map((type) => (
             <li key={type.slug}>
-              <a href={bookPath(data.person.slug, type.slug)} className="block h-full rounded-lg border border-border p-4 hover:border-primary hover:bg-muted/40" style={type.color ? { borderLeft: `4px solid ${type.color}` } : undefined}>
+              <a href={`${bookPath(data.person.slug, type.slug)}${typeof window === "undefined" ? "" : window.location.search}`} className="block h-full rounded-lg border border-border p-4 hover:border-primary hover:bg-muted/40" style={type.color ? { borderLeft: `4px solid ${type.color}` } : undefined}>
                 <span className="block font-semibold">{type.title}</span>
                 <span className="mt-1 flex items-center gap-2 text-sm text-muted-foreground">
                   <Clock className="h-4 w-4" />
@@ -831,11 +936,15 @@ function ManagePage({ t, lang, token }: { t: T; lang: Lang; token: string }) {
 export function BookingPage() {
   const [route, setRoute] = useState<Route | null>(null);
   const [lang, setLang] = useState<Lang>("de");
-  const [legal, setLegal] = useState<Legal | null>(null);
+  const [meta, setMeta] = useState<PageMeta | null>(null);
+  const [embed, setEmbed] = useState<EmbedOptions>(() => parseEmbed(""));
   const t: T = useCallback((k, v) => translate(lang, k, v), [lang]);
+  const company = meta?.look?.theme;
+  useForcedTheme(embed.theme ?? (company === "light" || company === "dark" ? company : null));
 
   useEffect(() => {
     setLang(guestLocale());
+    setEmbed(parseEmbed(window.location.search));
     const read = () => setRoute(parseBookingRoute(window.location.pathname, window.location.hash));
     read();
     window.addEventListener("hashchange", read);
@@ -846,13 +955,13 @@ export function BookingPage() {
   }, [lang]);
 
   return (
-    <Shell lang={lang} setLang={setLang} legal={legal}>
+    <Shell lang={lang} setLang={setLang} legal={meta?.legal} embed={embed} accent={meta?.color ?? null}>
       {!route ? (
         <Message title={t("booking.loading")} />
       ) : route.kind === "type" ? (
-        <TypePage key={`${route.user}/${route.type}`} t={t} lang={lang} user={route.user} typeSlug={route.type} onLegal={setLegal} />
+        <TypePage key={`${route.user}/${route.type}`} t={t} lang={lang} user={route.user} typeSlug={route.type} details={embed.details} onMeta={setMeta} />
       ) : route.kind === "person" ? (
-        <PersonPage t={t} user={route.user} onLegal={setLegal} />
+        <PersonPage t={t} user={route.user} onMeta={setMeta} />
       ) : route.kind === "manage" ? (
         <ManagePage t={t} lang={lang} token={route.token} />
       ) : (

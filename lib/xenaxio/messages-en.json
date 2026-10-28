@@ -1624,7 +1624,16 @@
     "upcoming": "Next booked meetings",
     "cancel_meeting": "Cancel",
     "cancel_prompt": "Cancel the meeting. Message to the customer (optional):",
-    "show_all": "Show all {n}"
+    "show_all": "Show all {n}",
+    "company_color": "Company colour",
+    "color_hint": "Accent of the booking page: buttons, free days and times.",
+    "embed_theme": "Look",
+    "embed_theme_company": "as set",
+    "embed_light": "light",
+    "embed_dark": "dark",
+    "embed_transparent": "Transparent background",
+    "embed_no_details": "Without description",
+    "embed_color_hint": "Own accent colour: add &color=RRGGBB to the address, e.g. &color=0f766e."
   },
   "booking_admin": {
     "title": "Online booking",
@@ -1635,6 +1644,11 @@
     "privacy": "Link to the privacy policy",
     "privacy_missing": "Tip: customers enter their name and e-mail on the booking page. Link your privacy policy there.",
     "save": "Save links",
-    "saved": "Saved."
+    "saved": "Saved.",
+    "theme": "Look of the booking pages",
+    "theme_auto": "Like the visitor’s (light or dark)",
+    "theme_light": "Always light",
+    "theme_dark": "Always dark",
+    "theme_hint": "Logo, company colour and background come from this page (above)."
   }
 }

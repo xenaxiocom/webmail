@@ -100,6 +100,54 @@ export interface Legal {
   privacyUrl: string | null;
 }
 
+export type BookingTheme = "auto" | "light" | "dark";
+
+/** How the company's booking pages look (background and colour come with the portal). */
+export interface Look {
+  theme: BookingTheme;
+}
+
+/** What a website that embeds the page asks for (address parameters, like Calendly's). */
+export interface EmbedOptions {
+  /** No header with the logo and no outer margins. */
+  embed: boolean;
+  theme: "light" | "dark" | null;
+  /** "transparent" or "#rrggbb". */
+  background: string | null;
+  /** Accent "#rrggbb". */
+  color: string | null;
+  /** The column with the person, the description and the place. */
+  details: boolean;
+}
+
+const hexParam = (v: string | null) => {
+  const m = /^#?([0-9a-fA-F]{6})$/.exec(v ?? "");
+  return m ? `#${m[1]!.toLowerCase()}` : null;
+};
+
+/** ?embed=1&theme=dark&bg=transparent&color=0f766e&details=0 */
+export function parseEmbed(search: string): EmbedOptions {
+  const q = new URLSearchParams(search);
+  const theme = q.get("theme");
+  const bg = q.get("bg");
+  return {
+    embed: q.get("embed") === "1",
+    theme: theme === "light" || theme === "dark" ? theme : null,
+    background: bg === "transparent" ? "transparent" : hexParam(bg),
+    color: hexParam(q.get("color")),
+    details: q.get("details") !== "0",
+  };
+}
+
+/** The address a website embeds; only what differs from the defaults goes in. */
+export function embedUrl(url: string, opts: { theme?: "light" | "dark" | null; transparent?: boolean; details?: boolean }): string {
+  const q = new URLSearchParams({ embed: "1" });
+  if (opts.theme) q.set("theme", opts.theme);
+  if (opts.transparent) q.set("bg", "transparent");
+  if (opts.details === false) q.set("details", "0");
+  return `${url}?${q.toString()}`;
+}
+
 export interface ManageView {
   status: BookingItem["status"];
   title: string;
@@ -113,6 +161,13 @@ export interface ManageView {
   canChange: boolean;
   timeZone: string;
   locale: "de" | "en";
+}
+
+export interface AdminBooking {
+  enabled: boolean;
+  imprintUrl: string | null;
+  privacyUrl: string | null;
+  theme: BookingTheme;
 }
 
 export interface BookedResult {
@@ -162,13 +217,12 @@ export const booking = {
   decline: (id: string, message?: string) => call<{ ok: true }>("POST", `${BOOKING}/bookings/${seg(id)}/decline`, message ? { message } : {}),
   cancel: (id: string, message?: string) => call<{ ok: true }>("POST", `${BOOKING}/bookings/${seg(id)}/cancel`, message ? { message } : {}),
   // The company's admin.
-  admin: () => call<{ enabled: boolean; imprintUrl: string | null; privacyUrl: string | null }>("GET", ADMIN_BOOKING),
-  setAdmin: (patch: { enabled?: boolean; imprintUrl?: string | null; privacyUrl?: string | null }) =>
-    call<{ enabled: boolean; imprintUrl: string | null; privacyUrl: string | null }>("PUT", ADMIN_BOOKING, patch),
+  admin: () => call<AdminBooking>("GET", ADMIN_BOOKING),
+  setAdmin: (patch: Partial<AdminBooking>) => call<AdminBooking>("PUT", ADMIN_BOOKING, patch),
   // Visitors.
-  page: (user: string) => call<{ person: PublicPerson; types: PublicType[]; legal: Legal }>("GET", `${PUBLIC_BOOK}/${seg(user)}`),
+  page: (user: string) => call<{ person: PublicPerson; types: PublicType[]; legal: Legal; look?: Look }>("GET", `${PUBLIC_BOOK}/${seg(user)}`),
   avatarUrl: (user: string) => `${PUBLIC_BOOK}/${seg(user)}/avatar`,
-  type: (user: string, type: string) => call<{ person: PublicPerson; type: PublicType; legal: Legal }>("GET", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}`),
+  type: (user: string, type: string) => call<{ person: PublicPerson; type: PublicType; legal: Legal; look?: Look }>("GET", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}`),
   slots: (user: string, type: string, from: Date, to: Date) =>
     call<{ slots: string[] }>("GET", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/slots?from=${seg(from.toISOString())}&to=${seg(to.toISOString())}`),
   book: (user: string, type: string, input: Guest & { start: string; timeZone: string; locale: string; website?: string }) =>

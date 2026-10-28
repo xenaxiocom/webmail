@@ -7,12 +7,14 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Notice } from "@/components/xenaxio/ui";
 import { errorText } from "@/lib/xenaxio/api";
-import { booking } from "@/lib/xenaxio/booking";
+import { type AdminBooking, booking, type BookingTheme } from "@/lib/xenaxio/booking";
 import { useXT } from "@/lib/xenaxio/i18n";
+
+const view = (s: AdminBooking) => ({ enabled: s.enabled, imprintUrl: s.imprintUrl ?? "", privacyUrl: s.privacyUrl ?? "", theme: s.theme ?? "auto" });
 
 export function BookingAdmin() {
   const t = useXT();
-  const [state, setState] = useState<{ enabled: boolean; imprintUrl: string; privacyUrl: string } | null>(null);
+  const [state, setState] = useState<{ enabled: boolean; imprintUrl: string; privacyUrl: string; theme: BookingTheme } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -20,17 +22,17 @@ export function BookingAdmin() {
   useEffect(() => {
     booking
       .admin()
-      .then((s) => setState({ enabled: s.enabled, imprintUrl: s.imprintUrl ?? "", privacyUrl: s.privacyUrl ?? "" }))
+      .then((s) => setState(view(s)))
       .catch(() => setError(t("errors.internal")));
   }, [t]);
 
-  const save = async (patch: { enabled?: boolean; imprintUrl?: string; privacyUrl?: string }) => {
+  const save = async (patch: Partial<AdminBooking>) => {
     setBusy(true);
     setError(null);
     setSaved(false);
     try {
       const s = await booking.setAdmin(patch);
-      setState({ enabled: s.enabled, imprintUrl: s.imprintUrl ?? "", privacyUrl: s.privacyUrl ?? "" });
+      setState(view(s));
       setSaved(true);
     } catch (err) {
       setError(errorText(t, err));
@@ -58,6 +60,22 @@ export function BookingAdmin() {
               {t("booking_admin.enabled")}
               <span className="block text-xs text-muted-foreground">{t("booking_admin.enabled_hint")}</span>
             </span>
+          </label>
+          <label className="block text-sm">
+            <span className="mb-1 block font-medium">{t("booking_admin.theme")}</span>
+            <select
+              className="rounded-md border border-border bg-background px-2 py-1.5 text-sm"
+              value={state.theme}
+              disabled={busy}
+              onChange={(e) => void save({ theme: e.target.value as BookingTheme })}
+            >
+              {(["auto", "light", "dark"] as const).map((th) => (
+                <option key={th} value={th}>
+                  {t(`booking_admin.theme_${th}`)}
+                </option>
+              ))}
+            </select>
+            <span className="mt-1 block text-xs text-muted-foreground">{t("booking_admin.theme_hint")}</span>
           </label>
           <label className="block text-sm">
             <span className="mb-1 block font-medium">{t("booking_admin.imprint")}</span>
