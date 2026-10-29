@@ -7,7 +7,8 @@ import { apiFetch, withBasePath } from "@/lib/browser-navigation";
 const SW_FILE = "/xenaxio-chat-sw.js";
 const SW_SCOPE = "/__xenaxio-chat-push/";
 
-export type ChatPushState = "unsupported" | "denied" | "off" | "on";
+/** "disabled": the server has push switched off (step 71, own installations without internet). */
+export type ChatPushState = "unsupported" | "disabled" | "denied" | "off" | "on";
 
 export interface ChatNotifySettings {
   /** Paused until this moment (ISO), or null. */
@@ -35,10 +36,10 @@ async function registration(): Promise<ServiceWorkerRegistration | undefined> {
   return navigator.serviceWorker.getRegistration(scope());
 }
 
-async function serverInfo(): Promise<{ publicKey: string; endpoints: string[] }> {
+async function serverInfo(): Promise<{ publicKey: string | null; endpoints: string[] }> {
   const res = await apiFetch("/api/chat/push", { credentials: "same-origin", headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`push info ${res.status}`);
-  return (await res.json()) as { publicKey: string; endpoints: string[] };
+  return (await res.json()) as { publicKey: string | null; endpoints: string[] };
 }
 
 async function sendSubscription(sub: PushSubscription): Promise<void> {
@@ -82,21 +83,24 @@ async function ensureRegistration(locale: string): Promise<ServiceWorkerRegistra
 /** What the switch "notifications on this device" shows. */
 export async function chatPushState(): Promise<ChatPushState> {
   if (!chatPushSupported()) return "unsupported";
+  const { publicKey, endpoints } = await serverInfo();
+  if (!publicKey) return "disabled";
   if (Notification.permission === "denied") return "denied";
   if (Notification.permission !== "granted") return "off";
   const sub = await (await registration())?.pushManager.getSubscription();
   if (!sub) return "off";
-  const { endpoints } = await serverInfo();
   return endpoints.includes(sub.endpoint) ? "on" : "off";
 }
 
 /** Asks for permission (must run from a click) and subscribes this device. */
 export async function enableChatPush(locale: string): Promise<ChatPushState> {
   if (!chatPushSupported()) return "unsupported";
+  const { publicKey } = await serverInfo();
+  if (!publicKey) return "disabled";
   const permission = await Notification.requestPermission();
   if (permission === "denied") return "denied";
   if (permission !== "granted") return "off";
-  const [{ publicKey }, reg] = await Promise.all([serverInfo(), ensureRegistration(locale)]);
+  const reg = await ensureRegistration(locale);
   const key = keyBytes(publicKey);
   let sub = await reg.pushManager.getSubscription();
   // A subscription made for another key (a reinstalled server) is useless.
@@ -133,7 +137,7 @@ export async function resumeChatPush(locale: string): Promise<void> {
   const scriptUrl = reg.active?.scriptURL ?? "";
   if (!scriptUrl.endsWith(`?locale=${encodeURIComponent(locale)}`)) await ensureRegistration(locale);
   const { publicKey, endpoints } = await serverInfo();
-  if (endpoints.includes(sub.endpoint)) return;
+  if (!publicKey || endpoints.includes(sub.endpoint)) return;
   if (!sameKey(sub.options.applicationServerKey, keyBytes(publicKey))) {
     await enableChatPush(locale);
     return;
