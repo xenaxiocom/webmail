@@ -97,12 +97,13 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
 function Body({ message, me, onMention }: { message: Message; me: string; onMention: (userId: string) => void }) {
   const t = useXT();
   const name = useDisplayName();
+  const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
   // Step 78, part D: a call in the room: its card, live.
   const call = callOf(c);
-  if (call) return <CallCard code={call.code} roomId={message.roomId} title="" />;
+  if (call) return <CallCard code={call.code} roomId={message.roomId} title="" dm={dm} mine={message.sender === me} />;
   // An e-mail shared into the chat: what the person wrote, then the card.
   const email = sharedEmailOf(c);
   const html = email ? (email.note ? messageHtml({ body: email.note }) : "") : messageHtml(c);

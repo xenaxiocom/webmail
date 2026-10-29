@@ -76,6 +76,25 @@ describe("step 78, part D: calls in Rooms", () => {
     expect(screen.queryByRole("button", { name: "Beitreten" })).toBeNull();
   });
 
+  it("marks a call nobody answered in a direct message", async () => {
+    const ended = { title: "Anruf", state: "open", running: false, participants: 0, startedAt: "2026-10-29T10:00:00Z", finishedAt: "2026-10-29T10:01:00Z" };
+    api.info.mockResolvedValue({ ...ended, peakParticipants: 1 });
+    const { unmount } = render(<CallCard code={CODE} roomId="!dm:acme.de" title="" dm />);
+    expect(await screen.findByText("Verpasster Anruf")).toBeInTheDocument();
+    unmount();
+    const caller = render(<CallCard code={CODE} roomId="!dm:acme.de" title="" dm mine />);
+    expect(await screen.findByText("Nicht angenommen")).toBeInTheDocument();
+    caller.unmount();
+    // Answered: how long it took. In a channel nobody "misses" a call.
+    api.info.mockResolvedValue({ ...ended, peakParticipants: 2 });
+    const answered = render(<CallCard code={CODE} roomId="!dm:acme.de" title="" dm />);
+    expect(await screen.findByText("Anruf beendet · 1 Min.")).toBeInTheDocument();
+    answered.unmount();
+    api.info.mockResolvedValue({ ...ended, peakParticipants: 1 });
+    render(<CallCard code={CODE} roomId="!proj:acme.de" title="" />);
+    expect(await screen.findByText("Anruf beendet · 1 Min.")).toBeInTheDocument();
+  });
+
   it("rings for a fresh call from someone else in a direct message", async () => {
     const dm = room({ timeline: [msg({ id: "$old", ts: Date.now() - 120_000 }), msg({ id: "$mine", sender: "@anna:acme.de" })] });
     const client = fakeClient([dm, room({ id: "!proj:acme.de", kind: "channel", timeline: [msg({ id: "$chan", roomId: "!proj:acme.de" })] })]);
@@ -94,5 +113,27 @@ describe("step 78, part D: calls in Rooms", () => {
     useCallStore.getState().close();
     act(() => client.notify());
     expect(screen.queryByRole("alertdialog")).toBeNull();
+  });
+
+  it("stops ringing when the caller hangs up", async () => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    try {
+      api.info.mockResolvedValue({ title: "Anruf", state: "open", running: true, participants: 1, finishedAt: null });
+      const dm = room({ timeline: [msg({ id: "$ring" })] });
+      const client = fakeClient([dm]);
+      render(<IncomingCall client={client as unknown as ChatClient} nameOf={() => "Max Muster"} />);
+      expect(screen.getByRole("alertdialog", { name: "Max Muster ruft an" })).toBeInTheDocument();
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(screen.getByRole("alertdialog")).toBeInTheDocument();
+      api.info.mockResolvedValue({ title: "Anruf", state: "open", running: false, participants: 0, finishedAt: "2026-10-29T10:01:00Z" });
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(5_000);
+      });
+      expect(screen.queryByRole("alertdialog")).toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });
