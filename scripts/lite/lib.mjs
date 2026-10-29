@@ -99,6 +99,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/portal",
   "/api/auth/handoff",
   "/api/admin/portal",
+  // Step 73: the live demo (start page, strip on every screen).
+  "/api/demo",
   // Step 29: several accounts in one browser (lib/xenaxio/api.ts).
   "/api/auth/accounts",
   "/api/auth/switch",

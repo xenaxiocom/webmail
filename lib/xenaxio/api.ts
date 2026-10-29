@@ -105,6 +105,15 @@ export interface Me {
   dismissedHints?: string[];
   /** Step 61: where the person put the assistant button, per kind of screen (shares of the window). */
   assistantPosition?: AssistantPositions;
+  /** Step 73: a live-demo guest's time and the ways to go on from the demo. */
+  demo?: DemoInfo | null;
+}
+
+/** Step 73: the live demo (null outside it). */
+export interface DemoInfo {
+  expiresAt: string;
+  extendable: boolean;
+  links: { site: string; quote: string; book: string | null };
 }
 
 /** Hints of the web client a user can close for good (the platform's list). */
@@ -555,6 +564,10 @@ const CALENDAR_FEEDS = "/api/calendar/feeds";
 
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
+  /** Step 73: a demo company for this guest (or the one this browser already has). */
+  demoStart: (locale: string) => request<Me & { portalUrl: string; demo: DemoInfo }>("POST", "/api/demo/start", { locale: locale === "de" ? "de" : "en" }),
+  demoExtend: () => request<DemoInfo>("POST", "/api/demo/extend"),
+  demoEnd: () => request<{ ok: true; links: DemoInfo["links"] }>("POST", "/api/demo/end"),
   dismissHint: (hint: DismissableHint) => request<{ dismissedHints: string[] }>("POST", `/api/me/hints/${hint}`),
   /** Step 61: the assistant button moved on this kind of screen; null puts it back. */
   setAssistantPosition: (device: AssistantDevice, spot: AssistantSpot | null) =>

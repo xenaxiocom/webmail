@@ -139,7 +139,7 @@ function FileChip({ name, size, type, preview, href, deleted, busy, error, onOpe
 
 // Step 61: everywhere after sign-in; not on the sign-in and setup pages, public
 // booking pages, the AI chat consent screen and the operator console.
-const HIDDEN = /^\/(login|onboarding|auth|book|connect|operator|plugins|pro)(\/|$)/;
+const HIDDEN = /^\/(login|onboarding|auth|book|connect|operator|plugins|pro|demo)(\/|$)/;
 /** Per-tab only; cleared with the tab and on sign-out. Holds the visible chat, nothing else. */
 const STORAGE_KEY = ASSISTANT_STORAGE_KEY;
 

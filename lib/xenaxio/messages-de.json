@@ -153,7 +153,15 @@
     "channel_unmanaged": "Dieser Kanal lässt sich nicht verwalten: Es gibt keinen aktiven Moderator mehr.",
     "channel_not_found": "Kanal nicht gefunden.",
     "general_channel": "Der Kanal für alle kann nicht archiviert werden.",
-    "chat_not_ready": "Rooms ist noch nicht bereit. Bitte versuchen Sie es gleich noch einmal."
+    "chat_not_ready": "Rooms ist noch nicht bereit. Bitte versuchen Sie es gleich noch einmal.",
+    "demo_busy": "Alle Demo-Firmen sind gerade belegt. Bitte versuchen Sie es in ein paar Minuten noch einmal.",
+    "demo_rate_limited": "Aus Ihrem Netz wurden in der letzten Stunde zu viele Demos gestartet. Bitte versuchen Sie es später noch einmal.",
+    "demo_daily_limit": "Die Demos für heute sind vergeben. Bitte versuchen Sie es morgen noch einmal oder buchen Sie ein Gespräch mit uns.",
+    "demo_readonly": "Das geht in der Demo nicht – in Ihrem eigenen Xenaxio schon.",
+    "demo_ai_limit": "Die Anfragen an den Assistenten sind für diese Demo aufgebraucht. Buchen Sie ein Gespräch – wir zeigen Ihnen mehr.",
+    "demo_file_too_large": "Dateien in der Demo dürfen bis zu 5 MB groß sein.",
+    "demo_not_extendable": "Die Demo wurde bereits einmal verlängert.",
+    "not_demo": "Das ist kein Demo-Konto."
   },
   "login": {
     "title": "Anmelden",
@@ -1834,5 +1842,18 @@
     "unavailable": "Auf dieser Installation gibt es keinen Besprechungsserver.",
     "forbidden": "Der Betreiber hat Meetings für Ihre Firma gesperrt.",
     "open": "Zu den Meetings"
+  },
+  "demo": {
+    "title": "Live-Demo",
+    "starting": "Wir richten Ihre Demo-Firma ein …",
+    "meanwhile": "Bis dahin können Sie auf unserer Website ein Gespräch buchen oder ein Angebot anfragen.",
+    "retry": "Erneut versuchen",
+    "strip_label": "Live-Demo",
+    "strip_left": "wird in {minutes} Min. zurückgesetzt",
+    "extend": "+30 Min.",
+    "book": "Demo buchen",
+    "quote": "Angebot anfragen",
+    "end": "Demo beenden",
+    "end_confirm": "Demo jetzt beenden? Alles, was Sie eingegeben haben, wird gelöscht."
   }
 }
