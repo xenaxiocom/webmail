@@ -93,6 +93,43 @@ export interface WebinarStage {
   viewers: number;
 }
 
+/** Step 79, part C: questions, polls and chat of a webinar. */
+export type ChatMode = "all" | "hosts" | "off";
+export interface WebinarQuestion {
+  id: string;
+  name: string | null;
+  text: string;
+  votes: number;
+  answered: boolean;
+  hidden: boolean;
+  createdAt: string;
+}
+export interface WebinarPoll {
+  id: string;
+  question: string;
+  options: string[];
+  results: "all" | "hosts";
+  closed: boolean;
+  counts?: number[];
+}
+export interface WebinarChatMessage {
+  id: string;
+  identity: string;
+  name: string;
+  text: string;
+  toHosts: boolean;
+  at: string;
+}
+export interface WebinarLiveState {
+  chatMode: ChatMode;
+  anonymousQuestions: boolean;
+  host: boolean;
+  questions: WebinarQuestion[];
+  polls: WebinarPoll[];
+  chat: WebinarChatMessage[];
+  myVotes: { questions: string[]; polls: Record<string, number> };
+}
+
 /** A guest proves its visit with the key only its browser has; a registered viewer with the key of the personal link. */
 export type GuestKey = { guestId: string; key: string } | { registrationId: string; key: string };
 
@@ -191,6 +228,19 @@ export const meet = {
   stage: (code: string) => call<WebinarStage>("GET", `${at(code)}/stage`),
   setStage: (code: string, identity: string, on: boolean) => call<{ ok: true }>("POST", `${at(code)}/stage`, { identity, on }),
   setHost: (code: string, identity: string, on: boolean) => call<{ ok: true }>("POST", `${at(code)}/hosts`, { identity, on }),
+  // Step 79, part C: questions, polls and chat (guests and registered viewers send their key along).
+  webinarState: (code: string, guest?: GuestKey | null) => call<WebinarLiveState>("POST", `${at(code)}/webinar/state`, { ...(guest ?? {}) }),
+  ask: (code: string, text: string, anonymous: boolean, guest?: GuestKey | null) => call<WebinarQuestion>("POST", `${at(code)}/questions`, { text, anonymous, ...(guest ?? {}) }),
+  voteQuestion: (code: string, id: string, up: boolean, guest?: GuestKey | null) =>
+    call<{ ok: true }>("POST", `${at(code)}/questions/${encodeURIComponent(id)}/vote`, { up, ...(guest ?? {}) }),
+  moderateQuestion: (code: string, id: string, change: { answered?: boolean; hidden?: boolean }) => call<{ ok: true }>("POST", `${at(code)}/questions/${encodeURIComponent(id)}`, change),
+  createPoll: (code: string, question: string, options: string[], results: "all" | "hosts") => call<WebinarPoll>("POST", `${at(code)}/polls`, { question, options, results }),
+  votePoll: (code: string, id: string, option: number, guest?: GuestKey | null) =>
+    call<{ ok: true }>("POST", `${at(code)}/polls/${encodeURIComponent(id)}/vote`, { option, ...(guest ?? {}) }),
+  closePoll: (code: string, id: string) => call<{ ok: true }>("POST", `${at(code)}/polls/${encodeURIComponent(id)}/close`),
+  sendChat: (code: string, text: string, guest?: GuestKey | null) => call<WebinarChatMessage>("POST", `${at(code)}/chat`, { text, ...(guest ?? {}) }),
+  liveSettings: (code: string, change: { chatMode?: ChatMode; anonymousQuestions?: boolean }) =>
+    call<{ chatMode: ChatMode; anonymousQuestions: boolean }>("PUT", `${at(code)}/webinar/live`, change),
   // Step 79, part B: registration (public) and, for hosts, the webinar and who registered.
   register: (code: string, input: { name: string; email: string; locale: "de" | "en" }) => call<{ ok: true }>("POST", `${at(code)}/register`, { ...input, consent: true }),
   registration: (code: string, id: string, key: string) =>
