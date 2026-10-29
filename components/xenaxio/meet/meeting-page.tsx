@@ -3,8 +3,10 @@
 // xenaxio step 78: the meeting page /meet/<code>. The platform serves this one
 // page for every meeting link; it reads the code from the address. People of
 // the company (signed in) enter directly; guests give their name and wait in
-// the lobby until someone of the company lets them in.
-import { type CSSProperties, useCallback, useEffect, useState } from "react";
+// the lobby until someone of the company lets them in. Step 79: a webinar has
+// no lobby; a guest gives a name and watches (no camera check).
+import { type CSSProperties, type FormEvent, useCallback, useEffect, useState } from "react";
+import { Input } from "@/components/ui/input";
 import { withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { contrastRatio, usePortal } from "@/lib/xenaxio/portal";
@@ -23,6 +25,25 @@ type Step =
   | { kind: "after"; info: MeetingInfo; reason: LeaveReason | "denied" };
 
 const POLL_MS = 2000;
+
+/** Step 79: a guest of a webinar only watches — a name, no camera check. */
+function WatchJoin({ busy, onSubmit }: { busy: boolean; onSubmit: (c: Choices) => void }) {
+  const { t } = useMeetLang();
+  const [name, setName] = useState("");
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) onSubmit({ name: name.trim(), video: false, audio: false, videoDeviceId: "", audioDeviceId: "" });
+  };
+  return (
+    <form onSubmit={submit} className="w-full max-w-sm space-y-3">
+      <p className="text-center text-sm text-white/70">{t("webinar_watch_hint")}</p>
+      <Input value={name} onChange={(e) => setName(e.target.value)} maxLength={80} placeholder={t("your_name")} aria-label={t("your_name")} className="bg-white/10 text-white placeholder:text-white/40" />
+      <button type="submit" disabled={busy || !name.trim()} className="w-full rounded-lg bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-[var(--meet-accent-text,#fff)] disabled:opacity-50">
+        {t("webinar_watch")}
+      </button>
+    </form>
+  );
+}
 
 function Shell({ children, accent }: { children: React.ReactNode; accent?: string | null }) {
   const { lang, setLang, t } = useMeetLang();
@@ -92,7 +113,12 @@ function Page() {
         const s = await meet.guestStatus(code, visit.guestId, visit.key);
         if (stop) return;
         if (s.state === "admitted" && s.token && s.signalPath) {
-          setStep({ kind: "room", info: step.info, grant: { token: s.token, signalPath: s.signalPath, identity: s.identity ?? "", title: s.title ?? step.info.title }, choices: step.choices });
+          setStep({
+            kind: "room",
+            info: step.info,
+            grant: { token: s.token, signalPath: s.signalPath, identity: s.identity ?? "", title: s.title ?? step.info.title, ...(s.kind ? { kind: s.kind } : {}), ...(s.role ? { role: s.role } : {}) },
+            choices: step.choices,
+          });
         } else if (s.state === "denied" || s.state === "removed" || s.state === "ended") {
           saveGuestVisit(null);
           setStep({ kind: "after", info: step.info, reason: s.state === "denied" ? "denied" : s.state === "ended" ? "ended" : "removed" });
@@ -139,7 +165,18 @@ function Page() {
   if (step.kind === "room" && code) {
     return (
       <div style={accent ? ({ "--meet-accent": accent } as CSSProperties) : undefined}>
-        <MeetingRoom code={code} token={step.grant.token} signalPath={step.grant.signalPath} title={step.grant.title} member={step.info.member} choices={step.choices} onLeave={(r) => left(step.info, r)} />
+        <MeetingRoom
+          code={code}
+          token={step.grant.token}
+          signalPath={step.grant.signalPath}
+          title={step.grant.title}
+          member={step.info.member}
+          choices={step.choices}
+          kind={step.grant.kind ?? "meeting"}
+          role={step.grant.role ?? (step.info.member ? "member" : "guest")}
+          guest={step.info.member ? null : loadGuestVisit(code)}
+          onLeave={(r) => left(step.info, r)}
+        />
       </div>
     );
   }
@@ -160,6 +197,8 @@ function Page() {
           <p className="mb-4 text-center text-sm text-white/60">{t("by_company", { company: step.info.company })}</p>
           {!step.info.member && !step.info.guests ? (
             <p className="max-w-md text-center text-white/80">{meetError(t, "guests_off")}</p>
+          ) : step.info.kind === "webinar" && !step.info.member ? (
+            <WatchJoin busy={busy} onSubmit={(c) => void enter(step.info, c)} />
           ) : (
             <PreJoin askName={!step.info.member} defaultName="" submitLabel={step.info.member ? t("join") : t("ask_to_join")} busy={busy} onSubmit={(c) => void enter(step.info, c)} />
           )}
@@ -168,8 +207,8 @@ function Page() {
       )}
       {step.kind === "waiting" && (
         <div className="max-w-md text-center">
-          <h1 className="mb-2 text-xl font-semibold">{t("waiting_title")}</h1>
-          <p className="text-white/80">{t("waiting_text", { company: step.info.company })}</p>
+          <h1 className="mb-2 text-xl font-semibold">{t(step.info.kind === "webinar" ? "connecting" : "waiting_title")}</h1>
+          {step.info.kind !== "webinar" && <p className="text-white/80">{t("waiting_text", { company: step.info.company })}</p>}
           <div className="mx-auto mt-6 h-2 w-40 overflow-hidden rounded-full bg-white/10">
             <div className="h-full w-1/3 animate-pulse rounded-full bg-[var(--meet-accent,#2563eb)]" />
           </div>

@@ -6,9 +6,14 @@ import { apiFetch, withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 
 export type MeetingState = "open" | "ended" | "expired" | "unavailable";
+/** Step 79: a webinar is a meeting with a stage and viewers who only watch. */
+export type MeetingKind = "meeting" | "webinar";
+/** In a meeting everyone of the company is a "member"; in a webinar hosts, presenters and viewers. */
+export type MeetingRole = "member" | "guest" | "host" | "presenter" | "viewer";
 
 export interface MeetingInfo {
   title: string;
+  kind?: MeetingKind;
   company: string;
   state: MeetingState;
   guests: boolean;
@@ -26,6 +31,7 @@ export interface MeetingInfo {
 export interface MeetingView {
   code: string;
   title: string;
+  kind?: MeetingKind;
   path: string;
   source: string;
   expiresAt: string;
@@ -40,7 +46,20 @@ export interface JoinGrant {
   signalPath: string;
   identity: string;
   title: string;
+  kind?: MeetingKind;
+  role?: MeetingRole;
 }
+
+/** Step 79: for hosts — who is on the stage, who raised a hand, how many watch. */
+export interface WebinarStage {
+  hosts: { identity: string; name: string }[];
+  presenters: { identity: string; name: string; present: boolean }[];
+  hands: { identity: string; name: string; since: string }[];
+  viewers: number;
+}
+
+/** A guest proves its visit with the key only its browser has. */
+export type GuestKey = { guestId: string; key: string };
 
 export type GuestState = "waiting" | "admitted" | "denied" | "removed" | "ended";
 
@@ -97,17 +116,18 @@ const at = (code: string) => `${MEET}/${encodeURIComponent(code)}`;
 
 export const meet = {
   // The employee.
-  status: () => call<{ enabled: boolean; guests: boolean; maxParticipants: number }>("GET", `${MEET}/status`),
+  status: () => call<{ enabled: boolean; guests: boolean; maxParticipants: number; webinars?: boolean; maxViewers?: number }>("GET", `${MEET}/status`),
   mine: () => call<{ meetings: MeetingView[] }>("GET", MEET).then((r) => r.meetings),
   /** `until`: the end of the calendar event the meeting belongs to (the link works a day longer). */
-  create: (title: string, until?: Date) => call<MeetingView>("POST", MEET, { title, ...(until ? { until: until.toISOString() } : {}) }),
+  create: (title: string, until?: Date, kind?: MeetingKind) =>
+    call<MeetingView>("POST", MEET, { title, ...(until ? { until: until.toISOString() } : {}), ...(kind && kind !== "meeting" ? { kind } : {}) }),
   /** Part D: the call of a chat room (the running one, or a new one). */
   roomCall: (roomId: string, kind: "channel" | "dm") =>
     call<MeetingView & { created: boolean }>("POST", `/api/chat/rooms/${encodeURIComponent(roomId)}/call`, { kind }),
   // Everyone (guests too).
   info: (code: string) => call<MeetingInfo>("GET", at(code)),
   join: (code: string) => call<JoinGrant>("POST", `${at(code)}/join`),
-  knock: (code: string, name: string) => call<{ guestId: string; key: string; state: "waiting" }>("POST", `${at(code)}/guests`, { name }),
+  knock: (code: string, name: string) => call<{ guestId: string; key: string; state: "waiting" | "admitted" }>("POST", `${at(code)}/guests`, { name }),
   guestStatus: (code: string, guestId: string, key: string) =>
     call<{ state: GuestState } & Partial<JoinGrant>>("POST", `${at(code)}/guests/${encodeURIComponent(guestId)}/status`, { key }),
   // People of the company in the meeting.
@@ -117,6 +137,12 @@ export const meet = {
   remove: (code: string, identity: string) => call<{ ok: true }>("POST", `${at(code)}/participants/remove`, { identity }),
   mute: (code: string, identity: string) => call<{ ok: true }>("POST", `${at(code)}/participants/mute`, { identity }),
   end: (code: string) => call<{ ok: true }>("POST", `${at(code)}/end`),
+  // Step 79: webinars. Viewers raise a hand and react through the platform.
+  hand: (code: string, raised: boolean, guest?: GuestKey | null) => call<{ ok: true }>("POST", `${at(code)}/hand`, { raised, ...(guest ?? {}) }),
+  reaction: (code: string, emoji: string, guest?: GuestKey | null) => call<{ ok: true }>("POST", `${at(code)}/reaction`, { emoji, ...(guest ?? {}) }),
+  stage: (code: string) => call<WebinarStage>("GET", `${at(code)}/stage`),
+  setStage: (code: string, identity: string, on: boolean) => call<{ ok: true }>("POST", `${at(code)}/stage`, { identity, on }),
+  setHost: (code: string, identity: string, on: boolean) => call<{ ok: true }>("POST", `${at(code)}/hosts`, { identity, on }),
   // The company admin.
   settings: () => call<MeetSettings>("GET", ADMIN),
   saveSettings: (change: { enabled?: boolean; guests?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),

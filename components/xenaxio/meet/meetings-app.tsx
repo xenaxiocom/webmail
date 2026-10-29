@@ -2,9 +2,10 @@
 
 // xenaxio step 78: the "Meetings" section next to mail, calendar and chat:
 // the employee's own meeting links and a new one. A meeting opens in its own
-// tab (/meet/<code>), so mail stays open next to it.
+// tab (/meet/<code>), so mail stays open next to it. Step 79: a webinar
+// instead, where the operator allows it.
 import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { Copy, ExternalLink, Video } from "@/components/icons";
+import { Copy, ExternalLink, Presentation, Video } from "@/components/icons";
 import { InlineAppView } from "@/components/layout/inline-app-view";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { NavigationRail } from "@/components/layout/navigation-rail";
@@ -21,7 +22,7 @@ import { withBasePath } from "@/lib/browser-navigation";
 import { cn } from "@/lib/utils";
 import { XenaxioApiError, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { meet, meetingLink, type MeetingView } from "@/lib/xenaxio/meet";
+import { meet, meetingLink, type MeetingKind, type MeetingView } from "@/lib/xenaxio/meet";
 import { redirectToLogin, saveRedirectAfterLogin, useAuthStore } from "@/stores/auth-store";
 import { useEmailStore } from "@/stores/email-store";
 import { useLocale } from "next-intl";
@@ -44,9 +45,12 @@ function MeetingRow({ m }: { m: MeetingView }) {
   const until = new Intl.DateTimeFormat(locale, { day: "numeric", month: "long", year: "numeric" }).format(new Date(m.expiresAt));
   return (
     <li className="flex flex-wrap items-center gap-3 rounded-lg border border-border px-4 py-3">
-      <Video className="h-5 w-5 text-muted-foreground" />
+      {m.kind === "webinar" ? <Presentation className="h-5 w-5 text-muted-foreground" /> : <Video className="h-5 w-5 text-muted-foreground" />}
       <div className="min-w-0 flex-1">
-        <p className="truncate font-medium">{m.title}</p>
+        <p className="truncate font-medium">
+          {m.title}
+          {m.kind === "webinar" && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">{t("meet.webinar")}</span>}
+        </p>
         <p className="text-xs text-muted-foreground">
           {m.running ? <span className="text-green-600">{t("meet.running", { count: m.participants })}</span> : t("meet.valid_until", { date: until })}
         </p>
@@ -66,6 +70,8 @@ function MeetingRow({ m }: { m: MeetingView }) {
 function MeetingsInside() {
   const t = useXT();
   const [enabled, setEnabled] = useState<boolean | null>(null);
+  const [webinars, setWebinars] = useState(false);
+  const [kind, setKind] = useState<MeetingKind>("meeting");
   const [meetings, setMeetings] = useState<MeetingView[]>([]);
   const [title, setTitle] = useState("");
   const [busy, setBusy] = useState(false);
@@ -75,6 +81,7 @@ function MeetingsInside() {
     try {
       const status = await meet.status();
       setEnabled(status.enabled);
+      setWebinars(!!status.webinars);
       if (status.enabled) setMeetings(await meet.mine());
     } catch (err) {
       setEnabled(false);
@@ -94,7 +101,7 @@ function MeetingsInside() {
     setBusy(true);
     setError(null);
     try {
-      const m = await meet.create(title.trim());
+      const m = await meet.create(title.trim(), undefined, webinars ? kind : "meeting");
       setTitle("");
       setMeetings((list) => [m, ...list]);
       window.open(withBasePath(m.path), "_blank", "noopener");
@@ -121,11 +128,28 @@ function MeetingsInside() {
         <>
           <form onSubmit={create} className="mt-6 flex flex-wrap gap-2">
             <Input value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} placeholder={t("meet.new_placeholder")} className="min-w-0 flex-1" />
+            {webinars && (
+              <div role="radiogroup" aria-label={t("meet.kind_label")} className="flex rounded-md border border-border p-0.5 text-sm">
+                {(["meeting", "webinar"] as MeetingKind[]).map((k) => (
+                  <button
+                    key={k}
+                    type="button"
+                    role="radio"
+                    aria-checked={kind === k}
+                    onClick={() => setKind(k)}
+                    className={cn("rounded px-3 py-1", kind === k ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:text-foreground")}
+                  >
+                    {t(k === "webinar" ? "meet.webinar" : "meet.meeting")}
+                  </button>
+                ))}
+              </div>
+            )}
             <Button type="submit" disabled={busy || !title.trim()}>
-              <Video className="mr-1 h-4 w-4" />
-              {t("meet.create")}
+              {kind === "webinar" && webinars ? <Presentation className="mr-1 h-4 w-4" /> : <Video className="mr-1 h-4 w-4" />}
+              {t(kind === "webinar" && webinars ? "meet.create_webinar" : "meet.create")}
             </Button>
           </form>
+          {webinars && kind === "webinar" && <p className="mt-2 text-xs text-muted-foreground">{t("meet.webinar_hint")}</p>}
           {meetings.length === 0 ? (
             <p className="mt-6 text-sm text-muted-foreground">{t("meet.list_empty")}</p>
           ) : (

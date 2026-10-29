@@ -455,6 +455,9 @@ export interface OperatorTenant {
   meetingsAllowed?: boolean;
   meetingsMaxParticipants?: number | null;
   meetingsMaxHours?: number | null;
+  /** Step 79: webinars (only on a media server of its own) and their viewers (null: the installation's default). */
+  webinarsAllowed?: boolean;
+  webinarsMaxViewers?: number | null;
 }
 
 export interface OperatorReport {
@@ -737,6 +740,8 @@ export const xenaxio = {
         meetingsAllowed?: boolean;
         meetingsMaxParticipants?: number | null;
         meetingsMaxHours?: number | null;
+        webinarsAllowed?: boolean;
+        webinarsMaxViewers?: number | null;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),

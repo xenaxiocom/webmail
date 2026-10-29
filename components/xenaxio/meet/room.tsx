@@ -5,6 +5,10 @@
 // grid with pages or the speaker view, screen sharing, hand, reactions, the
 // people (and for the company: the lobby, mute, remove), the meeting chat,
 // devices, full screen. The meeting chat and hands are not stored anywhere.
+//
+// Step 79: a webinar. Viewers see only the stage (hosts and presenters), send
+// no video or sound, and raise a hand or react through the platform; hosts see
+// the hands, bring viewers onto the stage and take them off, name co-hosts.
 import "@livekit/components-styles";
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -56,7 +60,7 @@ import {
   X,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { isGuest, type LobbyGuest, meet, meetingLink, signalUrl } from "@/lib/xenaxio/meet";
+import { type GuestKey, isGuest, type LobbyGuest, meet, type MeetingKind, type MeetingRole, meetingLink, signalUrl, type WebinarStage } from "@/lib/xenaxio/meet";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import type { Choices } from "./prejoin";
 import { meetError, useMeetLang } from "./lang";
@@ -65,9 +69,16 @@ export type LeaveReason = "left" | "removed" | "ended" | "lost" | "full" | "fail
 
 const HAND_TOPIC = "xen.hand";
 const REACTION_TOPIC = "xen.reaction";
+/** Step 79: the platform tells who went onto the stage or off it. */
+const STAGE_TOPIC = "xen.stage";
 const REACTIONS = ["👍", "👏", "😂", "❤️", "🎉", "😮"];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
+
+/** Step 79: in a webinar only those with the right to send are on the stage. */
+function onStage(p: Participant): boolean {
+  return p.permissions ? p.permissions.canPublish : true;
+}
 
 function initials(name: string): string {
   return name
@@ -121,6 +132,7 @@ function Stage({
   pinned,
   setPinned,
   compact = false,
+  stageOnly = false,
 }: {
   layout: "grid" | "speaker";
   hands: Set<string>;
@@ -128,14 +140,18 @@ function Stage({
   setPinned: (id: string | null) => void;
   /** The dock of a call: only the one who speaks (or a shared screen), no strip of the others. */
   compact?: boolean;
+  /** Step 79: a webinar shows its stage only, not the viewers. */
+  stageOnly?: boolean;
 }) {
-  const tracks = useTracks(
+  const { t } = useMeetLang();
+  const all = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
       { source: Track.Source.ScreenShare, withPlaceholder: false },
     ],
     { updateOnlyOn: [RoomEvent.ActiveSpeakersChanged], onlySubscribed: false },
   );
+  const tracks = stageOnly ? all.filter((tr) => onStage(tr.participant)) : all;
   const room = useRoomContext();
   const screen = tracks.find((tr) => isTrackReference(tr) && tr.publication.source === Track.Source.ScreenShare);
   const key = (tr: TrackReferenceOrPlaceholder) => `${tr.participant.identity}:${tr.source}`;
@@ -148,6 +164,9 @@ function Stage({
   const focus = (pinned && tracks.find((tr) => key(tr) === pinned)) || screen || speaker;
   const click = (tr: TrackReferenceOrPlaceholder) => setPinned(pinned === key(tr) ? null : key(tr));
 
+  if (stageOnly && tracks.length === 0) {
+    return <div className="flex h-full items-center justify-center text-sm text-white/60">{t("stage_empty")}</div>;
+  }
   if (compact && focus) {
     return (
       <div className="h-full">
@@ -167,7 +186,8 @@ function Stage({
     );
   }
   return (
-    <GridLayout tracks={tracks} className="h-full">
+    // A webinar's stage changes who is in the list: a new grid then (its stable pages would look for the old tiles).
+    <GridLayout key={stageOnly ? tracks.map(key).join("|") : undefined} tracks={tracks} className="h-full">
       <ClickableTile hands={hands} onClick={click} />
     </GridLayout>
   );
@@ -412,6 +432,146 @@ function PeoplePanel({ code, member, hands, lobby, onDecide }: { code: string; m
   );
 }
 
+/**
+ * Step 79: the people of a webinar. Hosts see the raised hands (from the
+ * platform, also those raised before they came), the stage and the viewers,
+ * and bring people onto the stage or take them off; viewers see the stage and
+ * how many watch.
+ */
+function WebinarPeople({ code, host, hands }: { code: string; host: boolean; hands: Set<string> }) {
+  const { t } = useMeetLang();
+  const people = useParticipants();
+  const [stage, setStage] = useState<WebinarStage | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const load = useCallback(async () => {
+    if (!host) return;
+    try {
+      setStage(await meet.stage(code));
+    } catch {
+      // Next round.
+    }
+  }, [code, host]);
+  useEffect(() => {
+    void load();
+    if (!host) return;
+    const timer = setInterval(() => void load(), 4000);
+    return () => clearInterval(timer);
+  }, [load, host, hands.size]);
+  const act = async (fn: () => Promise<unknown>, confirmText?: string) => {
+    if (confirmText && !window.confirm(confirmText)) return;
+    setError(null);
+    try {
+      await fn();
+      await load();
+    } catch (err) {
+      setError(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+    }
+  };
+  const front = people.filter(onStage);
+  const viewers = people.filter((p) => !onStage(p));
+  const hostIds = new Set(stage?.hosts.map((h) => h.identity) ?? []);
+  const raised = stage ? stage.hands : viewers.filter((p) => hands.has(p.identity)).map((p) => ({ identity: p.identity, name: p.name || p.identity, since: "" }));
+  const small = "rounded-md px-2 py-1 text-xs";
+  const name = (p: Participant) => p.name || p.identity;
+  return (
+    <div className="space-y-4">
+      {host && raised.length > 0 && (
+        <section>
+          <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/60">{t("hands_title", { count: raised.length })}</h3>
+          <ul className="space-y-2">
+            {raised.map((h) => (
+              <li key={h.identity} className="flex items-center gap-2 text-sm">
+                <span className="min-w-0 flex-1 truncate">✋ {h.name}</span>
+                <button type="button" onClick={() => void act(() => meet.setStage(code, h.identity, true))} className={cn(small, "bg-green-600")}>
+                  {t("bring_on_stage")}
+                </button>
+                <button type="button" onClick={() => void act(() => meet.setStage(code, h.identity, false))} className={cn(small, "bg-white/10")}>
+                  {t("lower_their_hand")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+      <section>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/60">{t("stage_title")}</h3>
+        <ul className="space-y-1.5">
+          {front.map((p) => (
+            <li key={p.identity} className="flex items-center gap-2 text-sm">
+              <span className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full bg-white/15 text-xs">{initials(name(p))}</span>
+              <span className="min-w-0 flex-1 truncate">
+                {name(p)}
+                {p.isLocal && <span className="text-white/60"> {t("you")}</span>}
+                {hostIds.has(p.identity) && <span className="ml-1 text-xs text-white/60">· {t("host")}</span>}
+              </span>
+              {p.isMicrophoneEnabled ? <Mic className="h-4 w-4 text-white/70" /> : <MicOff className="h-4 w-4 text-white/40" />}
+              {host && !p.isLocal && (
+                <>
+                  {p.isMicrophoneEnabled && (
+                    <button type="button" title={t("mute")} aria-label={t("mute")} onClick={() => void act(() => meet.mute(code, p.identity))} className="rounded p-1 hover:bg-white/10">
+                      <MicOff className="h-4 w-4" />
+                    </button>
+                  )}
+                  {hostIds.has(p.identity) ? (
+                    !isGuest(p.identity) && (
+                      <button type="button" onClick={() => void act(() => meet.setHost(code, p.identity, false))} className={cn(small, "bg-white/10")}>
+                        {t("remove_cohost")}
+                      </button>
+                    )
+                  ) : (
+                    <button type="button" onClick={() => void act(() => meet.setStage(code, p.identity, false))} className={cn(small, "bg-white/10")}>
+                      {t("take_off_stage")}
+                    </button>
+                  )}
+                </>
+              )}
+            </li>
+          ))}
+        </ul>
+      </section>
+      <section>
+        <h3 className="mb-2 text-xs font-semibold uppercase tracking-wide text-white/60">{t(viewers.length === 1 ? "viewers_one" : "viewers", { count: viewers.length })}</h3>
+        {host && (
+          <ul className="space-y-1.5">
+            {viewers.map((p) => (
+              <li key={p.identity} className="flex items-center gap-2 text-sm">
+                <span className="min-w-0 flex-1 truncate">
+                  {name(p)}
+                  {p.isLocal && <span className="text-white/60"> {t("you")}</span>}
+                  {isGuest(p.identity) && <span className="ml-1 text-xs text-white/60">· {t("guest")}</span>}
+                  {hands.has(p.identity) && <span className="ml-1">✋</span>}
+                </span>
+                {!p.isLocal && (
+                  <>
+                    <button type="button" onClick={() => void act(() => meet.setStage(code, p.identity, true))} className={cn(small, "bg-white/10")}>
+                      {t("bring_on_stage")}
+                    </button>
+                    {!isGuest(p.identity) && (
+                      <button type="button" onClick={() => void act(() => meet.setHost(code, p.identity, true))} className={cn(small, "bg-white/10")}>
+                        {t("make_cohost")}
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      title={t("remove")}
+                      aria-label={t("remove")}
+                      onClick={() => void act(() => meet.remove(code, p.identity), t("remove_confirm", { name: name(p) }))}
+                      className="rounded p-1 hover:bg-white/10"
+                    >
+                      <UserX className="h-4 w-4" />
+                    </button>
+                  </>
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+      {error && <p className="text-sm text-red-300">{error}</p>}
+    </div>
+  );
+}
+
 type Panel = "people" | "chat" | "devices" | null;
 
 /**
@@ -427,6 +587,9 @@ function Meeting({
   onEnd,
   variant = "page",
   onResize,
+  kind = "meeting",
+  role = "member",
+  guest = null,
 }: {
   code: string;
   member: boolean;
@@ -434,8 +597,12 @@ function Meeting({
   onEnd: () => void;
   variant?: MeetingVariant;
   onResize?: (full: boolean) => void;
+  kind?: MeetingKind;
+  role?: MeetingRole;
+  guest?: GuestKey | null;
 }) {
   const dock = variant === "dock";
+  const webinar = kind === "webinar";
   const { t } = useMeetLang();
   const room = useRoomContext();
   const state = useConnectionState();
@@ -452,6 +619,24 @@ function Meeting({
   const [notice, setNotice] = useState<string | null>(null);
   const audio = useStartAudio({ room, props: {} });
   const myHand = hands.has(localParticipant.identity);
+  // Step 79: the role changes when a host brings this person onto the stage or takes them off.
+  const [myRole, setMyRole] = useState<MeetingRole>(role);
+  const sends = !webinar || myRole === "host" || myRole === "presenter";
+  const moderator = webinar ? myRole === "host" : member;
+  const [, setPermissions] = useState(0);
+  useEffect(() => {
+    const changed = () => setPermissions((n) => n + 1);
+    room.on(RoomEvent.ParticipantPermissionsChanged, changed);
+    return () => {
+      room.off(RoomEvent.ParticipantPermissionsChanged, changed);
+    };
+  }, [room]);
+  useDataChannel(STAGE_TOPIC, (msg) => {
+    const data = JSON.parse(decoder.decode(msg.payload)) as { identity?: string; role?: MeetingRole };
+    if (data.identity !== localParticipant.identity || !data.role) return;
+    setMyRole(data.role);
+    setNotice(t(data.role === "presenter" ? "on_stage_now" : data.role === "host" ? "cohost_now" : "off_stage_now"));
+  });
   // The chat listens all the time; the button counts what came while it was closed.
   const chat = useChat();
   const [readCount, setReadCount] = useState(0);
@@ -470,22 +655,28 @@ function Meeting({
     });
   }, []);
   const handChannel = useDataChannel(HAND_TOPIC, (msg) => {
-    const from = msg.from?.identity;
+    // Step 79: a webinar viewer's hand comes from the platform, with who raised it.
+    const data = JSON.parse(decoder.decode(msg.payload)) as { raised: boolean; identity?: string; name?: string };
+    const from = msg.from?.identity ?? data.identity;
     if (!from) return;
-    const { raised } = JSON.parse(decoder.decode(msg.payload)) as { raised: boolean };
-    setHand(from, raised);
-    if (raised) setNotice(t("hand_raised", { name: msg.from?.name || from }));
+    setHand(from, data.raised);
+    if (data.raised && (!webinar || moderator)) setNotice(t("hand_raised", { name: msg.from?.name || data.name || from }));
   });
   const sendHand = useCallback(
     (raised: boolean) => {
       setHand(localParticipant.identity, raised);
-      void handChannel.send(encoder.encode(JSON.stringify({ raised })), { reliable: true });
+      if (sends) void handChannel.send(encoder.encode(JSON.stringify({ raised })), { reliable: true });
+      else
+        void meet.hand(code, raised, guest).catch((err: unknown) => {
+          setHand(localParticipant.identity, !raised);
+          setNotice(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+        });
     },
-    [handChannel, localParticipant.identity, setHand],
+    [handChannel, localParticipant.identity, setHand, sends, code, guest, t],
   );
   useEffect(() => {
     const again = () => {
-      if (myHand) void handChannel.send(encoder.encode(JSON.stringify({ raised: true })), { reliable: true });
+      if (myHand && sends) void handChannel.send(encoder.encode(JSON.stringify({ raised: true })), { reliable: true });
     };
     const gone = (p: Participant) => setHand(p.identity, false);
     room.on(RoomEvent.ParticipantConnected, again);
@@ -494,7 +685,7 @@ function Meeting({
       room.off(RoomEvent.ParticipantConnected, again);
       room.off(RoomEvent.ParticipantDisconnected, gone);
     };
-  }, [room, myHand, handChannel, setHand]);
+  }, [room, myHand, handChannel, setHand, sends]);
 
   // Reactions fly up for a few seconds.
   const fly = useCallback((emoji: string, name: string) => {
@@ -503,18 +694,20 @@ function Meeting({
     setTimeout(() => setFlying((f) => f.filter((x) => x.id !== id)), 4000);
   }, []);
   const reactionChannel = useDataChannel(REACTION_TOPIC, (msg) => {
-    const { emoji } = JSON.parse(decoder.decode(msg.payload)) as { emoji: string };
-    if (REACTIONS.includes(emoji)) fly(emoji, msg.from?.name || msg.from?.identity || "");
+    const data = JSON.parse(decoder.decode(msg.payload)) as { emoji: string; identity?: string; name?: string };
+    if (data.identity && data.identity === localParticipant.identity) return;
+    if (REACTIONS.includes(data.emoji)) fly(data.emoji, msg.from?.name || msg.from?.identity || data.name || "");
   });
   const react = (emoji: string) => {
     setReactionsOpen(false);
     fly(emoji, t("you_short"));
-    void reactionChannel.send(encoder.encode(JSON.stringify({ emoji })), { reliable: false });
+    if (sends) void reactionChannel.send(encoder.encode(JSON.stringify({ emoji })), { reliable: false });
+    else void meet.reaction(code, emoji, guest).catch(() => undefined);
   };
 
-  // The lobby, for people of the company: who waits now.
+  // The lobby, for people of the company: who waits now (a webinar has none).
   useEffect(() => {
-    if (!member) return;
+    if (!member || webinar) return;
     let stop = false;
     let known = new Set<string>();
     const load = async () => {
@@ -535,7 +728,7 @@ function Meeting({
       stop = true;
       clearInterval(timer);
     };
-  }, [member, code, t]);
+  }, [member, webinar, code, t]);
   const decide = async (id: string, admit: boolean) => {
     setLobby((l) => l.filter((g) => g.id !== id));
     await meet.decide(code, id, admit).catch(() => undefined);
@@ -573,14 +766,21 @@ function Meeting({
     <div
       className={cn(
         "flex flex-col bg-[#111] text-white",
-        variant === "page" && "h-dvh",
+        variant === "page" && "relative h-dvh",
         variant === "full" && "fixed inset-0 z-50 h-dvh",
         dock && "fixed inset-x-2 bottom-20 z-50 h-[300px] overflow-hidden rounded-xl border border-white/10 shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[400px]",
       )}
     >
       <header className={cn("flex items-center gap-3 text-sm", dock ? "px-3 py-1.5" : "px-4 py-2")}>
-        <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
-        <span className="text-white/60">{t(people.length === 1 ? "people_one" : "people", { count: people.length })}</span>
+        <span className="min-w-0 flex-1 truncate font-medium">
+          {title}
+          {webinar && <span className="ml-2 rounded bg-white/15 px-1.5 py-0.5 text-xs font-normal">{t("webinar")}</span>}
+        </span>
+        <span className="text-white/60">
+          {webinar
+            ? t(people.filter((p) => !onStage(p)).length === 1 ? "viewers_one" : "viewers", { count: people.filter((p) => !onStage(p)).length })
+            : t(people.length === 1 ? "people_one" : "people", { count: people.length })}
+        </span>
         {!dock && (
           <button type="button" onClick={() => void copy()} className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 hover:bg-white/20">
             <Copy className="h-4 w-4" /> {copied ? t("link_copied") : t("copy_link")}
@@ -600,8 +800,8 @@ function Meeting({
       )}
       <div className="relative flex min-h-0 flex-1">
         <main className={cn("relative min-w-0 flex-1", dock ? "p-1" : "p-2")} data-lk-theme="default">
-          <Stage layout={dock ? "speaker" : layout} hands={hands} pinned={pinned} setPinned={setPinned} compact={dock} />
-          {people.length === 1 && !dock && <p className="pointer-events-none absolute inset-x-0 top-6 text-center text-sm text-white/70">{t("alone")}</p>}
+          <Stage layout={dock ? "speaker" : layout} hands={hands} pinned={pinned} setPinned={setPinned} compact={dock} stageOnly={webinar} />
+          {people.length === 1 && !dock && !webinar && <p className="pointer-events-none absolute inset-x-0 top-6 text-center text-sm text-white/70">{t("alone")}</p>}
           <div className="pointer-events-none absolute bottom-4 left-4 flex flex-col gap-1">
             {flying.map((f) => (
               <span key={f.id} className="animate-bounce text-3xl" title={f.name}>
@@ -620,13 +820,28 @@ function Meeting({
               </button>
             </div>
             <div className="min-h-0 flex-1 overflow-y-auto">
-              {panel === "people" && <PeoplePanel code={code} member={member} hands={hands} lobby={lobby} onDecide={(id, admit) => void decide(id, admit)} />}
+              {panel === "people" &&
+                (webinar ? (
+                  <WebinarPeople code={code} host={moderator} hands={hands} />
+                ) : (
+                  <PeoplePanel code={code} member={member} hands={hands} lobby={lobby} onDecide={(id, admit) => void decide(id, admit)} />
+                ))}
               {panel === "chat" && <ChatPanel chat={chat} />}
               {panel === "devices" && <DevicePanel />}
             </div>
           </aside>
         )}
       </div>
+      {/* Above the footer, not inside it: the footer scrolls sideways on phones and would clip it. */}
+      {reactionsOpen && !dock && (
+        <div className="absolute bottom-20 left-1/2 z-30 flex -translate-x-1/2 gap-1 rounded-full bg-[#222] p-1 shadow-lg">
+          {REACTIONS.map((e) => (
+            <button key={e} type="button" onClick={() => react(e)} className="rounded-full p-1.5 text-xl hover:bg-white/10">
+              {e}
+            </button>
+          ))}
+        </div>
+      )}
       {dock ? (
         <footer className="flex items-center justify-center gap-2 px-2 py-2">
           <MediaToggle source={Track.Source.Microphone} />
@@ -638,37 +853,35 @@ function Meeting({
         </footer>
       ) : (
       <footer className="relative flex items-center justify-center gap-2 overflow-x-auto px-3 py-3">
-        <MediaToggle source={Track.Source.Microphone} />
-        <MediaToggle source={Track.Source.Camera} />
-        {mobile && (
+        {/* Step 79: a webinar viewer sends no video or sound until a host brings them onto the stage. */}
+        {sends && <MediaToggle source={Track.Source.Microphone} />}
+        {sends && <MediaToggle source={Track.Source.Camera} />}
+        {mobile && sends && (
           <RoundButton label={t("switch_camera")} onClick={() => void switchCamera()}>
             <SwitchCamera className="h-5 w-5" />
           </RoundButton>
         )}
-        <MediaToggle source={Track.Source.ScreenShare} />
+        {sends && <MediaToggle source={Track.Source.ScreenShare} />}
         <RoundButton label={myHand ? t("lower_hand") : t("raise_hand")} onClick={() => sendHand(!myHand)} active={myHand}>
           <Hand className="h-5 w-5" />
         </RoundButton>
-        <div className="relative">
-          <RoundButton label={t("reactions")} onClick={() => setReactionsOpen((o) => !o)} active={reactionsOpen}>
-            <Smile className="h-5 w-5" />
-          </RoundButton>
-          {reactionsOpen && (
-            <div className="absolute bottom-14 left-1/2 flex -translate-x-1/2 gap-1 rounded-full bg-[#222] p-1 shadow-lg">
-              {REACTIONS.map((e) => (
-                <button key={e} type="button" onClick={() => react(e)} className="rounded-full p-1.5 text-xl hover:bg-white/10">
-                  {e}
-                </button>
-              ))}
-            </div>
-          )}
-        </div>
-        <RoundButton label={t("people_title")} onClick={() => setPanel(panel === "people" ? null : "people")} active={panel === "people"} badge={member ? lobby.length : 0}>
+        <RoundButton label={t("reactions")} onClick={() => setReactionsOpen((o) => !o)} active={reactionsOpen}>
+          <Smile className="h-5 w-5" />
+        </RoundButton>
+        <RoundButton
+          label={t("people_title")}
+          onClick={() => setPanel(panel === "people" ? null : "people")}
+          active={panel === "people"}
+          badge={webinar ? (moderator ? people.filter((p) => !onStage(p) && hands.has(p.identity)).length : 0) : member ? lobby.length : 0}
+        >
           <Users className="h-5 w-5" />
         </RoundButton>
-        <RoundButton label={t("chat")} onClick={() => setPanel(panel === "chat" ? null : "chat")} active={panel === "chat"} badge={unread}>
-          <MessageSquare className="h-5 w-5" />
-        </RoundButton>
+        {/* Step 79: a webinar's chat and questions for viewers come with part C. */}
+        {sends && (
+          <RoundButton label={t("chat")} onClick={() => setPanel(panel === "chat" ? null : "chat")} active={panel === "chat"} badge={unread}>
+            <MessageSquare className="h-5 w-5" />
+          </RoundButton>
+        )}
         <RoundButton label={layout === "grid" ? t("layout_speaker") : t("layout_grid")} onClick={() => setLayout(layout === "grid" ? "speaker" : "grid")}>
           <LayoutGrid className="h-5 w-5" />
         </RoundButton>
@@ -683,7 +896,7 @@ function Meeting({
         <RoundButton label={t("leave")} onClick={() => void room.disconnect()} danger>
           <PhoneOff className="h-5 w-5" />
         </RoundButton>
-        {member && (
+        {moderator && (
           <button type="button" onClick={() => void endForAll()} className="shrink-0 rounded-full bg-red-900 px-3 py-2 text-sm hover:bg-red-800">
             {t("end_for_all")}
           </button>
@@ -705,6 +918,9 @@ export function MeetingRoom({
   onLeave,
   variant = "page",
   onResize,
+  kind = "meeting",
+  role = "member",
+  guest = null,
 }: {
   code: string;
   token: string;
@@ -715,8 +931,15 @@ export function MeetingRoom({
   onLeave: (reason: LeaveReason) => void;
   variant?: MeetingVariant;
   onResize?: (full: boolean) => void;
+  /** Step 79: a webinar and this person's role in it. */
+  kind?: MeetingKind;
+  role?: MeetingRole;
+  /** A guest's visit: its hand and reactions in a webinar go through the platform. */
+  guest?: GuestKey | null;
 }) {
   const ended = useRef(false);
+  // A webinar viewer has no right to send: camera and microphone stay off.
+  const watchOnly = role === "viewer";
   const leave = useCallback(
     (reason: LeaveReason) => {
       if (ended.current) return;
@@ -739,8 +962,8 @@ export function MeetingRoom({
       serverUrl={signalUrl(signalPath)}
       token={token}
       connect
-      video={choices.video}
-      audio={choices.audio}
+      video={choices.video && !watchOnly}
+      audio={choices.audio && !watchOnly}
       options={options}
       onDisconnected={(reason) => {
         if (reason === DisconnectReason.PARTICIPANT_REMOVED) leave("removed");
@@ -757,7 +980,7 @@ export function MeetingRoom({
       // A dock or full-screen call places itself; only the page takes the height.
       style={variant === "page" ? { height: "100dvh" } : { display: "contents" }}
     >
-      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} />
+      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} kind={kind} role={role} guest={guest} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );
