@@ -22,6 +22,8 @@ export function XenaxioDemoStrip() {
   const [now, setNow] = useState(() => Date.now());
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Step 73c: "End demo" first asks whether we may get in touch.
+  const [leaving, setLeaving] = useState(false);
 
   useEffect(() => setDemo(me?.demo ?? null), [me?.demo]);
   useEffect(() => {
@@ -54,7 +56,6 @@ export function XenaxioDemoStrip() {
   };
 
   const end = async () => {
-    if (!window.confirm(t("demo.end_confirm"))) return;
     setBusy(true);
     try {
       const { links } = await xenaxio.demoEnd();
@@ -84,10 +85,61 @@ export function XenaxioDemoStrip() {
       <a className={link} href={demo.links.quote} target="_blank" rel="noopener">
         {t("demo.quote")}
       </a>
-      <button type="button" className={link} onClick={end} disabled={busy}>
+      <button type="button" className={link} onClick={() => setLeaving(true)} disabled={busy}>
         {t("demo.end")}
       </button>
       {error && <span className="text-destructive">{error}</span>}
+      {leaving && <DemoGoodbye busy={busy} onEnd={end} onCancel={() => setLeaving(false)} />}
+    </div>
+  );
+}
+
+/**
+ * Step 73c: before the demo ends, the guest may leave their details so we get
+ * in touch (a "Live Demo" lead); ending without them is one click too.
+ */
+function DemoGoodbye({ busy, onEnd, onCancel }: { busy: boolean; onEnd: () => Promise<void>; onCancel: () => void }) {
+  const t = useXT();
+  const [form, setForm] = useState({ first_name: "", last_name: "", email: "", company: "", consent: false });
+  const [state, setState] = useState<"idle" | "sending" | "sent" | "failed">("idle");
+  const ready = form.first_name.trim() && form.last_name.trim() && /.+@.+\..+/.test(form.email) && form.company.trim() && form.consent;
+  const field = "h-8 rounded-md border border-border bg-background px-2 text-sm";
+  const send = async () => {
+    setState("sending");
+    try {
+      await xenaxio.demoLead({ ...form, first_name: form.first_name.trim(), last_name: form.last_name.trim(), email: form.email.trim(), company: form.company.trim() });
+      setState("sent");
+      await onEnd();
+    } catch {
+      setState("failed");
+    }
+  };
+  return (
+    <div className="w-full max-w-xl space-y-2 rounded-md border border-border bg-background p-3 text-left">
+      <p className="font-medium">{t("demo.goodbye_title")}</p>
+      <p className="text-muted-foreground">{t("demo.goodbye_text")}</p>
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        <input className={field} placeholder={t("demo.first_name")} aria-label={t("demo.first_name")} value={form.first_name} maxLength={40} onChange={(e) => setForm({ ...form, first_name: e.target.value })} />
+        <input className={field} placeholder={t("demo.last_name")} aria-label={t("demo.last_name")} value={form.last_name} maxLength={80} onChange={(e) => setForm({ ...form, last_name: e.target.value })} />
+        <input className={field} type="email" placeholder={t("demo.email")} aria-label={t("demo.email")} value={form.email} maxLength={80} onChange={(e) => setForm({ ...form, email: e.target.value })} />
+        <input className={field} placeholder={t("demo.company")} aria-label={t("demo.company")} value={form.company} maxLength={40} onChange={(e) => setForm({ ...form, company: e.target.value })} />
+      </div>
+      <label className="flex items-start gap-2 text-xs text-muted-foreground">
+        <input type="checkbox" checked={form.consent} onChange={(e) => setForm({ ...form, consent: e.target.checked })} />
+        <span>{t("demo.consent")}</span>
+      </label>
+      {state === "failed" && <p className="text-xs text-destructive">{t("demo.lead_failed")}</p>}
+      <div className="flex flex-wrap gap-3">
+        <button type="button" className="rounded-md bg-primary px-3 py-1.5 text-sm font-medium text-primary-foreground disabled:opacity-50" onClick={send} disabled={!ready || busy || state === "sending"}>
+          {t("demo.send_and_end")}
+        </button>
+        <button type="button" className="text-sm underline underline-offset-2" onClick={() => void onEnd()} disabled={busy}>
+          {t("demo.just_end")}
+        </button>
+        <button type="button" className="text-sm text-muted-foreground underline underline-offset-2" onClick={onCancel} disabled={busy}>
+          {t("demo.keep_trying")}
+        </button>
+      </div>
     </div>
   );
 }

@@ -1854,6 +1854,22 @@
     "book": "Demo buchen",
     "quote": "Angebot anfragen",
     "end": "Demo beenden",
-    "end_confirm": "Demo jetzt beenden? Alles, was Sie eingegeben haben, wird gelöscht."
+    "prompts_label": "Fragen zum Ausprobieren",
+    "prompt_price": "Was haben wir mit der Müller GmbH zum Preis vereinbart?",
+    "prompt_unread": "Fasse meine ungelesenen E-Mails zusammen.",
+    "prompt_rooms": "Was habe ich in Rooms verpasst?",
+    "prompt_tasks": "Welche Aufgaben sind diese Woche fällig?",
+    "prompt_slot": "Finde nächste Woche eine Stunde mit Jonas für die Baubesprechung Lindenstraße.",
+    "goodbye_title": "Bevor Sie gehen",
+    "goodbye_text": "Sollen wir uns bei Ihnen melden – mit Antworten auf Ihre Fragen und einem Angebot? Alles, was Sie in der Demo eingegeben haben, wird gelöscht.",
+    "first_name": "Vorname",
+    "last_name": "Nachname",
+    "email": "E-Mail",
+    "company": "Firma",
+    "consent": "Ich bin einverstanden, dass Xenaxio meine Angaben speichert, um mich zu kontaktieren (Datenschutzerklärung auf xenaxio.com).",
+    "send_and_end": "Senden und Demo beenden",
+    "just_end": "Nur beenden",
+    "keep_trying": "Weiter ausprobieren",
+    "lead_failed": "Das hat nicht geklappt. Schreiben Sie uns gern an requests@xenaxio.com."
   }
 }

@@ -1854,6 +1854,22 @@
     "book": "Book a demo",
     "quote": "Request a quote",
     "end": "End demo",
-    "end_confirm": "End the demo now? Everything you entered is deleted."
+    "prompts_label": "Questions to try",
+    "prompt_price": "What price did we agree with Müller GmbH?",
+    "prompt_unread": "Summarise my unread emails.",
+    "prompt_rooms": "What did I miss in Rooms?",
+    "prompt_tasks": "Which tasks are due this week?",
+    "prompt_slot": "Find an hour with Jonas next week for the Lindenstraße site meeting.",
+    "goodbye_title": "Before you go",
+    "goodbye_text": "Shall we get in touch – with answers to your questions and a quote? Everything you entered in the demo is deleted.",
+    "first_name": "First name",
+    "last_name": "Last name",
+    "email": "Email",
+    "company": "Company",
+    "consent": "I agree that Xenaxio stores my details to contact me (privacy policy on xenaxio.com).",
+    "send_and_end": "Send and end demo",
+    "just_end": "Just end",
+    "keep_trying": "Keep exploring",
+    "lead_failed": "That did not work. Feel free to write to requests@xenaxio.com."
   }
 }

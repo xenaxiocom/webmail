@@ -48,4 +48,22 @@ describe("live demo strip (step 73)", () => {
     expect(screen.getByText(/wird in 72 Min. zurückgesetzt/)).toBeTruthy();
     expect(screen.queryByText("+30 Min.")).toBeNull();
   });
+
+  it("asks for contact details before ending, sending only with consent (step 73c)", async () => {
+    signedIn({ expiresAt: new Date(Date.now() + 30 * 60_000).toISOString(), extendable: false, links });
+    render(<XenaxioDemoStrip />);
+    fireEvent.click(screen.getByText("Demo beenden"));
+    const send = screen.getByText("Senden und Demo beenden") as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Vorname"), { target: { value: "Eva" } });
+    fireEvent.change(screen.getByLabelText("Nachname"), { target: { value: "Klein" } });
+    fireEvent.change(screen.getByLabelText("E-Mail"), { target: { value: "eva@firma.example" } });
+    fireEvent.change(screen.getByLabelText("Firma"), { target: { value: "Firma GmbH" } });
+    expect(send.disabled).toBe(true);
+    fireEvent.click(screen.getByRole("checkbox"));
+    expect(send.disabled).toBe(false);
+    // Back to the demo without ending it.
+    fireEvent.click(screen.getByText("Weiter ausprobieren"));
+    expect(screen.queryByText("Senden und Demo beenden")).toBeNull();
+  });
 });
