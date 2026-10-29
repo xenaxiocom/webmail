@@ -631,7 +631,12 @@
     "notice_custom_model_fallback": "Answer from the AI by Xenaxio – your company's own AI model could not be reached.",
     "open_unread": "Open assistant – {count} new results",
     "scheduled_chat": "Scheduled task",
-    "unread": "New"
+    "unread": "New",
+    "notice_history_summarized": "Older parts of the chat were summarised so the conversation can go on.",
+    "plan_title": "Plan",
+    "budget_reached": "The limit for one answer is reached.",
+    "continue": "Continue",
+    "continue_message": "Please continue with the task."
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -784,7 +789,18 @@
     "schedules_interval_day": "1 day",
     "schedules_note": "When you lower the limits, the newest tasks above the limit and tasks that run too often are paused, with a note to the person. Every run uses AI quota.",
     "schedules_save": "Save",
-    "schedules_saved_paused": "Saved. Paused because they no longer fit the limits: {count}."
+    "schedules_saved_paused": "Saved. Paused because they no longer fit the limits: {count}.",
+    "answers_title": "Long tasks",
+    "answers_intro": "How far the assistant may go in one answer. When the limit is reached, \"Continue\" picks up from there.",
+    "answers_classic": "Your company still uses the classic AI engine; these limits apply with Xenacore.",
+    "answers_steps": "Steps per answer",
+    "answers_tokens": "Tokens per answer",
+    "answers_range": "{min}–{max}, default {def}",
+    "answers_default": "Default",
+    "answers_save": "Save",
+    "context_label": "Context size (tokens)",
+    "context_hint": "How much text your model takes at once; see the model's description. Default 32,000.",
+    "context_save": "Apply"
   },
   "audit": {
     "title": "Audit log",

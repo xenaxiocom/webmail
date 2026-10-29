@@ -13,6 +13,7 @@ import { Notice, PasswordField, Spinner, TextField } from "@/components/xenaxio/
 import { CustomModelCheckResult } from "@/components/xenaxio/custom-model-check";
 import { CustomModelList } from "@/components/xenaxio/custom-model-list";
 import { ScheduleSettings } from "@/components/xenaxio/schedule-settings";
+import { AnswerSettings } from "@/components/xenaxio/answer-settings";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { type AiAdmin, type AiProvider, type CustomModel, type CustomModelCheck, errorText, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -383,6 +384,8 @@ function AiSettings() {
         }}
       />
       {data.custom && <CustomModelList custom={data.custom} platformConfigured={data.platformConfigured} onChanged={load} />}
+
+      {data.answers && <AnswerSettings value={data.answers} onSaved={load} />}
 
       {data.schedules && <ScheduleSettings value={data.schedules} onSaved={load} />}
 

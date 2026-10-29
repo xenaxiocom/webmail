@@ -37,6 +37,8 @@ export function CustomModelList({ custom, platformConfigured, onChanged }: { cus
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [shown, setShown] = useState<string | null>(null);
+  // Step 83: the window of the own model, in tokens.
+  const [context, setContext] = useState(custom.contextTokens ?? 32_000);
 
   const act = async (key: string, run: () => Promise<unknown>) => {
     setBusy(key);
@@ -107,6 +109,32 @@ export function CustomModelList({ custom, platformConfigured, onChanged }: { cus
         </label>
         <p className="pl-6 text-xs text-muted-foreground">{platformConfigured ? t("aiadmin.fallback_hint") : t("aiadmin.fallback_unavailable")}</p>
       </div>
+
+      {custom.contextTokens !== undefined && (
+        <div className="space-y-1">
+          <label htmlFor="ai-context-tokens" className="block text-sm font-medium">
+            {t("aiadmin.context_label")}
+          </label>
+          <div className="flex flex-wrap items-center gap-2">
+            <input
+              id="ai-context-tokens"
+              type="number"
+              inputMode="numeric"
+              className="w-36 rounded-md border border-input bg-background px-3 py-2 text-sm"
+              min={4_000}
+              max={1_000_000}
+              step={1_000}
+              value={Number.isNaN(context) ? "" : context}
+              disabled={busy !== null}
+              onChange={(e) => setContext(e.target.valueAsNumber)}
+            />
+            <Button type="button" size="sm" variant="outline" disabled={busy !== null || Number.isNaN(context) || context === custom.contextTokens} onClick={() => act("context", () => xenaxio.setCustomModelContext(context))}>
+              {t("aiadmin.context_save")}
+            </Button>
+          </div>
+          <p className="text-xs text-muted-foreground">{t("aiadmin.context_hint")}</p>
+        </div>
+      )}
 
       {error && <Notice kind="error">{error}</Notice>}
     </section>

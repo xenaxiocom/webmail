@@ -102,8 +102,18 @@ export type AssistantEvent =
   | { type: "proposal"; id: string; tool: string; summary: ProposalSummary }
   | { type: "done"; inputTokens: number; outputTokens: number }
   | { type: "error"; code: string }
-  /** Step 45: the company's own model did not answer; the AI by xenaxio answered instead. */
-  | { type: "notice"; code: "custom_model_fallback" };
+  /** Step 45: the company's own model did not answer; the AI by xenaxio answered instead. Step 83: the older chat was summarised. */
+  | { type: "notice"; code: "custom_model_fallback" | "history_summarized" }
+  /** Step 83 (Xenacore): the plan of a longer task, shown as a checklist. */
+  | { type: "plan"; items: PlanItem[] }
+  /** Step 83 (Xenacore): the answer stopped at the company's limit; "Weiter" goes on. */
+  | { type: "budget"; reason: "tool_calls" | "tokens" };
+
+/** Step 83: one step of the assistant's plan. */
+export interface PlanItem {
+  text: string;
+  status: "todo" | "doing" | "done";
+}
 
 async function post(path: string, body: unknown, signal?: AbortSignal): Promise<Response> {
   let res: Response;

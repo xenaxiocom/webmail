@@ -631,7 +631,12 @@
     "notice_custom_model_fallback": "Antwort von der KI von Xenaxio – das eigene KI-Modell Ihres Unternehmens war nicht erreichbar.",
     "open_unread": "Assistent öffnen – {count} neue Ergebnisse",
     "scheduled_chat": "Geplante Aufgabe",
-    "unread": "Neu"
+    "unread": "Neu",
+    "notice_history_summarized": "Ältere Teile des Chats wurden zusammengefasst, damit das Gespräch weitergehen kann.",
+    "plan_title": "Plan",
+    "budget_reached": "Die Grenze für eine Antwort ist erreicht.",
+    "continue": "Weiter",
+    "continue_message": "Bitte mach mit der Aufgabe weiter."
   },
   "mcp": {
     "title": "KI-Chats verbinden",
@@ -784,7 +789,18 @@
     "schedules_interval_day": "1 Tag",
     "schedules_note": "Wenn Sie die Grenzen senken, werden die neuesten Aufgaben über der Grenze und zu häufige Aufgaben pausiert, mit Hinweis für die Person. Jeder Lauf verbraucht KI-Kontingent.",
     "schedules_save": "Speichern",
-    "schedules_saved_paused": "Gespeichert. Pausiert, weil sie nicht mehr in die Grenzen passen: {count}."
+    "schedules_saved_paused": "Gespeichert. Pausiert, weil sie nicht mehr in die Grenzen passen: {count}.",
+    "answers_title": "Lange Aufgaben",
+    "answers_intro": "Wie weit der Assistent in einer Antwort gehen darf. Ist die Grenze erreicht, kann man mit „Weiter“ fortsetzen.",
+    "answers_classic": "Ihr Unternehmen nutzt noch die klassische KI-Engine; diese Grenzen gelten mit Xenacore.",
+    "answers_steps": "Schritte pro Antwort",
+    "answers_tokens": "Tokens pro Antwort",
+    "answers_range": "{min}–{max}, Standard {def}",
+    "answers_default": "Standard",
+    "answers_save": "Speichern",
+    "context_label": "Kontextgröße (Tokens)",
+    "context_hint": "Wie viel Text Ihr Modell auf einmal verarbeitet; steht in der Beschreibung des Modells. Standard 32.000.",
+    "context_save": "Übernehmen"
   },
   "audit": {
     "title": "Protokoll",
