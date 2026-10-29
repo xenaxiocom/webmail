@@ -151,7 +151,7 @@ function MeetingsInside() {
     try {
       const status = await meet.status();
       setEnabled(status.enabled);
-      setMeetNavEnabled(status.enabled);
+      setMeetNavEnabled(status.enabled, !!status.webinars);
       setWebinars(!!status.webinars);
       if (status.enabled) setMeetings(await meet.mine());
     } catch (err) {

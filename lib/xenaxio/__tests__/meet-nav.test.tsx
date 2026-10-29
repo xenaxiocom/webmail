@@ -22,5 +22,10 @@ describe("step 78: Meetings in the menu", () => {
     expect(status).toHaveBeenCalledTimes(1);
     act(() => setMeetNavEnabled(false));
     expect(result.current.visible).toBe(false);
+    // Step 79, part D: webinars only with meetings on and the operator's yes.
+    act(() => setMeetNavEnabled(true, true));
+    expect(result.current.webinars).toBe(true);
+    act(() => setMeetNavEnabled(false));
+    expect(result.current.webinars).toBe(false);
   });
 });

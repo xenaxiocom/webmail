@@ -22,6 +22,9 @@ export interface ProposalSummary {
   location?: string;
   /** Step 78: the event gets a Xenaxio Meeting (video link). */
   meeting?: boolean;
+  /** Step 79, part D: the event is a Xenaxio Webinar; viewers register unless registration is false. */
+  webinar?: boolean;
+  registration?: boolean;
   attendees?: string[];
   /** Names of the user's files attached to the meeting (step 34). */
   files?: string[];
