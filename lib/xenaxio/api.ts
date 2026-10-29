@@ -568,6 +568,9 @@ export const xenaxio = {
   demoStart: (locale: string) => request<Me & { portalUrl: string; demo: DemoInfo }>("POST", "/api/demo/start", { locale: locale === "de" ? "de" : "en" }),
   demoExtend: () => request<DemoInfo>("POST", "/api/demo/extend"),
   demoEnd: () => request<{ ok: true; links: DemoInfo["links"] }>("POST", "/api/demo/end"),
+  /** Step 73c: "keep in touch" before the demo ends (a lead for our sales). */
+  demoLead: (lead: { first_name: string; last_name: string; email: string; company: string; message?: string; consent: boolean }) =>
+    request<{ ok: true }>("POST", "/api/demo/lead", lead),
   dismissHint: (hint: DismissableHint) => request<{ dismissedHints: string[] }>("POST", `/api/me/hints/${hint}`),
   /** Step 61: the assistant button moved on this kind of screen; null puts it back. */
   setAssistantPosition: (device: AssistantDevice, spot: AssistantSpot | null) =>

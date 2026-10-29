@@ -137,6 +137,9 @@ function FileChip({ name, size, type, preview, href, deleted, busy, error, onOpe
   );
 }
 
+/** Step 73c: the live demo's one-click questions (texts in demo.prompt_*). */
+const DEMO_PROMPTS = ["price", "unread", "rooms", "tasks", "slot"] as const;
+
 // Step 61: everywhere after sign-in; not on the sign-in and setup pages, public
 // booking pages, the AI chat consent screen and the operator console.
 const HIDDEN = /^\/(login|onboarding|auth|book|connect|operator|plugins|pro|demo)(\/|$)/;
@@ -355,6 +358,8 @@ export function AssistantPanel() {
   const device = useAssistantDevice();
   const moved = !!useAssistantPositions()[device];
   const resetPosition = useXenaxioMeStore((s) => s.setAssistantPosition);
+  // Step 73c: a live-demo guest gets one-click questions that show what the assistant can do.
+  const inDemo = useXenaxioMeStore((s) => !!s.me?.demo);
 
   // Keep the panel and the current chat across page changes (e.g. opening a source).
   useEffect(() => {
@@ -754,6 +759,21 @@ export function AssistantPanel() {
           <div className="space-y-2 text-muted-foreground">
             <p>{t("assistant.empty")}</p>
             <p className="text-xs">{t("assistant.not_sent")}</p>
+            {inDemo && (
+              <div className="flex flex-col items-start gap-1.5 pt-2" aria-label={t("demo.prompts_label")}>
+                {DEMO_PROMPTS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="rounded-full border border-border px-3 py-1 text-left text-xs text-foreground hover:bg-accent"
+                    onClick={() => askRef.current(t(`demo.prompt_${key}`))}
+                    disabled={busy}
+                  >
+                    {t(`demo.prompt_${key}`)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           turns.map((turn, i) => (
