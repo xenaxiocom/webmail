@@ -1940,7 +1940,8 @@
     "live_poll_votes": "{count} Stimmen",
     "live_poll_close": "Beenden",
     "live_chat_to_hosts_hint": "Ihre Nachrichten sehen nur die Hosts.",
-    "live_to_hosts": "an Hosts"
+    "live_to_hosts": "an Hosts",
+    "live_chat_to_hosts_placeholder": "Nachricht an die Hosts"
   },
   "meetadmin": {
     "title": "Meetings",

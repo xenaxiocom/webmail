@@ -334,6 +334,8 @@ function Chat({ code, guest, state, me, onError }: { code: string; guest: GuestK
     }
   };
   const off = state.chatMode === "off";
+  // A viewer's messages go to the hosts only.
+  const toHosts = state.chatMode === "hosts" && !state.host;
   return (
     <div className="flex h-full flex-col">
       {state.chatMode === "hosts" && !state.host && <p className="mb-2 text-xs text-white/60">{t("live_chat_to_hosts_hint")}</p>}
@@ -356,8 +358,8 @@ function Chat({ code, guest, state, me, onError }: { code: string; guest: GuestK
           onChange={(e) => setText(e.target.value)}
           maxLength={1000}
           disabled={off}
-          placeholder={off ? t("live_chat_off") : t("chat_placeholder")}
-          aria-label={t("chat_placeholder")}
+          placeholder={off ? t("live_chat_off") : toHosts ? t("live_chat_to_hosts_placeholder") : t("chat_placeholder")}
+          aria-label={toHosts ? t("live_chat_to_hosts_placeholder") : t("chat_placeholder")}
           className="min-w-0 flex-1 rounded-md bg-white/10 px-2 py-1.5 text-sm text-white placeholder:text-white/40"
         />
         <button type="submit" disabled={off || !text.trim()} className="rounded-md bg-[var(--meet-accent,#2563eb)] px-3 text-sm text-[var(--meet-accent-text,#fff)] disabled:opacity-50">
