@@ -442,6 +442,10 @@ export interface OperatorTenant {
   slug: string | null;
   portalUrl: string | null;
   hostname: string | null;
+  /** Step 78: meetings allowed, and the company's own limits (null: the installation's default). */
+  meetingsAllowed?: boolean;
+  meetingsMaxParticipants?: number | null;
+  meetingsMaxHours?: number | null;
 }
 
 export interface OperatorReport {
@@ -714,6 +718,9 @@ export const xenaxio = {
         mailboxQuotaMb?: number;
         aiUserMonthlyTokens?: number | null;
         aiTenantMonthlyTokens?: number | null;
+        meetingsAllowed?: boolean;
+        meetingsMaxParticipants?: number | null;
+        meetingsMaxHours?: number | null;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),

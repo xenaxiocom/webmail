@@ -14,6 +14,7 @@ import {
   Settings,
   Shield,
   SlidersHorizontal,
+  Video,
   iconForName,
 } from "@/components/icons";
 import type { AppIcon as AppIconType } from "@/components/icons";
@@ -40,6 +41,7 @@ import { NotificationBell } from "@/components/notifications/notification-center
 import type { ContactSuggestion } from "@/lib/search-suggestions";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useChatNavItem } from "@/lib/xenaxio/chat/nav";
+import { useMeetNavItem } from "@/lib/xenaxio/meet-nav";
 import { WorkspaceNavLink } from "@/components/xenaxio/workspace-nav-link";
 
 /** The top bar is not about any one item: plugin clicks carry no context. */
@@ -152,6 +154,7 @@ export function MvTopBar({
   }, [appsOpen, appsMenuRef]);
 
   const chatNav = useChatNavItem();
+  const meetNav = useMeetNavItem();
   const apps: Array<{ id: string; icon: AppIconType; label: string; href: string }> = [
     { id: "mail", icon: Mail, label: t("mail"), href: "/" },
     ...(supportsCalendar && calendarEnabled
@@ -165,6 +168,7 @@ export function MvTopBar({
       : []),
     // xenaxio (step 43): the team chat, when the company has it on.
     ...(chatNav.visible ? [{ id: "chat", icon: MessagesSquare, label: chatNav.label, href: "/chat" }] : []),
+    ...(meetNav.visible ? [{ id: "meetings", icon: Video, label: meetNav.label, href: "/meetings" }] : []),
     { id: "settings", icon: Settings, label: t("settings"), href: "/settings" },
   ];
 
