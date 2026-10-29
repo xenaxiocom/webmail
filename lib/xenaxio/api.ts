@@ -447,6 +447,8 @@ export interface OperatorTenant {
   aiTokens: number;
   aiUserMonthlyTokens: number | null;
   aiTenantMonthlyTokens: number | null;
+  /** Step 81: the agent engine of the company's assistant. */
+  aiEngine?: "classic" | "xenacore";
   /** Step 17: the company's subdomain and portal. */
   slug: string | null;
   portalUrl: string | null;
@@ -737,6 +739,7 @@ export const xenaxio = {
         mailboxQuotaMb?: number;
         aiUserMonthlyTokens?: number | null;
         aiTenantMonthlyTokens?: number | null;
+        aiEngine?: "classic" | "xenacore";
         meetingsAllowed?: boolean;
         meetingsMaxParticipants?: number | null;
         meetingsMaxHours?: number | null;
