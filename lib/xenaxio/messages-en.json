@@ -153,7 +153,15 @@
     "channel_unmanaged": "This channel cannot be managed: there is no active moderator left.",
     "channel_not_found": "Channel not found.",
     "general_channel": "The channel for everyone cannot be archived.",
-    "chat_not_ready": "Rooms is not ready yet. Please try again in a moment."
+    "chat_not_ready": "Rooms is not ready yet. Please try again in a moment.",
+    "demo_busy": "All demo companies are in use right now. Please try again in a few minutes.",
+    "demo_rate_limited": "Too many demos were started from your network in the last hour. Please try again later.",
+    "demo_daily_limit": "Today’s demos are used up. Please try again tomorrow, or book a call with us.",
+    "demo_readonly": "This is not possible in the demo. In your own Xenaxio it is.",
+    "demo_ai_limit": "The assistant’s requests for this demo are used up. Book a call and we show you more.",
+    "demo_file_too_large": "Files in the demo can be up to 5 MB.",
+    "demo_not_extendable": "The demo was already extended once.",
+    "not_demo": "This is not a demo account."
   },
   "login": {
     "title": "Sign in",
@@ -1697,5 +1705,18 @@
     "theme_light": "Always light",
     "theme_dark": "Always dark",
     "theme_hint": "Logo, company colour and background come from this page (above)."
+  },
+  "demo": {
+    "title": "Live demo",
+    "starting": "We are setting up your demo company …",
+    "meanwhile": "In the meantime you can book a call with us or request a quote on our website.",
+    "retry": "Try again",
+    "strip_label": "Live demo",
+    "strip_left": "resets in {minutes} min",
+    "extend": "+30 min",
+    "book": "Book a demo",
+    "quote": "Request a quote",
+    "end": "End demo",
+    "end_confirm": "End the demo now? Everything you entered is deleted."
   }
 }
