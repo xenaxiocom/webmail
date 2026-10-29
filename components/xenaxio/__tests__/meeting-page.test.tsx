@@ -12,13 +12,13 @@ vi.mock("../meet/prejoin", () => ({
   ),
 }));
 vi.mock("../meet/room", () => ({
-  MeetingRoom: ({ token, member, onLeave, kind, role, guest }: { token: string; member: boolean; onLeave: (r: string) => void; kind?: string; role?: string; guest?: { guestId: string } | null }) => (
+  MeetingRoom: ({ token, member, onLeave, kind, role, guest }: { token: string; member: boolean; onLeave: (r: string) => void; kind?: string; role?: string; guest?: { guestId?: string; registrationId?: string } | null }) => (
     <div>
       <p data-testid="room">
         {token} {member ? "member" : "guest"}
       </p>
       <p data-testid="role">
-        {kind} {role} {guest?.guestId ?? "-"}
+        {kind} {role} {guest?.guestId ?? guest?.registrationId ?? "-"}
       </p>
       <button type="button" onClick={() => onLeave("removed")}>
         kick
@@ -26,7 +26,7 @@ vi.mock("../meet/room", () => ({
     </div>
   ),
 }));
-const api = vi.hoisted(() => ({ info: vi.fn(), join: vi.fn(), knock: vi.fn(), guestStatus: vi.fn() }));
+const api = vi.hoisted(() => ({ info: vi.fn(), join: vi.fn(), knock: vi.fn(), guestStatus: vi.fn(), register: vi.fn(), registration: vi.fn(), joinRegistered: vi.fn(), cancelRegistration: vi.fn() }));
 vi.mock("@/lib/xenaxio/meet", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet")>()), meet: api }));
 
 import { XenaxioApiError } from "@/lib/xenaxio/api";
@@ -99,6 +99,53 @@ describe("step 78: meeting page", () => {
     render(<MeetingPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Beitreten" }));
     expect(await screen.findByTestId("role")).toHaveTextContent("webinar host -");
+  });
+
+  const REG = "11111111-2222-4333-8444-555555555555";
+  const webinar = {
+    ...info,
+    title: "Produkt-Update Q4",
+    kind: "webinar",
+    webinar: { description: "Neuigkeiten aus dem Produkt.", startsAt: "2026-11-05T15:00:00Z", durationMinutes: 45, registration: true, hosts: ["Max Admin"], imprintUrl: null, privacyUrl: "https://acme.de/datenschutz" },
+  };
+
+  it("step 79, part B: a visitor registers for a webinar", async () => {
+    api.info.mockResolvedValue(webinar);
+    api.register.mockResolvedValue({ ok: true });
+    render(<MeetingPage />);
+    expect(await screen.findByText("Neuigkeiten aus dem Produkt.")).toBeInTheDocument();
+    expect(screen.getByText("Mit Max Admin · Acme GmbH")).toBeInTheDocument();
+    fireEvent.change(screen.getByRole("textbox", { name: "Ihr Name" }), { target: { value: "Erika Muster" } });
+    fireEvent.change(screen.getByRole("textbox", { name: "Ihre E-Mail-Adresse" }), { target: { value: "erika@example.org" } });
+    // Without consent no registration.
+    expect(screen.getByRole("button", { name: "Anmelden" })).toBeDisabled();
+    expect(screen.getByRole("link", { name: "Datenschutzerklärung" })).toHaveAttribute("href", "https://acme.de/datenschutz");
+    fireEvent.click(screen.getByRole("checkbox"));
+    fireEvent.click(screen.getByRole("button", { name: "Anmelden" }));
+    expect(await screen.findByText(/Wir haben Ihnen eine E-Mail an erika@example.org geschickt/)).toBeInTheDocument();
+    expect(api.register).toHaveBeenCalledWith(CODE, { name: "Erika Muster", email: "erika@example.org", locale: "de" });
+    expect(api.knock).not.toHaveBeenCalled();
+  });
+
+  it("step 79, part B: the personal link enters, or cancels", async () => {
+    api.info.mockResolvedValue(webinar);
+    api.registration.mockResolvedValue({ name: "Erika Muster", cancelled: false });
+    api.joinRegistered.mockResolvedValue({ token: "tok-reg", signalPath: "/api/meet/rtc", identity: `r:${REG}`, title: "Produkt-Update Q4", kind: "webinar", role: "viewer" });
+    window.history.replaceState(null, "", `/meet/${CODE}#r=${REG}.${"k".repeat(32)}`);
+    const { unmount } = render(<MeetingPage />);
+    expect(await screen.findByText("Angemeldet als Erika Muster")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Anmelden" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Zum Webinar" }));
+    expect(await screen.findByTestId("role")).toHaveTextContent(`webinar viewer ${REG}`);
+    expect(api.joinRegistered).toHaveBeenCalledWith(CODE, REG, "k".repeat(32));
+    unmount();
+
+    api.cancelRegistration.mockResolvedValue({ ok: true });
+    window.history.replaceState(null, "", `/meet/${CODE}#r=${REG}.${"k".repeat(32)}&cancel=1`);
+    render(<MeetingPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Anmeldung stornieren" }));
+    expect(await screen.findByText("Ihre Anmeldung ist storniert.")).toBeInTheDocument();
+    expect(api.cancelRegistration).toHaveBeenCalledWith(CODE, REG, "k".repeat(32));
   });
 
   it("tells a declined guest", async () => {

@@ -14,6 +14,8 @@ export type MeetingRole = "member" | "guest" | "host" | "presenter" | "viewer";
 export interface MeetingInfo {
   title: string;
   kind?: MeetingKind;
+  /** Step 79, part B: a webinar's page (also where viewers register). */
+  webinar?: WebinarPage;
   company: string;
   state: MeetingState;
   guests: boolean;
@@ -28,10 +30,43 @@ export interface MeetingInfo {
   finishedAt?: string | null;
 }
 
+export interface WebinarPage {
+  description: string;
+  startsAt: string | null;
+  durationMinutes: number | null;
+  registration: boolean;
+  hosts: string[];
+  imprintUrl: string | null;
+  privacyUrl: string | null;
+}
+
+/** Step 79, part B: what a host sets for a webinar. */
+export interface WebinarFields {
+  startsAt: Date;
+  durationMinutes: number;
+  description: string;
+  registration: boolean;
+}
+
+/** Step 79, part B: who registered, who came and for how long. */
+export interface WebinarRegistration {
+  id: string;
+  name: string;
+  email: string;
+  registeredAt: string;
+  cancelledAt: string | null;
+  joinedAt: string | null;
+  minutes: number;
+}
+
 export interface MeetingView {
   code: string;
   title: string;
   kind?: MeetingKind;
+  startsAt?: string | null;
+  durationMinutes?: number | null;
+  description?: string;
+  registration?: boolean;
   path: string;
   source: string;
   expiresAt: string;
@@ -58,8 +93,8 @@ export interface WebinarStage {
   viewers: number;
 }
 
-/** A guest proves its visit with the key only its browser has. */
-export type GuestKey = { guestId: string; key: string };
+/** A guest proves its visit with the key only its browser has; a registered viewer with the key of the personal link. */
+export type GuestKey = { guestId: string; key: string } | { registrationId: string; key: string };
 
 export type GuestState = "waiting" | "admitted" | "denied" | "removed" | "ended";
 
@@ -119,8 +154,21 @@ export const meet = {
   status: () => call<{ enabled: boolean; guests: boolean; maxParticipants: number; webinars?: boolean; maxViewers?: number }>("GET", `${MEET}/status`),
   mine: () => call<{ meetings: MeetingView[] }>("GET", MEET).then((r) => r.meetings),
   /** `until`: the end of the calendar event the meeting belongs to (the link works a day longer). */
-  create: (title: string, until?: Date, kind?: MeetingKind) =>
-    call<MeetingView>("POST", MEET, { title, ...(until ? { until: until.toISOString() } : {}), ...(kind && kind !== "meeting" ? { kind } : {}) }),
+  create: (title: string, until?: Date, kind?: MeetingKind, webinar?: WebinarFields) =>
+    call<MeetingView>("POST", MEET, {
+      title,
+      ...(until ? { until: until.toISOString() } : {}),
+      ...(kind && kind !== "meeting" ? { kind } : {}),
+      ...(webinar
+        ? {
+            startsAt: webinar.startsAt.toISOString(),
+            durationMinutes: webinar.durationMinutes,
+            description: webinar.description,
+            registration: webinar.registration,
+            timeZone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          }
+        : {}),
+    }),
   /** Part D: the call of a chat room (the running one, or a new one). */
   roomCall: (roomId: string, kind: "channel" | "dm") =>
     call<MeetingView & { created: boolean }>("POST", `/api/chat/rooms/${encodeURIComponent(roomId)}/call`, { kind }),
@@ -143,6 +191,24 @@ export const meet = {
   stage: (code: string) => call<WebinarStage>("GET", `${at(code)}/stage`),
   setStage: (code: string, identity: string, on: boolean) => call<{ ok: true }>("POST", `${at(code)}/stage`, { identity, on }),
   setHost: (code: string, identity: string, on: boolean) => call<{ ok: true }>("POST", `${at(code)}/hosts`, { identity, on }),
+  // Step 79, part B: registration (public) and, for hosts, the webinar and who registered.
+  register: (code: string, input: { name: string; email: string; locale: "de" | "en" }) => call<{ ok: true }>("POST", `${at(code)}/register`, { ...input, consent: true }),
+  registration: (code: string, id: string, key: string) =>
+    call<{ name: string; cancelled: boolean }>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/status`, { key }),
+  joinRegistered: (code: string, id: string, key: string) => call<JoinGrant>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/join`, { key }),
+  cancelRegistration: (code: string, id: string, key: string) => call<{ ok: true }>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/cancel`, { key }),
+  updateWebinar: (code: string, change: Partial<WebinarFields> & { title?: string }) =>
+    call<MeetingView>("PUT", `${at(code)}/webinar`, { ...change, ...(change.startsAt ? { startsAt: change.startsAt.toISOString() } : {}) }),
+  registrations: (code: string) => call<{ registrations: WebinarRegistration[] }>("GET", `${at(code)}/registrations`).then((r) => r.registrations),
+  /** The registrations as CSV, saved by the browser. */
+  downloadRegistrations: async (code: string) => {
+    const res = await apiFetch(`${at(code)}/registrations.csv`, { credentials: "same-origin", headers: { Accept: "text/csv", "x-xenaxio-csrf": "1" } });
+    if (!res.ok) throw new XenaxioApiError(res.status, "internal");
+    const url = URL.createObjectURL(await res.blob());
+    const a = Object.assign(document.createElement("a"), { href: url, download: `webinar-${code}.csv` });
+    a.click();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  },
   // The company admin.
   settings: () => call<MeetSettings>("GET", ADMIN),
   saveSettings: (change: { enabled?: boolean; guests?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),
@@ -209,4 +275,10 @@ export function saveGuestVisit(v: GuestVisit | null): void {
 /** Who someone is by their identity: an employee ("u:…") or a guest ("g:…"). */
 export function isGuest(identity: string): boolean {
   return identity.startsWith("g:");
+}
+
+/** Step 79, part B: the personal link of a registered viewer (#r=<id>.<key>, &cancel=1 to cancel). */
+export function personalLink(hash: string): { id: string; key: string; cancel: boolean } | null {
+  const m = /(?:^#|&)r=([0-9a-f-]{36})\.([A-Za-z0-9_-]{20,64})/.exec(hash);
+  return m ? { id: m[1] as string, key: m[2] as string, cancel: /(?:^#|&)cancel=1(?:&|$)/.test(hash) } : null;
 }

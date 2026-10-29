@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it } from "vitest";
 import { getPathPrefix } from "@/lib/browser-navigation";
-import { isGuest, loadGuestVisit, meetingCode, meetingLink, saveGuestVisit, signalUrl } from "@/lib/xenaxio/meet";
+import { isGuest, loadGuestVisit, meetingCode, meetingLink, personalLink, saveGuestVisit, signalUrl } from "@/lib/xenaxio/meet";
 
 // Step 78: the meeting page reads its code from the address and connects its
 // signal through the platform's own address.
@@ -42,5 +42,14 @@ describe("meeting links", () => {
   it("tells guests from employees", () => {
     expect(isGuest("g:1")).toBe(true);
     expect(isGuest("u:1")).toBe(false);
+  });
+
+  it("step 79, part B: reads a personal webinar link from the fragment", () => {
+    const id = "11111111-2222-4333-8444-555555555555";
+    const key = "AbC_def-".repeat(4);
+    expect(personalLink(`#r=${id}.${key}`)).toEqual({ id, key, cancel: false });
+    expect(personalLink(`#r=${id}.${key}&cancel=1`)).toEqual({ id, key, cancel: true });
+    expect(personalLink("#r=nope.short")).toBeNull();
+    expect(personalLink("")).toBeNull();
   });
 });

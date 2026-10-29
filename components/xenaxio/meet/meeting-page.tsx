@@ -10,10 +10,11 @@ import { Input } from "@/components/ui/input";
 import { withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { contrastRatio, usePortal } from "@/lib/xenaxio/portal";
-import { type JoinGrant, loadGuestVisit, meet, type MeetingInfo, meetingCode, saveGuestVisit } from "@/lib/xenaxio/meet";
+import { type GuestKey, type JoinGrant, loadGuestVisit, meet, type MeetingInfo, meetingCode, personalLink, saveGuestVisit } from "@/lib/xenaxio/meet";
 import { type Lang, MeetLangProvider, meetError, useMeetLang } from "./lang";
 import { type Choices, PreJoin } from "./prejoin";
 import { type LeaveReason, MeetingRoom } from "./room";
+import { Registered, RegisterForm, WebinarIntro } from "./webinar-page";
 
 type Step =
   | { kind: "loading" }
@@ -21,7 +22,7 @@ type Step =
   | { kind: "closed"; info: MeetingInfo }
   | { kind: "prejoin"; info: MeetingInfo }
   | { kind: "waiting"; info: MeetingInfo; choices: Choices }
-  | { kind: "room"; info: MeetingInfo; grant: JoinGrant; choices: Choices }
+  | { kind: "room"; info: MeetingInfo; grant: JoinGrant; choices: Choices; guest?: GuestKey | null }
   | { kind: "after"; info: MeetingInfo; reason: LeaveReason | "denied" };
 
 const POLL_MS = 2000;
@@ -76,6 +77,8 @@ function Page() {
   const portal = usePortal();
   const accent = portal?.kind === "tenant" ? portal.color : null;
   const [code] = useState(() => (typeof location === "undefined" ? null : meetingCode(location.pathname)));
+  // Step 79, part B: a registered viewer's personal link (#r=<id>.<key>).
+  const [personal] = useState(() => (typeof location === "undefined" ? null : personalLink(location.hash)));
   const [step, setStep] = useState<Step>({ kind: "loading" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -87,13 +90,13 @@ function Page() {
       const info = await meet.info(code);
       if (info.state !== "open") return setStep({ kind: "closed", info });
       // A guest who reloads the page keeps their place in the lobby.
-      const visit = !info.member ? loadGuestVisit(code) : null;
+      const visit = !info.member && !personal ? loadGuestVisit(code) : null;
       if (visit) return setStep({ kind: "waiting", info, choices: { name: visit.name, video: true, audio: true, videoDeviceId: "", audioDeviceId: "" } });
       setStep({ kind: "prejoin", info });
     } catch (err) {
       setStep({ kind: "error", code: codeOf(err) });
     }
-  }, [code]);
+  }, [code, personal]);
   useEffect(() => {
     void load();
   }, [load]);
@@ -157,6 +160,21 @@ function Page() {
     }
   };
 
+  // Step 79, part B: the personal link enters without a lobby.
+  const enterRegistered = async (info: MeetingInfo) => {
+    if (!code || !personal) return;
+    setBusy(true);
+    setError(null);
+    try {
+      const grant = await meet.joinRegistered(code, personal.id, personal.key);
+      setStep({ kind: "room", info, grant, choices: { name: "", video: false, audio: false, videoDeviceId: "", audioDeviceId: "" }, guest: { registrationId: personal.id, key: personal.key } });
+    } catch (err) {
+      setError(meetError(t, codeOf(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+
   const left = (info: MeetingInfo, reason: LeaveReason) => {
     if (reason === "removed" || reason === "ended") saveGuestVisit(null);
     setStep({ kind: "after", info, reason });
@@ -174,7 +192,7 @@ function Page() {
           choices={step.choices}
           kind={step.grant.kind ?? "meeting"}
           role={step.grant.role ?? (step.info.member ? "member" : "guest")}
-          guest={step.info.member ? null : loadGuestVisit(code)}
+          guest={step.guest !== undefined ? step.guest : step.info.member ? null : loadGuestVisit(code)}
           onLeave={(r) => left(step.info, r)}
         />
       </div>
@@ -191,10 +209,25 @@ function Page() {
           <p className="text-white/80">{t(`state_${step.info.state}`, { company: step.info.company })}</p>
         </div>
       )}
-      {step.kind === "prejoin" && (
+      {step.kind === "prejoin" && step.info.kind === "webinar" && step.info.webinar && !step.info.member && (
         <>
-          <h1 className="mb-1 text-center text-xl font-semibold">{step.info.title}</h1>
-          <p className="mb-4 text-center text-sm text-white/60">{t("by_company", { company: step.info.company })}</p>
+          <WebinarIntro info={step.info} />
+          {personal ? (
+            <Registered code={code ?? ""} id={personal.id} regKey={personal.key} cancel={personal.cancel} busy={busy} onJoin={() => void enterRegistered(step.info)} />
+          ) : !step.info.guests ? (
+            <p className="max-w-md text-center text-white/80">{meetError(t, "guests_off")}</p>
+          ) : step.info.webinar.registration ? (
+            <RegisterForm code={code ?? ""} info={step.info} />
+          ) : (
+            <WatchJoin busy={busy} onSubmit={(c) => void enter(step.info, c)} />
+          )}
+          {error && <p className="mt-3 max-w-md text-center text-sm text-red-300">{error}</p>}
+        </>
+      )}
+      {step.kind === "prejoin" && !(step.info.kind === "webinar" && step.info.webinar && !step.info.member) && (
+        <>
+          {step.info.webinar ? <WebinarIntro info={step.info} /> : <h1 className="mb-1 text-center text-xl font-semibold">{step.info.title}</h1>}
+          {!step.info.webinar && <p className="mb-4 text-center text-sm text-white/60">{t("by_company", { company: step.info.company })}</p>}
           {!step.info.member && !step.info.guests ? (
             <p className="max-w-md text-center text-white/80">{meetError(t, "guests_off")}</p>
           ) : step.info.kind === "webinar" && !step.info.member ? (
