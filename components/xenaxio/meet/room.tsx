@@ -64,6 +64,7 @@ import { type GuestKey, isGuest, type LobbyGuest, meet, type MeetingKind, type M
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import type { Choices } from "./prejoin";
 import { meetError, useMeetLang } from "./lang";
+import { useWebinarLive, WebinarPanel } from "./webinar-panel";
 
 export type LeaveReason = "left" | "removed" | "ended" | "lost" | "full" | "failed";
 
@@ -572,7 +573,7 @@ function WebinarPeople({ code, host, hands }: { code: string; host: boolean; han
   );
 }
 
-type Panel = "people" | "chat" | "devices" | null;
+type Panel = "people" | "chat" | "devices" | "webinar" | null;
 
 /**
  * Where the meeting shows: its own page; part D: a small dock over the chat
@@ -631,6 +632,14 @@ function Meeting({
       room.off(RoomEvent.ParticipantPermissionsChanged, changed);
     };
   }, [room]);
+  // Step 79, part C: questions, polls and chat of a webinar, kept while the panel is closed.
+  const live = useWebinarLive(code, guest, webinar);
+  // A new role (co-host, on the stage) may see more: hidden questions, poll results, the hosts' chat.
+  const reloadLive = live.reload;
+  const firstRole = useRef(myRole);
+  useEffect(() => {
+    if (myRole !== firstRole.current) void reloadLive();
+  }, [myRole, reloadLive]);
   useDataChannel(STAGE_TOPIC, (msg) => {
     const data = JSON.parse(decoder.decode(msg.payload)) as { identity?: string; role?: MeetingRole };
     if (data.identity !== localParticipant.identity || !data.role) return;
@@ -814,7 +823,7 @@ function Meeting({
         {panel && !dock && (
           <aside className="flex w-full max-w-sm flex-col border-l border-white/10 bg-[#1a1a1a] p-3 max-sm:absolute max-sm:inset-0 max-sm:z-20 max-sm:max-w-none">
             <div className="mb-3 flex items-center">
-              <h2 className="flex-1 font-medium">{panel === "people" ? t("people_title") : panel === "chat" ? t("chat") : t("settings")}</h2>
+              <h2 className="flex-1 font-medium">{panel === "people" ? t("people_title") : panel === "chat" ? t("chat") : panel === "webinar" ? t("live_title") : t("settings")}</h2>
               <button type="button" onClick={() => setPanel(null)} aria-label={t("close")} className="rounded p-1 hover:bg-white/10">
                 <X className="h-4 w-4" />
               </button>
@@ -827,6 +836,7 @@ function Meeting({
                   <PeoplePanel code={code} member={member} hands={hands} lobby={lobby} onDecide={(id, admit) => void decide(id, admit)} />
                 ))}
               {panel === "chat" && <ChatPanel chat={chat} />}
+              {panel === "webinar" && <WebinarPanel code={code} guest={guest} live={live} me={localParticipant.identity} />}
               {panel === "devices" && <DevicePanel />}
             </div>
           </aside>
@@ -876,8 +886,12 @@ function Meeting({
         >
           <Users className="h-5 w-5" />
         </RoundButton>
-        {/* Step 79: a webinar's chat and questions for viewers come with part C. */}
-        {sends && (
+        {/* Step 79, part C: in a webinar one panel for everyone — questions, polls, chat. */}
+        {webinar ? (
+          <RoundButton label={t("live_title")} onClick={() => setPanel(panel === "webinar" ? null : "webinar")} active={panel === "webinar"} badge={panel === "webinar" ? 0 : live.unread}>
+            <MessageSquare className="h-5 w-5" />
+          </RoundButton>
+        ) : (
           <RoundButton label={t("chat")} onClick={() => setPanel(panel === "chat" ? null : "chat")} active={panel === "chat"} badge={unread}>
             <MessageSquare className="h-5 w-5" />
           </RoundButton>
