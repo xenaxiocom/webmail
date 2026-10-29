@@ -34,6 +34,7 @@ import {
   messageRouteId,
   pastedName,
   OPEN_DRAFT_EVENT,
+  type PlanItem,
   type ProposalSummary,
   type SourceEmail,
 } from "@/lib/xenaxio/assistant";
@@ -71,6 +72,33 @@ interface Turn {
   /** Step 45: a note about the answer (it came from the fallback model). */
   notice?: string;
   title?: string;
+  /** Step 83: the plan of a longer task, as a checklist. */
+  plan?: PlanItem[];
+  /** Step 83: the answer stopped at the company's limit; "Weiter" goes on. */
+  budget?: boolean;
+}
+
+/** Step 83: the assistant's plan for a longer task. */
+function PlanList({ items, title }: { items: PlanItem[]; title: string }) {
+  return (
+    <div className="rounded-md border border-border px-2 py-1.5">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">{title}</p>
+      <ul className="space-y-0.5">
+        {items.map((item, n) => (
+          <li key={n} className={cn("flex items-start gap-1.5 text-xs", item.status === "done" && "text-muted-foreground line-through")}>
+            {item.status === "done" ? (
+              <Check className="mt-0.5 h-3 w-3 shrink-0 text-green-700 dark:text-green-400" aria-hidden />
+            ) : item.status === "doing" ? (
+              <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
+            ) : (
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full border border-muted-foreground" aria-hidden />
+            )}
+            <span>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /** A file waiting under the input: uploading, ready to send, or refused. */
@@ -443,6 +471,8 @@ export function AssistantPanel() {
           else if (e.type === "proposal") update((turn) => ({ ...turn, proposals: [...(turn.proposals ?? []), { id: e.id, tool: e.tool, summary: e.summary, state: "pending" }] }));
           else if (e.type === "error") update((turn) => ({ ...turn, error: t(`assistant.errors.${e.code}`) }));
           else if (e.type === "notice") update((turn) => ({ ...turn, notice: t(`assistant.notice_${e.code}`) }));
+          else if (e.type === "plan") update((turn) => ({ ...turn, plan: e.items }));
+          else if (e.type === "budget") update((turn) => ({ ...turn, budget: true }));
         }
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
@@ -785,6 +815,7 @@ export function AssistantPanel() {
           turns.map((turn, i) => (
             <div key={i} className={cn("space-y-2", turn.role === "user" && "ml-8 rounded-lg bg-primary/10 px-3 py-2")}>
               {turn.title && <p className="text-xs font-medium text-muted-foreground">{turn.title}</p>}
+              {turn.plan && <PlanList items={turn.plan} title={t("assistant.plan_title")} />}
               {turn.files?.map((f) => (
                 <FileChip key={f.id} name={f.name} size={f.size} type={f.type} href={attachedFileLink(f)} deleted={f.deleted} deletedLabel={t("assistant.file_deleted")} onOpen={(href) => router.push(href)} />
               ))}
@@ -792,6 +823,15 @@ export function AssistantPanel() {
               {turn.tool && <p className="animate-pulse text-xs text-muted-foreground">{t(`assistant.tool_${turn.tool}`)}</p>}
               {turn.role === "assistant" && !turn.text && !turn.tool && busy && i === turns.length - 1 && <p className="animate-pulse text-xs text-muted-foreground">…</p>}
               {turn.notice && <p className="text-xs text-amber-700 dark:text-amber-400">{turn.notice}</p>}
+              {/* Step 83: the answer stopped at the company's limit; the next answer picks up from the plan and what was found. */}
+              {turn.budget && i === turns.length - 1 && !busy && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-muted-foreground">{t("assistant.budget_reached")}</p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => askRef.current(t("assistant.continue_message"))}>
+                    {t("assistant.continue")}
+                  </Button>
+                </div>
+              )}
               {turn.error && <p className="text-xs text-destructive">{turn.error}</p>}
               {/* The model usually recovers from a failed step; warn only when no answer came. */}
               {turn.toolFailed && !turn.error && !turn.text.trim() && !(busy && i === turns.length - 1) && <p className="text-xs text-destructive">{t("assistant.tool_error")}</p>}

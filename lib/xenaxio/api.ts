@@ -321,6 +321,8 @@ export interface CustomModel {
   headers: { name: string }[];
   /** Step 45: the AI by xenaxio answers while the own model is down. */
   fallback: boolean;
+  /** Step 83: how much the model takes at once, in tokens (absent on older servers). */
+  contextTokens?: number;
   check: CustomModelCheck | null;
   checkedAt: string | null;
   /** Step 45: availability, checked every 15 minutes. */
@@ -359,7 +361,18 @@ export interface AiAdmin {
   tenantTokens: number;
   /** Step 50: what the company allows for scheduled tasks (absent on older servers). */
   schedules?: ScheduleSettingsInfo;
+  /** Step 83: steps and input tokens per answer (null: the default); they apply on the Xenacore engine. */
+  answers?: AnswerSettings;
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
+}
+
+/** Step 83: how far the assistant may go in one answer. */
+export interface AnswerSettings {
+  engine: "classic" | "xenacore";
+  maxToolCalls: number | null;
+  inputTokens: number | null;
+  defaults: { toolCalls: number; inputTokens: number };
+  caps: { toolCalls: { min: number; max: number }; inputTokens: { min: number; max: number } };
 }
 
 /** Step 50: the company's settings for the assistant's scheduled tasks. */
@@ -716,6 +729,8 @@ export const xenaxio = {
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
   setCustomModelFallback: (enabled: boolean) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/fallback", { enabled }),
   removeCustomModel: () => request<{ ok: true }>("DELETE", "/api/admin/ai/custom"),
+  saveAnswerSettings: (settings: { maxToolCalls: number | null; inputTokens: number | null }) => request<{ maxToolCalls: number | null; inputTokens: number | null }>("PUT", "/api/admin/ai/answers", settings),
+  setCustomModelContext: (contextTokens: number | null) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom/context", { contextTokens }),
   saveScheduleSettings: (settings: ScheduleSettings) => request<{ paused: number; schedules: ScheduleSettingsInfo }>("PUT", "/api/admin/ai/schedules", settings),
   audit: (f: AuditFilter) => request<{ entries: AuditEntry[]; next: number | null }>("GET", `/api/admin/audit${auditQuery(f)}`),
 
