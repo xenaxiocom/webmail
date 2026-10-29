@@ -161,7 +161,8 @@
     "demo_ai_limit": "The assistant’s requests for this demo are used up. Book a call and we show you more.",
     "demo_file_too_large": "Files in the demo can be up to 5 MB.",
     "demo_not_extendable": "The demo was already extended once.",
-    "not_demo": "This is not a demo account."
+    "not_demo": "This is not a demo account.",
+    "salesforce_org_invalid": "The Org ID starts with 00D and has 15 or 18 characters."
   },
   "login": {
     "title": "Sign in",
@@ -1536,6 +1537,7 @@
     "email": "E-mail",
     "phone": "Phone",
     "phone_hint": "You will be called on this number.",
+    "company": "Company",
     "message": "Message",
     "optional": "optional",
     "book": "Book meeting",
@@ -1584,6 +1586,7 @@
       "name_missing": "Please enter your name.",
       "phone_missing": "Please enter your phone number.",
       "phone_invalid": "Please enter a valid phone number.",
+      "company_missing": "Please enter your company.",
       "message_missing": "Please write a message.",
       "proposals_invalid": "Please give at least one proposal with date and time.",
       "proposal_out_of_range": "Proposals must be in the future and within the booking period.",
@@ -1669,6 +1672,7 @@
     "busy_all": "All my calendars",
     "questions": "Questions to the customer",
     "ask_phone": "Phone number",
+    "ask_company": "Company",
     "ask_message": "Message",
     "ask": {
       "off": "do not ask",
@@ -1715,7 +1719,13 @@
     "theme_auto": "Like the visitor’s (light or dark)",
     "theme_light": "Always light",
     "theme_dark": "Always dark",
-    "theme_hint": "Logo, company colour and background come from this page (above)."
+    "theme_hint": "Logo, company colour and background come from this page (above).",
+    "salesforce": "Salesforce",
+    "salesforce_hint": "New bookings and meeting requests go to Salesforce as leads (Web-to-Lead). The Lead Source value must exist in Salesforce. Leave empty to turn it off.",
+    "salesforce_org": "Salesforce Org ID",
+    "lead_source": "Lead Source",
+    "lead_source_placeholder": "Online booking",
+    "salesforce_save": "Save"
   },
   "meet": {
     "nav": "Meetings",

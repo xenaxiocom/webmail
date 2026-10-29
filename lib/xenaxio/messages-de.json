@@ -161,7 +161,8 @@
     "demo_ai_limit": "Die Anfragen an den Assistenten sind für diese Demo aufgebraucht. Buchen Sie ein Gespräch – wir zeigen Ihnen mehr.",
     "demo_file_too_large": "Dateien in der Demo dürfen bis zu 5 MB groß sein.",
     "demo_not_extendable": "Die Demo wurde bereits einmal verlängert.",
-    "not_demo": "Das ist kein Demo-Konto."
+    "not_demo": "Das ist kein Demo-Konto.",
+    "salesforce_org_invalid": "Die Org-ID beginnt mit 00D und hat 15 oder 18 Zeichen."
   },
   "login": {
     "title": "Anmelden",
@@ -1536,6 +1537,7 @@
     "email": "E-Mail",
     "phone": "Telefon",
     "phone_hint": "Unter dieser Nummer werden Sie angerufen.",
+    "company": "Firma",
     "message": "Nachricht",
     "optional": "optional",
     "book": "Termin buchen",
@@ -1584,6 +1586,7 @@
       "name_missing": "Bitte geben Sie Ihren Namen an.",
       "phone_missing": "Bitte geben Sie Ihre Telefonnummer an.",
       "phone_invalid": "Bitte geben Sie eine gültige Telefonnummer an.",
+      "company_missing": "Bitte geben Sie Ihre Firma an.",
       "message_missing": "Bitte schreiben Sie eine Nachricht.",
       "proposals_invalid": "Bitte geben Sie mindestens einen Vorschlag mit Datum und Uhrzeit an.",
       "proposal_out_of_range": "Vorschläge müssen in der Zukunft und im buchbaren Zeitraum liegen.",
@@ -1669,6 +1672,7 @@
     "busy_all": "Alle meine Kalender",
     "questions": "Fragen an den Kunden",
     "ask_phone": "Telefonnummer",
+    "ask_company": "Firma",
     "ask_message": "Nachricht",
     "ask": {
       "off": "nicht fragen",
@@ -1715,7 +1719,13 @@
     "theme_auto": "Wie beim Besucher (hell oder dunkel)",
     "theme_light": "Immer hell",
     "theme_dark": "Immer dunkel",
-    "theme_hint": "Logo, Firmenfarbe und Hintergrund kommen von dieser Seite (oben)."
+    "theme_hint": "Logo, Firmenfarbe und Hintergrund kommen von dieser Seite (oben).",
+    "salesforce": "Salesforce",
+    "salesforce_hint": "Neue Buchungen und Terminanfragen gehen als Lead an Salesforce (Web-to-Lead). Der Wert für Lead Source muss in Salesforce angelegt sein. Leer lassen, um es auszuschalten.",
+    "salesforce_org": "Salesforce Org-ID",
+    "lead_source": "Lead Source",
+    "lead_source_placeholder": "Online-Buchung",
+    "salesforce_save": "Speichern"
   },
   "meet": {
     "nav": "Meetings",

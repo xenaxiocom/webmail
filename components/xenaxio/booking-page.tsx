@@ -447,6 +447,7 @@ interface GuestDraft {
   name: string;
   email: string;
   phone: string;
+  company: string;
   message: string;
   website: string;
 }
@@ -469,6 +470,13 @@ function GuestFields({ t, type, draft, setDraft }: { t: T; type: PublicType; dra
         {label(t("booking.email"), true)}
         <Input required type="email" maxLength={254} autoComplete="email" {...field("email")} />
       </label>
+      {/* Step 77: the company goes to Salesforce as the lead's company. */}
+      {(type.askCompany ?? "off") !== "off" && (
+        <label className="block">
+          {label(t("booking.company"), type.askCompany === "required")}
+          <Input required={type.askCompany === "required"} maxLength={80} autoComplete="organization" {...field("company")} />
+        </label>
+      )}
       {type.askPhone !== "off" && (
         <label className="block">
           {label(t("booking.phone"), type.askPhone === "required")}
@@ -503,8 +511,11 @@ const guestOf = (d: GuestDraft) => ({
   name: d.name.trim(),
   email: d.email.trim(),
   ...(d.phone.trim() ? { phone: d.phone.trim() } : {}),
+  ...(d.company.trim() ? { company: d.company.trim() } : {}),
   ...(d.message.trim() ? { message: d.message.trim() } : {}),
   ...(d.website ? { website: d.website } : {}),
+  // Step 77: the booking page's address with its utm_* parameters (the lead's source).
+  page: window.location.href,
 });
 
 const primaryButton = "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50";
@@ -554,7 +565,7 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
   useBookingTitle(data && [data.type.title, data.person.name]);
   const [timeZone, setTimeZone] = useState("Europe/Berlin");
   const [step, setStep] = useState<Step>({ kind: "pick" });
-  const [draft, setDraft] = useState<GuestDraft>({ name: "", email: "", phone: "", message: "", website: "" });
+  const [draft, setDraft] = useState<GuestDraft>({ name: "", email: "", phone: "", company: "", message: "", website: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
