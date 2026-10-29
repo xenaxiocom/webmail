@@ -6,7 +6,7 @@ import type { AnswerSettings as Settings, CustomModel } from "@/lib/xenaxio/api"
 
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 const saveAnswerSettings = vi.fn(async (s: { maxToolCalls: number | null; inputTokens: number | null }) => s);
-const setCustomModelContext = vi.fn(async () => ({}));
+const setCustomModelContext = vi.fn(async (_tokens: number | null) => ({}));
 vi.mock("@/lib/xenaxio/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/xenaxio/api")>()),
   xenaxio: { saveAnswerSettings: (s: never) => saveAnswerSettings(s), setCustomModelContext: (n: never) => setCustomModelContext(n) },
