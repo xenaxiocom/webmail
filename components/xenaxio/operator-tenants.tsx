@@ -5,7 +5,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Notice, Spinner, TextField } from "@/components/xenaxio/ui";
+import { Field, Notice, Spinner, TextField } from "@/components/xenaxio/ui";
 import { errorKey, type OperatorReport, type OperatorTenant, xenaxio } from "@/lib/xenaxio/api";
 import { withBasePath } from "@/lib/browser-navigation";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -29,6 +29,8 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
     mailboxQuotaMb: String(Math.round(tenant.mailboxQuotaBytes / MB)),
     aiUser: tenant.aiUserMonthlyTokens ? String(tenant.aiUserMonthlyTokens) : "",
     aiTenant: tenant.aiTenantMonthlyTokens ? String(tenant.aiTenantMonthlyTokens) : "",
+    // Step 81: which agent engine answers the company's assistant.
+    aiEngine: tenant.aiEngine ?? "classic",
     // Step 78: meetings; empty = the installation's default.
     meetingsAllowed: tenant.meetingsAllowed ?? true,
     meetingsMax: tenant.meetingsMaxParticipants ? String(tenant.meetingsMaxParticipants) : "",
@@ -50,6 +52,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         mailboxQuotaMb: Number(form.mailboxQuotaMb),
         aiUserMonthlyTokens: form.aiUser ? Number(form.aiUser) : null,
         aiTenantMonthlyTokens: form.aiTenant ? Number(form.aiTenant) : null,
+        aiEngine: form.aiEngine,
         meetingsAllowed: form.meetingsAllowed,
         meetingsMaxParticipants: form.meetingsMax ? Number(form.meetingsMax) : null,
         meetingsMaxHours: form.meetingsHours ? Number(form.meetingsHours) : null,
@@ -62,7 +65,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
       setMessage({ kind: "error", text: t(errorKey(err)) });
     }
   };
-  const set = (k: Exclude<keyof typeof form, "meetingsAllowed" | "webinarsAllowed">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: Exclude<keyof typeof form, "meetingsAllowed" | "webinarsAllowed" | "aiEngine">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   return (
     <form onSubmit={save} className="grid gap-3 rounded-md bg-muted/50 p-3 sm:grid-cols-2" noValidate>
       <TextField label={t("operator.max_mailboxes")} type="number" min={1} value={form.maxMailboxes} onChange={set("maxMailboxes")} />
@@ -86,6 +89,17 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         value={form.aiTenant}
         onChange={set("aiTenant")}
       />
+      <Field label={t("operator.ai_engine")} hint={t("operator.ai_engine_hint")} htmlFor={`engine-${tenant.id}`}>
+        <select
+          id={`engine-${tenant.id}`}
+          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+          value={form.aiEngine}
+          onChange={(e) => setForm({ ...form, aiEngine: e.target.value === "xenacore" ? "xenacore" : "classic" })}
+        >
+          <option value="classic">{t("operator.ai_engine_classic")}</option>
+          <option value="xenacore">{t("operator.ai_engine_xenacore")}</option>
+        </select>
+      </Field>
       <label className="flex items-center gap-2 text-sm sm:col-span-2">
         <input type="checkbox" className="h-4 w-4" checked={form.meetingsAllowed} onChange={(e) => setForm({ ...form, meetingsAllowed: e.target.checked })} />
         {t("operator.meetings_allowed")}
