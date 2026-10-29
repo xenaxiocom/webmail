@@ -17,6 +17,8 @@ export interface MeetingInfo {
   /** Step 78, part D: whether it runs now, who is in it, when it ran (a call's card in the chat). */
   running?: boolean;
   participants?: number;
+  /** The most people at the same time (1: a call nobody answered). */
+  peakParticipants?: number;
   startedAt?: string | null;
   finishedAt?: string | null;
 }

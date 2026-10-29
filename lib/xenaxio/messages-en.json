@@ -1825,6 +1825,8 @@
     "call_incoming": "{name} is calling",
     "call_accept": "Accept",
     "call_decline": "Decline",
+    "call_missed": "Missed call",
+    "call_no_answer": "Not answered",
     "expand": "Enlarge",
     "shrink": "Shrink"
   },

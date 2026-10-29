@@ -4,17 +4,20 @@
 // channel or a direct message starts the room's call (or joins the running
 // one); it runs in a small dock over the chat, so people keep writing, and
 // opens to the whole screen. Its message in the chat is a card with the state;
-// a call in a direct message rings in the partner's open app.
+// a call in a direct message rings in the partner's open app. The call lives in
+// the app's frame (CallHost), so it goes on in mail, calendar and files too.
 import { lazy, Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { Phone, PhoneOff, Video, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import type { ChatClient, Room } from "@/lib/xenaxio/chat/client";
+import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { type JoinGrant, meet, type MeetingInfo, meetingLink } from "@/lib/xenaxio/meet";
 import { callMessage, callOf, useCallStore } from "@/lib/xenaxio/meet-call";
 import { useMeetNavItem } from "@/lib/xenaxio/meet-nav";
 import { cn } from "@/lib/utils";
+import { useDisplayName } from "../chat/common";
 import { MeetLangProvider } from "./lang";
 
 // LiveKit loads only when a call starts, not with the chat.
@@ -22,6 +25,8 @@ const MeetingRoom = lazy(() => import("./room").then((m) => ({ default: m.Meetin
 
 /** A call in a direct message rings this long. */
 const RING_MS = 45_000;
+/** While it rings, how often to ask whether the caller has hung up. */
+const RING_CHECK_MS = 5_000;
 
 function errorOf(t: ReturnType<typeof useXT>, err: unknown): string {
   const code = err instanceof XenaxioApiError ? err.code : "internal";
@@ -62,8 +67,12 @@ export function CallButton({ client, room }: { client: ChatClient; room: Room })
   );
 }
 
-/** The call's card in the chat: running (with how many), or how long it took. */
-export function CallCard({ code, roomId, title }: { code: string; roomId: string; title: string }) {
+/**
+ * The call's card in the chat: running (with how many), or how long it took.
+ * In a direct message a call nobody answered (never two people in it) is
+ * "missed" for the one called and "not answered" for the caller.
+ */
+export function CallCard({ code, roomId, title, dm = false, mine = false }: { code: string; roomId: string; title: string; dm?: boolean; mine?: boolean }) {
   const t = useXT();
   const open = useCallStore((s) => s.open);
   const [info, setInfo] = useState<MeetingInfo | null>(null);
@@ -90,14 +99,17 @@ export function CallCard({ code, roomId, title }: { code: string; roomId: string
   }, [code]);
   const over = gone || (info && (info.state !== "open" || !!info.finishedAt));
   const minutes = info?.startedAt && info.finishedAt ? Math.max(1, Math.round((Date.parse(info.finishedAt) - Date.parse(info.startedAt)) / 60_000)) : null;
+  const missed = !!over && dm && !!info && (info.peakParticipants ?? 2) < 2;
   return (
     <div className="mt-1 flex max-w-sm items-center gap-3 rounded-lg border border-border bg-card p-3">
-      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", over ? "bg-muted text-muted-foreground" : "bg-green-600 text-white")}>
+      <span className={cn("flex h-9 w-9 shrink-0 items-center justify-center rounded-full", missed && !mine ? "bg-red-600 text-white" : over ? "bg-muted text-muted-foreground" : "bg-green-600 text-white")}>
         {over ? <PhoneOff size={18} /> : <Phone size={18} />}
       </span>
       <div className="min-w-0 flex-1 text-sm">
         <p className="font-medium">
-          {over
+          {missed
+            ? t(mine ? "meet.call_no_answer" : "meet.call_missed")
+            : over
             ? minutes
               ? t("meet.call_ended_after", { minutes })
               : t("meet.call_ended")
@@ -142,7 +154,19 @@ export function IncomingCall({ client, nameOf }: { client: ChatClient; nameOf: (
   useEffect(() => {
     if (!ringing) return;
     const timer = setTimeout(() => setRinging(null), RING_MS);
-    return () => clearTimeout(timer);
+    // The caller hung up (or the call ended): stop ringing.
+    const check = setInterval(() => {
+      meet
+        .info(ringing.code)
+        .then((info) => {
+          if (info.state !== "open" || info.finishedAt) setRinging((r) => (r?.id === ringing.id ? null : r));
+        })
+        .catch(() => undefined);
+    }, RING_CHECK_MS);
+    return () => {
+      clearTimeout(timer);
+      clearInterval(check);
+    };
   }, [ringing]);
 
   if (!ringing || active?.code === ringing.code) return null;
@@ -227,5 +251,22 @@ export function CallDock() {
       />
       </Suspense>
     </MeetLangProvider>
+  );
+}
+
+/**
+ * In the app's frame (next to the assistant): the call this browser is in and
+ * a call ringing in a direct message, on every page of the app. The chat
+ * connection is the one the navigation opens for the unread badge.
+ */
+export function CallHost() {
+  const client = useChatStore((s) => s.client);
+  useChatStore((s) => s.version);
+  const nameOf = useDisplayName();
+  return (
+    <>
+      <CallDock />
+      {client?.ready && !client.signedOut && <IncomingCall client={client} nameOf={nameOf} />}
+    </>
   );
 }

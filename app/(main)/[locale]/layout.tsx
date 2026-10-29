@@ -18,6 +18,7 @@ import { PluginOAuthCallbackListener } from "@/components/providers/plugin-oauth
 import { PWAInstallPrompt } from "@/components/pwa-install-prompt";
 import { PushNotificationPrompt } from "@/components/push-notification-prompt";
 import { AssistantPanel } from "@/components/xenaxio/assistant-panel";
+import { CallHost } from "@/components/xenaxio/meet/call";
 import { PortalBrand } from "@/components/xenaxio/portal-brand";
 import { WorkspaceBackground } from "@/components/xenaxio/workspace-background";
 import { setRequestLocale } from "next-intl/server";
@@ -72,6 +73,8 @@ export default async function LocaleLayout({
                   <PushNotificationPrompt />
                   {/* xenaxio: AI assistant side panel (renders nothing unless enabled). */}
                   <AssistantPanel />
+                  {/* xenaxio: the call this browser is in and a ringing call, on every page. */}
+                  <CallHost />
                   <PortalBrand />
                   <WorkspaceBackground />
                 </ProtocolLaunchHandlerProvider>
