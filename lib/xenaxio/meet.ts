@@ -14,6 +14,11 @@ export interface MeetingInfo {
   guests: boolean;
   /** The viewer is signed in as someone of the company: enters directly. */
   member: boolean;
+  /** Step 78, part D: whether it runs now, who is in it, when it ran (a call's card in the chat). */
+  running?: boolean;
+  participants?: number;
+  startedAt?: string | null;
+  finishedAt?: string | null;
 }
 
 export interface MeetingView {
@@ -94,6 +99,9 @@ export const meet = {
   mine: () => call<{ meetings: MeetingView[] }>("GET", MEET).then((r) => r.meetings),
   /** `until`: the end of the calendar event the meeting belongs to (the link works a day longer). */
   create: (title: string, until?: Date) => call<MeetingView>("POST", MEET, { title, ...(until ? { until: until.toISOString() } : {}) }),
+  /** Part D: the call of a chat room (the running one, or a new one). */
+  roomCall: (roomId: string, kind: "channel" | "dm") =>
+    call<MeetingView & { created: boolean }>("POST", `/api/chat/rooms/${encodeURIComponent(roomId)}/call`, { kind }),
   // Everyone (guests too).
   info: (code: string) => call<MeetingInfo>("GET", at(code)),
   join: (code: string) => call<JoinGrant>("POST", `${at(code)}/join`),

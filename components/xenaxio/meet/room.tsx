@@ -40,6 +40,7 @@ import {
   Hand,
   LayoutGrid,
   Maximize2,
+  Minimize2,
   MessageSquare,
   Mic,
   MicOff,
@@ -114,7 +115,20 @@ function Tile({ hands }: { hands: Set<string> }) {
 }
 
 /** Grid with pages, or one person big (speaker view, a shared screen, a pinned tile). */
-function Stage({ layout, hands, pinned, setPinned }: { layout: "grid" | "speaker"; hands: Set<string>; pinned: string | null; setPinned: (id: string | null) => void }) {
+function Stage({
+  layout,
+  hands,
+  pinned,
+  setPinned,
+  compact = false,
+}: {
+  layout: "grid" | "speaker";
+  hands: Set<string>;
+  pinned: string | null;
+  setPinned: (id: string | null) => void;
+  /** The dock of a call: only the one who speaks (or a shared screen), no strip of the others. */
+  compact?: boolean;
+}) {
   const tracks = useTracks(
     [
       { source: Track.Source.Camera, withPlaceholder: true },
@@ -134,6 +148,13 @@ function Stage({ layout, hands, pinned, setPinned }: { layout: "grid" | "speaker
   const focus = (pinned && tracks.find((tr) => key(tr) === pinned)) || screen || speaker;
   const click = (tr: TrackReferenceOrPlaceholder) => setPinned(pinned === key(tr) ? null : key(tr));
 
+  if (compact && focus) {
+    return (
+      <div className="h-full">
+        <FocusLayout trackRef={focus} />
+      </div>
+    );
+  }
   if (focus && tracks.length > 1) {
     const others = tracks.filter((tr) => key(tr) !== key(focus));
     return (
@@ -393,7 +414,28 @@ function PeoplePanel({ code, member, hands, lobby, onDecide }: { code: string; m
 
 type Panel = "people" | "chat" | "devices" | null;
 
-function Meeting({ code, member, title, onEnd }: { code: string; member: boolean; title: string; onEnd: () => void }) {
+/**
+ * Where the meeting shows: its own page; part D: a small dock over the chat
+ * (a call keeps running while people write) or the whole screen.
+ */
+export type MeetingVariant = "page" | "dock" | "full";
+
+function Meeting({
+  code,
+  member,
+  title,
+  onEnd,
+  variant = "page",
+  onResize,
+}: {
+  code: string;
+  member: boolean;
+  title: string;
+  onEnd: () => void;
+  variant?: MeetingVariant;
+  onResize?: (full: boolean) => void;
+}) {
+  const dock = variant === "dock";
   const { t } = useMeetLang();
   const room = useRoomContext();
   const state = useConnectionState();
@@ -528,13 +570,27 @@ function Meeting({ code, member, title, onEnd }: { code: string; member: boolean
   };
 
   return (
-    <div className="flex h-dvh flex-col bg-[#111] text-white">
-      <header className="flex items-center gap-3 px-4 py-2 text-sm">
+    <div
+      className={cn(
+        "flex flex-col bg-[#111] text-white",
+        variant === "page" && "h-dvh",
+        variant === "full" && "fixed inset-0 z-50 h-dvh",
+        dock && "fixed inset-x-2 bottom-20 z-50 h-[300px] overflow-hidden rounded-xl border border-white/10 shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[400px]",
+      )}
+    >
+      <header className={cn("flex items-center gap-3 text-sm", dock ? "px-3 py-1.5" : "px-4 py-2")}>
         <span className="min-w-0 flex-1 truncate font-medium">{title}</span>
         <span className="text-white/60">{t(people.length === 1 ? "people_one" : "people", { count: people.length })}</span>
-        <button type="button" onClick={() => void copy()} className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 hover:bg-white/20">
-          <Copy className="h-4 w-4" /> {copied ? t("link_copied") : t("copy_link")}
-        </button>
+        {!dock && (
+          <button type="button" onClick={() => void copy()} className="flex items-center gap-1 rounded-md bg-white/10 px-2 py-1 hover:bg-white/20">
+            <Copy className="h-4 w-4" /> {copied ? t("link_copied") : t("copy_link")}
+          </button>
+        )}
+        {onResize && (
+          <button type="button" onClick={() => onResize(dock)} title={dock ? t("expand") : t("shrink")} aria-label={dock ? t("expand") : t("shrink")} className="rounded-md bg-white/10 p-1 hover:bg-white/20">
+            {dock ? <Maximize2 className="h-4 w-4" /> : <Minimize2 className="h-4 w-4" />}
+          </button>
+        )}
       </header>
       {state === ConnectionState.Reconnecting && <div className="bg-amber-600 px-4 py-1 text-center text-sm">{t("reconnecting")}</div>}
       {!audio.canPlayAudio && (
@@ -543,9 +599,9 @@ function Meeting({ code, member, title, onEnd }: { code: string; member: boolean
         </button>
       )}
       <div className="relative flex min-h-0 flex-1">
-        <main className="relative min-w-0 flex-1 p-2" data-lk-theme="default">
-          <Stage layout={layout} hands={hands} pinned={pinned} setPinned={setPinned} />
-          {people.length === 1 && <p className="pointer-events-none absolute inset-x-0 top-6 text-center text-sm text-white/70">{t("alone")}</p>}
+        <main className={cn("relative min-w-0 flex-1", dock ? "p-1" : "p-2")} data-lk-theme="default">
+          <Stage layout={dock ? "speaker" : layout} hands={hands} pinned={pinned} setPinned={setPinned} compact={dock} />
+          {people.length === 1 && !dock && <p className="pointer-events-none absolute inset-x-0 top-6 text-center text-sm text-white/70">{t("alone")}</p>}
           <div className="pointer-events-none absolute bottom-4 left-4 flex flex-col gap-1">
             {flying.map((f) => (
               <span key={f.id} className="animate-bounce text-3xl" title={f.name}>
@@ -555,7 +611,7 @@ function Meeting({ code, member, title, onEnd }: { code: string; member: boolean
           </div>
           {notice && <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-lg bg-black/80 px-3 py-2 text-sm shadow-lg">{notice}</div>}
         </main>
-        {panel && (
+        {panel && !dock && (
           <aside className="flex w-full max-w-sm flex-col border-l border-white/10 bg-[#1a1a1a] p-3 max-sm:absolute max-sm:inset-0 max-sm:z-20 max-sm:max-w-none">
             <div className="mb-3 flex items-center">
               <h2 className="flex-1 font-medium">{panel === "people" ? t("people_title") : panel === "chat" ? t("chat") : t("settings")}</h2>
@@ -571,6 +627,16 @@ function Meeting({ code, member, title, onEnd }: { code: string; member: boolean
           </aside>
         )}
       </div>
+      {dock ? (
+        <footer className="flex items-center justify-center gap-2 px-2 py-2">
+          <MediaToggle source={Track.Source.Microphone} />
+          <MediaToggle source={Track.Source.Camera} />
+          {!mobile && <MediaToggle source={Track.Source.ScreenShare} />}
+          <RoundButton label={t("leave")} onClick={() => void room.disconnect()} danger>
+            <PhoneOff className="h-5 w-5" />
+          </RoundButton>
+        </footer>
+      ) : (
       <footer className="relative flex items-center justify-center gap-2 overflow-x-auto px-3 py-3">
         <MediaToggle source={Track.Source.Microphone} />
         <MediaToggle source={Track.Source.Camera} />
@@ -623,6 +689,7 @@ function Meeting({ code, member, title, onEnd }: { code: string; member: boolean
           </button>
         )}
       </footer>
+      )}
     </div>
   );
 }
@@ -636,6 +703,8 @@ export function MeetingRoom({
   member,
   choices,
   onLeave,
+  variant = "page",
+  onResize,
 }: {
   code: string;
   token: string;
@@ -644,6 +713,8 @@ export function MeetingRoom({
   member: boolean;
   choices: Choices;
   onLeave: (reason: LeaveReason) => void;
+  variant?: MeetingVariant;
+  onResize?: (full: boolean) => void;
 }) {
   const ended = useRef(false);
   const leave = useCallback(
@@ -683,9 +754,10 @@ export function MeetingRoom({
         // "room is full" comes back as an error when connecting.
         leave(/full/i.test(err.message) ? "full" : "failed");
       }}
-      style={{ height: "100dvh" }}
+      // A dock or full-screen call places itself; only the page takes the height.
+      style={variant === "page" ? { height: "100dvh" } : { display: "contents" }}
     >
-      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} />
+      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );

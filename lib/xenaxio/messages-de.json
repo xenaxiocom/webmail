@@ -1807,7 +1807,18 @@
     "people_one": "1 Person",
     "event_create": "Xenaxio Meeting erstellen",
     "event_join": "Beitreten",
-    "event_title_default": "Besprechung"
+    "event_title_default": "Besprechung",
+    "call_button": "Anruf starten",
+    "call_started_text": "Anruf gestartet",
+    "call_running": "Anruf läuft · {count} Personen",
+    "call_ended": "Anruf beendet",
+    "call_ended_after": "Anruf beendet · {minutes} Min.",
+    "call_join": "Beitreten",
+    "call_incoming": "{name} ruft an",
+    "call_accept": "Annehmen",
+    "call_decline": "Ablehnen",
+    "expand": "Vergrößern",
+    "shrink": "Verkleinern"
   },
   "meetadmin": {
     "title": "Meetings",

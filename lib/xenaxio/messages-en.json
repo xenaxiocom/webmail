@@ -1807,7 +1807,18 @@
     "people_one": "1 person",
     "event_create": "Create Xenaxio Meeting",
     "event_join": "Join",
-    "event_title_default": "Meeting"
+    "event_title_default": "Meeting",
+    "call_button": "Start a call",
+    "call_started_text": "Call started",
+    "call_running": "Call running · {count} people",
+    "call_ended": "Call ended",
+    "call_ended_after": "Call ended · {minutes} min",
+    "call_join": "Join",
+    "call_incoming": "{name} is calling",
+    "call_accept": "Accept",
+    "call_decline": "Decline",
+    "expand": "Enlarge",
+    "shrink": "Shrink"
   },
   "meetadmin": {
     "title": "Meetings",

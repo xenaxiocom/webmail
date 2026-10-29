@@ -19,6 +19,8 @@ import { cn } from "@/lib/utils";
 import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
+import { CallCard } from "@/components/xenaxio/meet/call";
+import { callOf } from "@/lib/xenaxio/meet-call";
 
 interface Props {
   message: Message;
@@ -98,6 +100,9 @@ function Body({ message, me, onMention }: { message: Message; me: string; onMent
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
+  // Step 78, part D: a call in the room: its card, live.
+  const call = callOf(c);
+  if (call) return <CallCard code={call.code} roomId={message.roomId} title="" />;
   // An e-mail shared into the chat: what the person wrote, then the card.
   const email = sharedEmailOf(c);
   const html = email ? (email.note ? messageHtml({ body: email.note }) : "") : messageHtml(c);
