@@ -29,7 +29,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
     mailboxQuotaMb: String(Math.round(tenant.mailboxQuotaBytes / MB)),
     aiUser: tenant.aiUserMonthlyTokens ? String(tenant.aiUserMonthlyTokens) : "",
     aiTenant: tenant.aiTenantMonthlyTokens ? String(tenant.aiTenantMonthlyTokens) : "",
-    // Step 81: which agent engine answers the company's assistant.
+    // Step 82: which agent engine answers the company's assistant.
     aiEngine: tenant.aiEngine ?? "classic",
     // Step 78: meetings; empty = the installation's default.
     meetingsAllowed: tenant.meetingsAllowed ?? true,
