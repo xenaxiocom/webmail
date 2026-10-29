@@ -1166,7 +1166,7 @@ export function EventModal({
               placeholder="https://meet.example.com/..."
               maxLength={2000}
             />
-            {/* xenaxio step 78: a xenaxio Meeting link for this event (also the place, when there is none). */}
+            {/* xenaxio step 78: a Xenaxio Meeting link for this event (also the place, when there is none). */}
             <EventMeetingButton
               title={title}
               until={allDay ? new Date(`${endDate}T23:59`) : new Date(`${endDate}T${endTime}`)}

@@ -230,7 +230,7 @@ function Avatar({ person, size = 56 }: { person: PublicPerson; size?: number }) 
 
 function PlaceLine({ t, kind, value, booked = false }: { t: T; kind: PublicType["locationKind"]; value: string; booked?: boolean }) {
   const icon = kind === "video" || kind === "meeting" ? <Video className="h-4 w-4" /> : kind === "phone" ? <Phone className="h-4 w-4" /> : <MapPin className="h-4 w-4" />;
-  // Step 78: a booked xenaxio Meeting shows its own link.
+  // Step 78: a booked Xenaxio Meeting shows its own link.
   if (kind === "meeting" && booked && /^https:\/\/\S+\/meet\/[a-z0-9]{10,32}$/.test(value)) {
     return (
       <p className="flex items-start gap-2 text-sm text-muted-foreground">

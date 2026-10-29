@@ -253,7 +253,7 @@ function TypeEditor({
       </Row>
       <Row label={t("booking_settings.place")} hint={v.locationKind === "video" ? t("booking_settings.video_hint") : v.locationKind === "meeting" ? t("booking_settings.meeting_hint") : undefined}>
         <select className={select} value={v.locationKind} onChange={(e) => set("locationKind", e.target.value as LocationKind)}>
-          {/* Step 78: a xenaxio Meeting (own link per booking) when the company has meetings on. */}
+          {/* Step 78: a Xenaxio Meeting (own link per booking) when the company has meetings on. */}
           {(["video", ...(meetNav.visible || v.locationKind === "meeting" ? (["meeting"] as const) : []), "phone", "address", "none"] as const).map((k) => (
             <option key={k} value={k}>
               {t(`booking_settings.place_kind.${k}`)}

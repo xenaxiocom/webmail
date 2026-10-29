@@ -1,7 +1,7 @@
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Step 78, part C: a xenaxio Meeting for a calendar event, and "Join" in its card.
+// Step 78, part C: a Xenaxio Meeting for a calendar event, and "Join" in its card.
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 const nav = vi.hoisted(() => ({ visible: true }));
 vi.mock("@/lib/xenaxio/meet-nav", () => ({ useMeetNavItem: () => ({ visible: nav.visible, label: "Meetings" }) }));
@@ -19,7 +19,7 @@ afterEach(() => {
 });
 
 describe("step 78: meetings in the calendar", () => {
-  it("knows xenaxio Meeting links", () => {
+  it("knows Xenaxio Meeting links", () => {
     expect(meetingCodeOfLink("https://acme.xenaxio.com/meet/abcdefghjk23")).toBe("abcdefghjk23");
     expect(meetingCodeOfLink("https://zoom.us/j/123")).toBeNull();
     expect(meetingCodeOfLink("http://evil.example/meet/abcdefghjk23")).toBeNull();
@@ -32,7 +32,7 @@ describe("step 78: meetings in the calendar", () => {
     const onLink = vi.fn();
     const until = new Date("2027-03-10T10:00:00Z");
     render(<EventMeetingButton title="  " until={until} link="" onLink={onLink} />);
-    fireEvent.click(screen.getByRole("button", { name: "xenaxio Meeting erstellen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xenaxio Meeting erstellen" }));
     await waitFor(() => expect(onLink).toHaveBeenCalledWith(`${location.origin}/meet/abcdefghjk23`));
     expect(api.create).toHaveBeenCalledWith("Besprechung", until);
   });
@@ -46,7 +46,7 @@ describe("step 78: meetings in the calendar", () => {
     expect(container).toBeEmptyDOMElement();
     api.create.mockRejectedValue(new XenaxioApiError(409, "meetings_off"));
     rerender(<EventMeetingButton title="x" until={null} link="https://zoom.us/j/1" onLink={() => {}} />);
-    fireEvent.click(screen.getByRole("button", { name: "xenaxio Meeting erstellen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Xenaxio Meeting erstellen" }));
     expect(await screen.findByText("Meetings sind für Ihr Unternehmen ausgeschaltet.")).toBeInTheDocument();
   });
 

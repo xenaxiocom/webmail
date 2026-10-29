@@ -496,7 +496,7 @@
       "scope_series": "The whole series",
       "reset_note": "Individually changed occurrences of the series ({count}) go back to the series.",
       "video": "Video",
-      "meeting": "xenaxio Meeting – a video link for everyone"
+      "meeting": "Xenaxio Meeting – a video link for everyone"
     },
     "proposal_update": {
       "event": "Meeting change",
@@ -1508,8 +1508,8 @@
       "address": "In person",
       "none": "Place to be agreed",
       "video_booked": "Video call",
-      "meeting": "Video meeting (xenaxio Meeting) – you get the link with the confirmation",
-      "meeting_booked": "Join the video meeting (xenaxio Meeting)"
+      "meeting": "Video meeting (Xenaxio Meeting) – you get the link with the confirmation",
+      "meeting_booked": "Join the video meeting (Xenaxio Meeting)"
     },
     "pick_title": "Choose a day and time",
     "pick_day": "Choose a day.",
@@ -1623,7 +1623,7 @@
       "phone": "Phone (you call)",
       "address": "In person",
       "none": "To be agreed",
-      "meeting": "xenaxio Meeting (own link per booking)"
+      "meeting": "Xenaxio Meeting (own link per booking)"
     },
     "video_hint": "Your fixed link to Zoom, Google Meet or Microsoft Teams. The customer gets it with the invitation.",
     "address_placeholder": "Street, postcode, city",
@@ -1805,7 +1805,7 @@
       "guest_not_found": "Your request has expired. Please ask again."
     },
     "people_one": "1 person",
-    "event_create": "Create xenaxio Meeting",
+    "event_create": "Create Xenaxio Meeting",
     "event_join": "Join",
     "event_title_default": "Meeting"
   },

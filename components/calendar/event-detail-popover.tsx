@@ -537,7 +537,7 @@ export function EventDetailPopover({
             </a>
           </div>
         )}
-        {/* xenaxio step 78: "Join" a xenaxio Meeting from 10 minutes before the start. */}
+        {/* xenaxio step 78: "Join" a Xenaxio Meeting from 10 minutes before the start. */}
         <MeetingJoinButton uri={virtualLocation} start={startDate} end={endDate} />
 
         {/* Participants */}

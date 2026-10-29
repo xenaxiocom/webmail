@@ -496,7 +496,7 @@
       "scope_series": "Die ganze Serie",
       "reset_note": "Einzeln geänderte Termine der Serie ({count}) werden dabei auf die Serie zurückgesetzt.",
       "video": "Video",
-      "meeting": "xenaxio Meeting – ein Videolink für alle"
+      "meeting": "Xenaxio Meeting – ein Videolink für alle"
     },
     "proposal_update": {
       "event": "Terminänderung",
@@ -1508,8 +1508,8 @@
       "address": "Vor Ort",
       "none": "Ort nach Absprache",
       "video_booked": "Videoanruf",
-      "meeting": "Videobesprechung (xenaxio Meeting) – den Link bekommen Sie mit der Bestätigung",
-      "meeting_booked": "Zur Videobesprechung (xenaxio Meeting)"
+      "meeting": "Videobesprechung (Xenaxio Meeting) – den Link bekommen Sie mit der Bestätigung",
+      "meeting_booked": "Zur Videobesprechung (Xenaxio Meeting)"
     },
     "pick_title": "Tag und Uhrzeit wählen",
     "pick_day": "Wählen Sie einen Tag.",
@@ -1623,7 +1623,7 @@
       "phone": "Telefon (Sie rufen an)",
       "address": "Vor Ort",
       "none": "Nach Absprache",
-      "meeting": "xenaxio Meeting (eigener Link pro Termin)"
+      "meeting": "Xenaxio Meeting (eigener Link pro Termin)"
     },
     "video_hint": "Ihr fester Link zu Zoom, Google Meet oder Microsoft Teams. Der Kunde bekommt ihn mit der Einladung.",
     "address_placeholder": "Straße, PLZ Ort",
@@ -1805,7 +1805,7 @@
       "guest_not_found": "Ihre Anfrage ist abgelaufen. Bitte fragen Sie noch einmal an."
     },
     "people_one": "1 Person",
-    "event_create": "xenaxio Meeting erstellen",
+    "event_create": "Xenaxio Meeting erstellen",
     "event_join": "Beitreten",
     "event_title_default": "Besprechung"
   },

@@ -118,7 +118,7 @@ export function meetingCode(pathname: string): string | null {
   return m ? (m[1] as string) : null;
 }
 
-/** The code of a xenaxio Meeting link (any of the platform's addresses), or null for other links. */
+/** The code of a Xenaxio Meeting link (any of the platform's addresses), or null for other links. */
 export function meetingCodeOfLink(uri: string | null | undefined): string | null {
   if (!uri) return null;
   try {

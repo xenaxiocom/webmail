@@ -1,7 +1,7 @@
 "use client";
 
 // xenaxio step 78, part C: video meetings in the calendar. In the event form a
-// button makes a xenaxio Meeting link for the event; in the event's card a
+// button makes a Xenaxio Meeting link for the event; in the event's card a
 // "Join" button shows from 10 minutes before the start until its end.
 import { useEffect, useState } from "react";
 import { Video } from "@/components/icons";
@@ -13,7 +13,7 @@ import { useMeetNavItem } from "@/lib/xenaxio/meet-nav";
 
 const EARLY_MS = 10 * 60_000;
 
-/** "xenaxio Meeting": a link for this event, put into the meeting-link field. */
+/** "Xenaxio Meeting": a link for this event, put into the meeting-link field. */
 export function EventMeetingButton({ title, until, link, onLink }: { title: string; until: Date | null; link: string; onLink: (url: string) => void }) {
   const t = useXT();
   const { visible } = useMeetNavItem();
@@ -45,7 +45,7 @@ export function EventMeetingButton({ title, until, link, onLink }: { title: stri
   );
 }
 
-/** "Join" for a xenaxio Meeting, from 10 minutes before the start until the end. */
+/** "Join" for a Xenaxio Meeting, from 10 minutes before the start until the end. */
 export function MeetingJoinButton({ uri, start, end }: { uri: string | null; start: Date; end: Date }) {
   const t = useXT();
   const [now, setNow] = useState(() => Date.now());
