@@ -92,7 +92,8 @@ export const meet = {
   // The employee.
   status: () => call<{ enabled: boolean; guests: boolean; maxParticipants: number }>("GET", `${MEET}/status`),
   mine: () => call<{ meetings: MeetingView[] }>("GET", MEET).then((r) => r.meetings),
-  create: (title: string) => call<MeetingView>("POST", MEET, { title }),
+  /** `until`: the end of the calendar event the meeting belongs to (the link works a day longer). */
+  create: (title: string, until?: Date) => call<MeetingView>("POST", MEET, { title, ...(until ? { until: until.toISOString() } : {}) }),
   // Everyone (guests too).
   info: (code: string) => call<MeetingInfo>("GET", at(code)),
   join: (code: string) => call<JoinGrant>("POST", `${at(code)}/join`),
@@ -115,6 +116,17 @@ export const meet = {
 export function meetingCode(pathname: string): string | null {
   const m = /\/meet\/([a-z0-9]{10,32})\/?$/.exec(pathname);
   return m ? (m[1] as string) : null;
+}
+
+/** The code of a xenaxio Meeting link (any of the platform's addresses), or null for other links. */
+export function meetingCodeOfLink(uri: string | null | undefined): string | null {
+  if (!uri) return null;
+  try {
+    const url = new URL(uri);
+    return url.protocol === "https:" || url.hostname === "localhost" ? meetingCode(url.pathname) : null;
+  } catch {
+    return null;
+  }
 }
 
 /** The full link of a meeting, to copy and send. */

@@ -25,6 +25,7 @@ import {
   WEEKDAYS,
 } from "@/lib/xenaxio/booking";
 import { useXT } from "@/lib/xenaxio/i18n";
+import { useMeetNavItem } from "@/lib/xenaxio/meet-nav";
 
 const button =
   "inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm hover:bg-muted disabled:opacity-50 disabled:pointer-events-none";
@@ -165,6 +166,7 @@ function TypeEditor({
   onCancel: () => void;
 }) {
   const t = useXT();
+  const meetNav = useMeetNavItem();
   const [v, setV] = useState<BookingTypeInput>(initial);
   const [slugTouched, setSlugTouched] = useState(!!initial.slug);
   const [busy, setBusy] = useState(false);
@@ -249,9 +251,10 @@ function TypeEditor({
           <Input type="number" min={5} max={480} value={v.durationMinutes} onChange={(e) => set("durationMinutes", Number(e.target.value))} className="w-24" aria-label={t("booking_settings.duration")} />
         </div>
       </Row>
-      <Row label={t("booking_settings.place")} hint={v.locationKind === "video" ? t("booking_settings.video_hint") : undefined}>
+      <Row label={t("booking_settings.place")} hint={v.locationKind === "video" ? t("booking_settings.video_hint") : v.locationKind === "meeting" ? t("booking_settings.meeting_hint") : undefined}>
         <select className={select} value={v.locationKind} onChange={(e) => set("locationKind", e.target.value as LocationKind)}>
-          {(["video", "phone", "address", "none"] as const).map((k) => (
+          {/* Step 78: a xenaxio Meeting (own link per booking) when the company has meetings on. */}
+          {(["video", ...(meetNav.visible || v.locationKind === "meeting" ? (["meeting"] as const) : []), "phone", "address", "none"] as const).map((k) => (
             <option key={k} value={k}>
               {t(`booking_settings.place_kind.${k}`)}
             </option>

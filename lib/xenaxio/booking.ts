@@ -12,7 +12,7 @@ const PUBLIC_BOOK = "/api/public/book";
 export const WEEKDAYS = ["mo", "tu", "we", "th", "fr", "sa", "su"] as const;
 export type Weekday = (typeof WEEKDAYS)[number];
 export type Hours = Partial<Record<Weekday, [string, string][]>>;
-export type LocationKind = "video" | "phone" | "address" | "none";
+export type LocationKind = "video" | "phone" | "address" | "none" | "meeting";
 export type Ask = "off" | "optional" | "required";
 
 export interface BookingTypeInput {

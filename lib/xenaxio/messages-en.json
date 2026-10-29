@@ -493,7 +493,9 @@
       "scope": "Applies to",
       "scope_occurrence": "Only the occurrence of {when}",
       "scope_series": "The whole series",
-      "reset_note": "Individually changed occurrences of the series ({count}) go back to the series."
+      "reset_note": "Individually changed occurrences of the series ({count}) go back to the series.",
+      "video": "Video",
+      "meeting": "xenaxio Meeting – a video link for everyone"
     },
     "proposal_update": {
       "event": "Meeting change",
@@ -1503,7 +1505,9 @@
       "phone": "Phone call",
       "address": "In person",
       "none": "Place to be agreed",
-      "video_booked": "Video call"
+      "video_booked": "Video call",
+      "meeting": "Video meeting (xenaxio Meeting) – you get the link with the confirmation",
+      "meeting_booked": "Join the video meeting (xenaxio Meeting)"
     },
     "pick_title": "Choose a day and time",
     "pick_day": "Choose a day.",
@@ -1616,7 +1620,8 @@
       "video": "Video call",
       "phone": "Phone (you call)",
       "address": "In person",
-      "none": "To be agreed"
+      "none": "To be agreed",
+      "meeting": "xenaxio Meeting (own link per booking)"
     },
     "video_hint": "Your fixed link to Zoom, Google Meet or Microsoft Teams. The customer gets it with the invitation.",
     "address_placeholder": "Street, postcode, city",
@@ -1683,7 +1688,8 @@
     "embed_dark": "dark",
     "embed_transparent": "Transparent background",
     "embed_no_details": "Without description",
-    "embed_color_hint": "Own accent colour: add &color=RRGGBB to the address, e.g. &color=0f766e."
+    "embed_color_hint": "Own accent colour: add &color=RRGGBB to the address, e.g. &color=0f766e.",
+    "meeting_hint": "Every booking gets its own video link on your Xenaxio server; the guest gets it with the confirmation and waits in the lobby until you admit them."
   },
   "booking_admin": {
     "title": "Online booking",
@@ -1796,7 +1802,10 @@
       "lobby_full": "Too many people are waiting right now. Please try again in a moment.",
       "guest_not_found": "Your request has expired. Please ask again."
     },
-    "people_one": "1 person"
+    "people_one": "1 person",
+    "event_create": "Create xenaxio Meeting",
+    "event_join": "Join",
+    "event_title_default": "Meeting"
   },
   "meetadmin": {
     "title": "Meetings",

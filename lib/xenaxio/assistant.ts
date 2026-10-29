@@ -20,6 +20,8 @@ export interface ProposalSummary {
   end?: string;
   timeZone?: string;
   location?: string;
+  /** Step 78: the event gets a xenaxio Meeting (video link). */
+  meeting?: boolean;
   attendees?: string[];
   /** Names of the user's files attached to the meeting (step 34). */
   files?: string[];

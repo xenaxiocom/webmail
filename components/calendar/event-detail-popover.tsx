@@ -28,6 +28,7 @@ import { findMeetingLink, locationAction, mapsUrl, primaryLocationName } from "@
 import { PluginSlot } from "@/components/plugins/plugin-slot";
 import { eventToView } from "@/lib/plugin-projection";
 import { EventFiles } from "@/components/xenaxio/event-files";
+import { MeetingJoinButton } from "@/components/xenaxio/meet/event-meeting";
 
 interface EventDetailPopoverProps {
   event: CalendarEvent;
@@ -536,6 +537,8 @@ export function EventDetailPopover({
             </a>
           </div>
         )}
+        {/* xenaxio step 78: "Join" a xenaxio Meeting from 10 minutes before the start. */}
+        <MeetingJoinButton uri={virtualLocation} start={startDate} end={endDate} />
 
         {/* Participants */}
         {hasParticipants && (

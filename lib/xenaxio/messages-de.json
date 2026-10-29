@@ -493,7 +493,9 @@
       "scope": "Betrifft",
       "scope_occurrence": "Nur den Termin vom {when}",
       "scope_series": "Die ganze Serie",
-      "reset_note": "Einzeln geänderte Termine der Serie ({count}) werden dabei auf die Serie zurückgesetzt."
+      "reset_note": "Einzeln geänderte Termine der Serie ({count}) werden dabei auf die Serie zurückgesetzt.",
+      "video": "Video",
+      "meeting": "xenaxio Meeting – ein Videolink für alle"
     },
     "proposal_update": {
       "event": "Terminänderung",
@@ -1503,7 +1505,9 @@
       "phone": "Telefonanruf",
       "address": "Vor Ort",
       "none": "Ort nach Absprache",
-      "video_booked": "Videoanruf"
+      "video_booked": "Videoanruf",
+      "meeting": "Videobesprechung (xenaxio Meeting) – den Link bekommen Sie mit der Bestätigung",
+      "meeting_booked": "Zur Videobesprechung (xenaxio Meeting)"
     },
     "pick_title": "Tag und Uhrzeit wählen",
     "pick_day": "Wählen Sie einen Tag.",
@@ -1616,7 +1620,8 @@
       "video": "Videoanruf",
       "phone": "Telefon (Sie rufen an)",
       "address": "Vor Ort",
-      "none": "Nach Absprache"
+      "none": "Nach Absprache",
+      "meeting": "xenaxio Meeting (eigener Link pro Termin)"
     },
     "video_hint": "Ihr fester Link zu Zoom, Google Meet oder Microsoft Teams. Der Kunde bekommt ihn mit der Einladung.",
     "address_placeholder": "Straße, PLZ Ort",
@@ -1683,7 +1688,8 @@
     "embed_dark": "dunkel",
     "embed_transparent": "Transparenter Hintergrund",
     "embed_no_details": "Ohne Beschreibung",
-    "embed_color_hint": "Eigene Akzentfarbe: an die Adresse &color=RRGGBB anhängen, z. B. &color=0f766e."
+    "embed_color_hint": "Eigene Akzentfarbe: an die Adresse &color=RRGGBB anhängen, z. B. &color=0f766e.",
+    "meeting_hint": "Jeder gebuchte Termin bekommt einen eigenen Videolink auf Ihrem Xenaxio-Server; der Gast bekommt ihn mit der Bestätigung und wartet im Warteraum, bis Sie ihn zulassen."
   },
   "booking_admin": {
     "title": "Online-Terminbuchung",
@@ -1796,7 +1802,10 @@
       "lobby_full": "Gerade warten zu viele Personen. Bitte versuchen Sie es gleich noch einmal.",
       "guest_not_found": "Ihre Anfrage ist abgelaufen. Bitte fragen Sie noch einmal an."
     },
-    "people_one": "1 Person"
+    "people_one": "1 Person",
+    "event_create": "xenaxio Meeting erstellen",
+    "event_join": "Beitreten",
+    "event_title_default": "Besprechung"
   },
   "meetadmin": {
     "title": "Meetings",
