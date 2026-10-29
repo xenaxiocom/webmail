@@ -107,7 +107,7 @@ describe("step 56: public booking page", () => {
     fireEvent.click(time);
     // Step 77: no company field when the type does not ask for it.
     expect(screen.queryByLabelText(/^Firma/)).toBeNull();
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max Muster" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max Muster" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
 
@@ -134,7 +134,7 @@ describe("step 56: public booking page", () => {
     const company = screen.getByLabelText(/^Firma/) as HTMLInputElement;
     expect(company.required).toBe(true);
     expect(company.maxLength).toBe(80);
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max Muster" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max Muster" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.change(company, { target: { value: "  Muster GmbH " } });
     fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
@@ -160,7 +160,7 @@ describe("step 56: public booking page", () => {
     });
     fireEvent.click(time);
     expect((screen.getByLabelText(/^Firma/) as HTMLInputElement).required).toBe(false);
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
     expect(await screen.findByText("Bitte geben Sie Ihre Firma an.")).toBeTruthy();
@@ -179,7 +179,7 @@ describe("step 56: public booking page", () => {
       return screen.findByRole("button", { name: hhmm(start) });
     });
     fireEvent.click(time);
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
     expect(await screen.findByText("Diese Zeit wurde gerade vergeben. Bitte wählen Sie eine andere.")).toBeTruthy();
@@ -194,7 +194,7 @@ describe("step 56: public booking page", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Wunschtermin anfragen" }));
     fireEvent.change(screen.getByLabelText("Datum, Vorschlag 1"), { target: { value: "2026-12-01" } });
     fireEvent.change(screen.getByLabelText("Uhrzeit, Vorschlag 1"), { target: { value: "10:00" } });
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.change(screen.getByLabelText(/^Firma/), { target: { value: "Muster GmbH" } });
     fireEvent.click(screen.getByRole("button", { name: "Anfrage senden" }));

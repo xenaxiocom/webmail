@@ -750,7 +750,6 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
             <button type="submit" disabled={busy} className={primaryButton}>
               {busy ? t("booking.booking") : t("booking.book")}
             </button>
-            <p className="text-xs text-muted-foreground">{t("booking.privacy_note", { name: person.name })}</p>
           </form>
         )}
         {step.kind === "request" && (
@@ -790,7 +789,6 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
             <button type="submit" disabled={busy} className={primaryButton}>
               {busy ? t("booking.booking") : t("booking.send_request")}
             </button>
-            <p className="text-xs text-muted-foreground">{t("booking.privacy_note", { name: person.name })}</p>
           </form>
         )}
       </section>
