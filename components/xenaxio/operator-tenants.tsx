@@ -33,6 +33,9 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
     meetingsAllowed: tenant.meetingsAllowed ?? true,
     meetingsMax: tenant.meetingsMaxParticipants ? String(tenant.meetingsMaxParticipants) : "",
     meetingsHours: tenant.meetingsMaxHours ? String(tenant.meetingsMaxHours) : "",
+    // Step 79: webinars, off until the company has a media server of its own.
+    webinarsAllowed: tenant.webinarsAllowed ?? false,
+    webinarsMax: tenant.webinarsMaxViewers ? String(tenant.webinarsMaxViewers) : "",
   });
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const save = async (e: FormEvent) => {
@@ -50,6 +53,8 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         meetingsAllowed: form.meetingsAllowed,
         meetingsMaxParticipants: form.meetingsMax ? Number(form.meetingsMax) : null,
         meetingsMaxHours: form.meetingsHours ? Number(form.meetingsHours) : null,
+        webinarsAllowed: form.webinarsAllowed,
+        webinarsMaxViewers: form.webinarsMax ? Number(form.webinarsMax) : null,
       });
       setMessage({ kind: "success", text: t("operator.saved") });
       await onSaved();
@@ -57,7 +62,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
       setMessage({ kind: "error", text: t(errorKey(err)) });
     }
   };
-  const set = (k: Exclude<keyof typeof form, "meetingsAllowed">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: Exclude<keyof typeof form, "meetingsAllowed" | "webinarsAllowed">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   return (
     <form onSubmit={save} className="grid gap-3 rounded-md bg-muted/50 p-3 sm:grid-cols-2" noValidate>
       <TextField label={t("operator.max_mailboxes")} type="number" min={1} value={form.maxMailboxes} onChange={set("maxMailboxes")} />
@@ -87,6 +92,11 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
       </label>
       <TextField label={t("operator.meetings_max")} type="number" min={2} max={500} hint={t("operator.default_hint", { value: 25 })} value={form.meetingsMax} onChange={set("meetingsMax")} />
       <TextField label={t("operator.meetings_hours")} type="number" min={1} max={24} hint={t("operator.default_hint", { value: 8 })} value={form.meetingsHours} onChange={set("meetingsHours")} />
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.webinarsAllowed} onChange={(e) => setForm({ ...form, webinarsAllowed: e.target.checked })} />
+        {t("operator.webinars_allowed")}
+      </label>
+      <TextField label={t("operator.webinars_max")} type="number" min={1} max={300} hint={t("operator.default_hint", { value: 100 })} value={form.webinarsMax} onChange={set("webinarsMax")} />
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" size="sm">
           {t("operator.save")}

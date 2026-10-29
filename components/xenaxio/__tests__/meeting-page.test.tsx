@@ -12,10 +12,13 @@ vi.mock("../meet/prejoin", () => ({
   ),
 }));
 vi.mock("../meet/room", () => ({
-  MeetingRoom: ({ token, member, onLeave }: { token: string; member: boolean; onLeave: (r: string) => void }) => (
+  MeetingRoom: ({ token, member, onLeave, kind, role, guest }: { token: string; member: boolean; onLeave: (r: string) => void; kind?: string; role?: string; guest?: { guestId: string } | null }) => (
     <div>
       <p data-testid="room">
         {token} {member ? "member" : "guest"}
+      </p>
+      <p data-testid="role">
+        {kind} {role} {guest?.guestId ?? "-"}
       </p>
       <button type="button" onClick={() => onLeave("removed")}>
         kick
@@ -73,6 +76,29 @@ describe("step 78: meeting page", () => {
     fireEvent.click(screen.getByRole("button", { name: "kick" }));
     expect(await screen.findByText("Sie wurden aus der Besprechung entfernt.")).toBeInTheDocument();
     expect(sessionStorage.getItem("xenaxio-meet-guest")).toBeNull();
+  });
+
+  it("step 79: a webinar guest gives a name and watches, without a lobby", async () => {
+    api.info.mockResolvedValue({ ...info, title: "Town Hall", kind: "webinar" });
+    api.knock.mockResolvedValue({ guestId: "g9", key: "k".repeat(32), state: "admitted" });
+    api.guestStatus.mockResolvedValue({ state: "admitted", token: "tok-viewer", signalPath: "/api/meet/rtc", identity: "g:g9", title: "Town Hall", kind: "webinar", role: "viewer" });
+    render(<MeetingPage />);
+    // No camera check, only the name.
+    const name = await screen.findByRole("textbox", { name: "Ihr Name" });
+    expect(screen.queryByRole("button", { name: "Teilnahme anfragen" })).toBeNull();
+    fireEvent.change(name, { target: { value: "Gerda Gast" } });
+    fireEvent.click(screen.getByRole("button", { name: "Zuschauen" }));
+    expect(await screen.findByTestId("role")).toHaveTextContent("webinar viewer g9");
+    expect(api.knock).toHaveBeenCalledWith(CODE, "Gerda Gast");
+    expect(screen.getByTestId("room")).toHaveTextContent("tok-viewer guest");
+  });
+
+  it("step 79: someone of the company joins a webinar with their role", async () => {
+    api.info.mockResolvedValue({ ...info, member: true, kind: "webinar" });
+    api.join.mockResolvedValue({ token: "tok-host", signalPath: "/api/meet/rtc", identity: "u:1", title: "Town Hall", kind: "webinar", role: "host" });
+    render(<MeetingPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Beitreten" }));
+    expect(await screen.findByTestId("role")).toHaveTextContent("webinar host -");
   });
 
   it("tells a declined guest", async () => {
