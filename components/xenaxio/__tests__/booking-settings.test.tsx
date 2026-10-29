@@ -43,6 +43,10 @@ describe("step 56: online booking settings", () => {
     fireEvent.change(screen.getByPlaceholderText("z. B. Erstgespräch"), { target: { value: "Erstgespräch Steuer" } });
     expect((screen.getByDisplayValue("erstgespraech-steuer") as HTMLInputElement).value).toBe("erstgespraech-steuer");
     fireEvent.change(screen.getByPlaceholderText("https://zoom.us/j/…"), { target: { value: "https://zoom.us/j/123" } });
+    // Step 77: the company is not asked by default; here it is required.
+    const company = screen.getByLabelText("Firma") as HTMLSelectElement;
+    expect(company.value).toBe("off");
+    fireEvent.change(company, { target: { value: "required" } });
     fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
     await waitFor(() => expect(api.createType).toHaveBeenCalled());
     expect(api.createType.mock.calls[0]![0]).toMatchObject({
@@ -52,6 +56,7 @@ describe("step 56: online booking settings", () => {
       locationKind: "video",
       location: "https://zoom.us/j/123",
       hours: { mo: [["09:00", "17:00"]], fr: [["09:00", "17:00"]] },
+      askCompany: "required",
       allowRequests: true,
       reminder: true,
     });
@@ -72,7 +77,7 @@ describe("step 56: online booking settings", () => {
             { start: future, end: future, conflict: false },
             { start: future.replace(/T\d\d/, "T15"), end: future, conflict: true },
           ],
-          guest: { name: "Max Muster", email: "max@example.com", message: "Gern vormittags" },
+          guest: { name: "Max Muster", email: "max@example.com", company: "Muster GmbH", message: "Gern vormittags" },
           timeZone: "Europe/Berlin",
           createdAt: future,
         },
@@ -83,6 +88,7 @@ describe("step 56: online booking settings", () => {
     expect(await screen.findByText("Anfragen (1)")).toBeTruthy();
     expect(screen.getByText("Überschneidung")).toBeTruthy();
     expect(screen.getByText("Gern vormittags")).toBeTruthy();
+    expect(screen.getByText("Muster GmbH")).toBeTruthy();
     fireEvent.click(screen.getAllByRole("button", { name: "Bestätigen" })[0]!);
     await waitFor(() => expect(api.confirm).toHaveBeenCalledWith("r1", 0));
   });

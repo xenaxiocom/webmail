@@ -34,6 +34,8 @@ export interface BookingTypeInput {
   busyCalendarIds: string[] | null;
   askPhone: Ask;
   askMessage: Ask;
+  /** Step 77: the visitor's company (it goes to Salesforce as the lead's company). */
+  askCompany: Ask;
   allowRequests: boolean;
   reminder: boolean;
   active: boolean;
@@ -57,6 +59,7 @@ export interface Guest {
   name: string;
   email: string;
   phone?: string;
+  company?: string;
   message?: string;
 }
 
@@ -82,6 +85,7 @@ export interface PublicType {
   location: string;
   askPhone: Ask;
   askMessage: Ask;
+  askCompany: Ask;
   allowRequests: boolean;
   hasHours: boolean;
   horizonDays: number;
@@ -168,6 +172,10 @@ export interface AdminBooking {
   imprintUrl: string | null;
   privacyUrl: string | null;
   theme: BookingTheme;
+  /** Step 77: new bookings and requests go to this Salesforce org as leads (Web-to-Lead). */
+  salesforceOrgId: string | null;
+  /** The lead's Lead Source; it must exist in Salesforce. */
+  leadSource: string | null;
 }
 
 export interface BookedResult {
@@ -225,9 +233,9 @@ export const booking = {
   type: (user: string, type: string) => call<{ person: PublicPerson; type: PublicType; legal: Legal; look?: Look }>("GET", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}`),
   slots: (user: string, type: string, from: Date, to: Date) =>
     call<{ slots: string[] }>("GET", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/slots?from=${seg(from.toISOString())}&to=${seg(to.toISOString())}`),
-  book: (user: string, type: string, input: Guest & { start: string; timeZone: string; locale: string; website?: string }) =>
+  book: (user: string, type: string, input: Guest & { start: string; timeZone: string; locale: string; website?: string; page?: string }) =>
     call<BookedResult>("POST", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/bookings`, input),
-  request: (user: string, type: string, input: Guest & { proposals: string[]; timeZone: string; locale: string; website?: string }) =>
+  request: (user: string, type: string, input: Guest & { proposals: string[]; timeZone: string; locale: string; website?: string; page?: string }) =>
     call<{ status: "requested"; proposals: string[] }>("POST", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/requests`, input),
   manage: (token: string) => call<{ booking: ManageView }>("POST", `${PUBLIC_BOOK}/manage`, { token }),
   manageSlots: (token: string, from: Date, to: Date) => call<{ slots: string[] }>("POST", `${PUBLIC_BOOK}/manage/slots`, { token, from: from.toISOString(), to: to.toISOString() }),

@@ -56,6 +56,7 @@ function blankType(): BookingTypeInput {
     busyCalendarIds: null,
     askPhone: "off",
     askMessage: "optional",
+    askCompany: "off",
     allowRequests: true,
     reminder: true,
     active: true,
@@ -382,6 +383,16 @@ function TypeEditor({
             </select>
           </label>
           <label className="text-sm">
+            <span className="mb-1 block text-muted-foreground">{t("booking_settings.ask_company")}</span>
+            <select className={select} value={v.askCompany ?? "off"} onChange={(e) => set("askCompany", e.target.value as Ask)}>
+              {asks.map((a) => (
+                <option key={a} value={a}>
+                  {t(`booking_settings.ask.${a}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="text-sm">
             <span className="mb-1 block text-muted-foreground">{t("booking_settings.ask_message")}</span>
             <select className={select} value={v.askMessage} onChange={(e) => set("askMessage", e.target.value as Ask)}>
               {asks.map((a) => (
@@ -533,6 +544,7 @@ function Requests({ items, onChanged }: { items: BookingItem[]; onChanged: () =>
             <p className="text-sm font-medium">
               {r.title} · {r.guest?.name} <span className="font-normal text-muted-foreground">&lt;{r.guest?.email}&gt;</span>
             </p>
+            {r.guest?.company && <p className="text-xs text-muted-foreground">{r.guest.company}</p>}
             {r.guest?.phone && <p className="text-xs text-muted-foreground">{r.guest.phone}</p>}
             {r.guest?.message && <p className="mt-1 whitespace-pre-wrap text-sm">{r.guest.message}</p>}
             <ul className="mt-2 space-y-1.5">
@@ -581,6 +593,7 @@ function Upcoming({ items, onChanged }: { items: BookingItem[]; onChanged: () =>
           <li key={b.id} className="flex flex-wrap items-center justify-between gap-2 px-3 py-2 text-sm">
             <span>
               <span className="font-medium">{b.start ? when(b.start) : ""}</span> · {b.title} · {b.guest?.name}
+              {b.guest?.company && <span className="text-muted-foreground"> ({b.guest.company})</span>}
             </span>
             <button
               type="button"
@@ -658,7 +671,7 @@ export function BookingSettings() {
     setEditing(null);
     load();
   };
-  const strip = ({ id: _id, url: _url, ...rest }: BookingType): BookingTypeInput => rest;
+  const strip = ({ id: _id, url: _url, ...rest }: BookingType): BookingTypeInput => ({ ...rest, askCompany: rest.askCompany ?? "off" });
 
   return (
     <section className="mt-8 space-y-4 border-t border-border pt-6" data-settings-section="booking">
