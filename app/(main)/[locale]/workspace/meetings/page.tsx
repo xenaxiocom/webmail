@@ -11,6 +11,7 @@ import { Link } from "@/i18n/navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { meet, type MeetSettings } from "@/lib/xenaxio/meet";
+import { setMeetNavEnabled } from "@/lib/xenaxio/meet-nav";
 
 function MeetingsSettings() {
   const t = useXT();
@@ -38,7 +39,10 @@ function MeetingsSettings() {
     setBusy(true);
     setError(null);
     try {
-      setData(await meet.saveSettings(change));
+      const next = await meet.saveSettings(change);
+      setData(next);
+      // The "Meetings" entry of the menu appears (or goes) right away, not only after a reload.
+      setMeetNavEnabled(next.enabled);
     } catch (err) {
       setError(errorOf(err));
     } finally {

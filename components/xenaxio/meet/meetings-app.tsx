@@ -23,6 +23,7 @@ import { cn } from "@/lib/utils";
 import { XenaxioApiError, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { meet, meetingLink, type MeetingKind, type MeetingView } from "@/lib/xenaxio/meet";
+import { setMeetNavEnabled } from "@/lib/xenaxio/meet-nav";
 import { redirectToLogin, saveRedirectAfterLogin, useAuthStore } from "@/stores/auth-store";
 import { useEmailStore } from "@/stores/email-store";
 import { useLocale } from "next-intl";
@@ -81,6 +82,7 @@ function MeetingsInside() {
     try {
       const status = await meet.status();
       setEnabled(status.enabled);
+      setMeetNavEnabled(status.enabled);
       setWebinars(!!status.webinars);
       if (status.enabled) setMeetings(await meet.mine());
     } catch (err) {
