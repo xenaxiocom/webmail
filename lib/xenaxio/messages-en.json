@@ -479,6 +479,7 @@
     "tool_save_attachment": "Saving the attachment to Files…",
     "tool_list_booking_links": "Looking up your booking links…",
     "tool_list_booking_requests": "Checking booking requests…",
+    "tool_list_webinars": "Checking your webinars…",
     "tool_list_resources": "Checking meeting rooms and resources…",
     "tool_read_attachment": "Reading an attachment…",
     "tool_read_chat": "Reading Rooms…",
@@ -507,7 +508,9 @@
       "scope_series": "The whole series",
       "reset_note": "Individually changed occurrences of the series ({count}) go back to the series.",
       "video": "Video",
-      "meeting": "Xenaxio Meeting – a video link for everyone"
+      "meeting": "Xenaxio Meeting – a video link for everyone",
+      "webinar": "Xenaxio Webinar – viewers register on the link",
+      "webinar_open": "Xenaxio Webinar – viewers join on the link without registering"
     },
     "proposal_update": {
       "event": "Meeting change",
@@ -1848,6 +1851,8 @@
     "event_create": "Create Xenaxio Meeting",
     "event_join": "Join",
     "event_title_default": "Meeting",
+    "event_webinar": "Create webinar",
+    "event_webinar_default": "Webinar",
     "call_button": "Start a call",
     "call_started_text": "Call started",
     "call_running": "Call running · {count} people",

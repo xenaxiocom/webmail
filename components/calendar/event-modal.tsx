@@ -34,7 +34,7 @@ import { buildDuplicateEventData } from "@/lib/calendar-duplicate";
 import { useFormatEventDate } from "@/hooks/use-format-event-date";
 import { useIsPaneScoped } from "@/hooks/use-pane-context";
 import { useContactNameResolver } from "@/hooks/use-contact-name-resolver";
-import { EventMeetingButton } from "@/components/xenaxio/meet/event-meeting";
+import { EventMeetingButton, eventLinkName, followWebinar } from "@/components/xenaxio/meet/event-meeting";
 import {
   calendarFormHooks,
   calendarHooks,
@@ -607,7 +607,8 @@ export function EventModal({
       data.virtualLocations = {
         vl1: {
           "@type": "VirtualLocation",
-          name: null,
+          // xenaxio step 79: keep "Xenaxio Webinar" / "Xenaxio Meeting" on the link.
+          name: eventLinkName(virtualLocation.trim(), event),
           description: null,
           uri: virtualLocation.trim(),
           features: null,
@@ -713,6 +714,9 @@ export function EventModal({
 
       const shouldSendScheduling = effectiveAttendees.length > 0 && sendInvitations;
       await onSave(data, shouldSendScheduling);
+      // xenaxio step 79: a webinar follows its event's title and time.
+      const savedLink = Object.values(data.virtualLocations ?? {})[0];
+      if (savedLink?.uri && !allDay) void followWebinar(savedLink.uri, savedLink.name ?? null, { title: trimmedTitle, start, end: new Date(start.getTime() + parseDuration(duration) * 60_000) });
     } finally {
       savingRef.current = false;
       setIsSaving(false);
@@ -1170,6 +1174,8 @@ export function EventModal({
             <EventMeetingButton
               title={title}
               until={allDay ? new Date(`${endDate}T23:59`) : new Date(`${endDate}T${endTime}`)}
+              start={allDay ? null : new Date(`${startDate}T${startTime}`)}
+              description={description}
               link={virtualLocation}
               onLink={(url) => {
                 setVirtualLocation(url);

@@ -246,6 +246,12 @@ function ProposalCard({ proposal, locale, onDecide }: { proposal: Proposal; loca
             <dd>{t("assistant.proposal.meeting")}</dd>
           </>
         ) : null}
+        {s.webinar ? (
+          <>
+            <dt className="text-muted-foreground">{t("assistant.proposal.video")}</dt>
+            <dd>{t(s.registration === false ? "assistant.proposal.webinar_open" : "assistant.proposal.webinar")}</dd>
+          </>
+        ) : null}
         {attendees.length > 0 ? (
           <>
             <dt className="text-muted-foreground">{label("attendees")}</dt>
