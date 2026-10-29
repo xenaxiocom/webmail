@@ -20,6 +20,7 @@ import { composerKey } from "@/lib/xenaxio/chat/pending-files";
 import { PeoplePicker, useChatDialogs } from "./dialogs";
 import { IntegrationsDialog } from "./integrations";
 import { MessageList } from "./message-list";
+import { CallButton } from "@/components/xenaxio/meet/call";
 
 export function TypingLine({ room }: { room: Room }) {
   const t = useXT();
@@ -246,6 +247,8 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
           <span className="hidden min-w-0 truncate text-sm text-muted-foreground md:block">{client.people.get(partners[0])?.statusMsg}</span>
         )}
         <span className="flex-1" />
+        {/* Step 78, part D: a call in this channel or direct message. */}
+        <CallButton client={client} room={room} />
         {room.kind === "channel" && (
           <button type="button" onClick={() => setPanel({ kind: "members", roomId: room.id })} className="flex items-center gap-1 rounded px-2 py-1 text-sm text-muted-foreground hover:bg-accent" title={t("chat.members")}>
             <IconUsers size={16} />

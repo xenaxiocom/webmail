@@ -29,6 +29,10 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
     mailboxQuotaMb: String(Math.round(tenant.mailboxQuotaBytes / MB)),
     aiUser: tenant.aiUserMonthlyTokens ? String(tenant.aiUserMonthlyTokens) : "",
     aiTenant: tenant.aiTenantMonthlyTokens ? String(tenant.aiTenantMonthlyTokens) : "",
+    // Step 78: meetings; empty = the installation's default.
+    meetingsAllowed: tenant.meetingsAllowed ?? true,
+    meetingsMax: tenant.meetingsMaxParticipants ? String(tenant.meetingsMaxParticipants) : "",
+    meetingsHours: tenant.meetingsMaxHours ? String(tenant.meetingsMaxHours) : "",
   });
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const save = async (e: FormEvent) => {
@@ -43,6 +47,9 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         mailboxQuotaMb: Number(form.mailboxQuotaMb),
         aiUserMonthlyTokens: form.aiUser ? Number(form.aiUser) : null,
         aiTenantMonthlyTokens: form.aiTenant ? Number(form.aiTenant) : null,
+        meetingsAllowed: form.meetingsAllowed,
+        meetingsMaxParticipants: form.meetingsMax ? Number(form.meetingsMax) : null,
+        meetingsMaxHours: form.meetingsHours ? Number(form.meetingsHours) : null,
       });
       setMessage({ kind: "success", text: t("operator.saved") });
       await onSaved();
@@ -50,7 +57,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
       setMessage({ kind: "error", text: t(errorKey(err)) });
     }
   };
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: Exclude<keyof typeof form, "meetingsAllowed">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   return (
     <form onSubmit={save} className="grid gap-3 rounded-md bg-muted/50 p-3 sm:grid-cols-2" noValidate>
       <TextField label={t("operator.max_mailboxes")} type="number" min={1} value={form.maxMailboxes} onChange={set("maxMailboxes")} />
@@ -74,6 +81,12 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         value={form.aiTenant}
         onChange={set("aiTenant")}
       />
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.meetingsAllowed} onChange={(e) => setForm({ ...form, meetingsAllowed: e.target.checked })} />
+        {t("operator.meetings_allowed")}
+      </label>
+      <TextField label={t("operator.meetings_max")} type="number" min={2} max={500} hint={t("operator.default_hint", { value: 25 })} value={form.meetingsMax} onChange={set("meetingsMax")} />
+      <TextField label={t("operator.meetings_hours")} type="number" min={1} max={24} hint={t("operator.default_hint", { value: 8 })} value={form.meetingsHours} onChange={set("meetingsHours")} />
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" size="sm">
           {t("operator.save")}

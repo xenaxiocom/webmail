@@ -407,7 +407,7 @@ export async function proxy(request: NextRequest) {
   }
   response.headers.set(
     "Permissions-Policy",
-    "camera=(), microphone=(), geolocation=(), payment=()"
+    "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=()"
   );
   response.headers.set("Content-Security-Policy", csp);
 

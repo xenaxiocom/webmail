@@ -26,6 +26,8 @@ import { redirectToLogin, saveRedirectAfterLogin, useAuthStore } from "@/stores/
 import { useEmailStore } from "@/stores/email-store";
 import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
+import { CallDock, IncomingCall } from "@/components/xenaxio/meet/call";
+import { useDisplayName } from "./common";
 import { ChatDialogsProvider, CreateChannelDialog, PeoplePicker, QuickSwitcher } from "./dialogs";
 import { NotifySettingsDialog, PushBanner, useChatNotifyLoader } from "./notifications";
 import { RoomView } from "./room-view";
@@ -48,6 +50,8 @@ function Notice({ title, text }: { title: string; text?: string }) {
 
 function ChatInside() {
   const t = useXT();
+  // Step 78, part D: names for an incoming call.
+  const nameOf = useDisplayName();
   const isMobile = useIsMobile();
   const me = useXenaxioMe();
   const status = useChatStore((s) => s.status);
@@ -191,6 +195,9 @@ function ChatInside() {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <PushBanner />
+      {/* Step 78, part D: the call this browser is in, and a call ringing in a direct message. */}
+      <CallDock />
+      <IncomingCall client={client} nameOf={nameOf} />
       <div className="flex min-h-0 flex-1">
       {isMobile ? (
         panel ? (
