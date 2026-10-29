@@ -34,6 +34,7 @@ import { buildDuplicateEventData } from "@/lib/calendar-duplicate";
 import { useFormatEventDate } from "@/hooks/use-format-event-date";
 import { useIsPaneScoped } from "@/hooks/use-pane-context";
 import { useContactNameResolver } from "@/hooks/use-contact-name-resolver";
+import { EventMeetingButton } from "@/components/xenaxio/meet/event-meeting";
 import {
   calendarFormHooks,
   calendarHooks,
@@ -1164,6 +1165,16 @@ export function EventModal({
               onChange={(e) => setVirtualLocation(e.target.value)}
               placeholder="https://meet.example.com/..."
               maxLength={2000}
+            />
+            {/* xenaxio step 78: a Xenaxio Meeting link for this event (also the place, when there is none). */}
+            <EventMeetingButton
+              title={title}
+              until={allDay ? new Date(`${endDate}T23:59`) : new Date(`${endDate}T${endTime}`)}
+              link={virtualLocation}
+              onLink={(url) => {
+                setVirtualLocation(url);
+                if (!location.trim()) setLocation(url);
+              }}
             />
             <PluginSlot
               name="calendar-event-actions"

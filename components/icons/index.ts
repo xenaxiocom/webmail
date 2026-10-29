@@ -251,3 +251,16 @@ export {
   IconZoomIn as ZoomIn,
   IconZoomOut as ZoomOut,
 } from '@tabler/icons-react';
+
+// xenaxio step 78: the meeting page (components/xenaxio/meet).
+export {
+  IconHandStop as Hand,
+  IconMicrophone as Mic,
+  IconMicrophoneOff as MicOff,
+  IconPhoneOff as PhoneOff,
+  IconScreenShare as ScreenShare,
+  IconMoodSmile as Smile,
+  IconCameraRotate as SwitchCamera,
+  IconUserX as UserX,
+  IconVideoOff as VideoOff,
+} from '@tabler/icons-react';
