@@ -1,6 +1,6 @@
 // xenaxio step 78: the "Meetings" entry of the navigation (rail, Mountain View
 // top bar, phone bar): shown when the company has meetings on. Asked once per
-// page load.
+// page load; the admin's switch and the Meetings page tell it again at once.
 import { useEffect } from "react";
 import { create } from "zustand";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
@@ -19,6 +19,11 @@ const useMeetNavStore = create<{ enabled: boolean; asked: boolean; ask: () => vo
       .catch(() => undefined);
   },
 }));
+
+/** Meetings were turned on or off (the admin's switch, or the Meetings page read the status): the menu follows. */
+export function setMeetNavEnabled(enabled: boolean): void {
+  useMeetNavStore.setState({ enabled, asked: true });
+}
 
 export function useMeetNavItem(): { visible: boolean; label: string } {
   const t = useXT();
