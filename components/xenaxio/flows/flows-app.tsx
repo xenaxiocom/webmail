@@ -595,6 +595,42 @@ function FlowPanel({ id, overview, onListChanged }: { id: string; overview: Flow
   );
 }
 
+/** Stage E2: whether flows may send letters in my name from my own mailbox (and read the replies to them). */
+function SendAs() {
+  const t = useXT();
+  const [on, setOn] = useState<boolean | null>(null);
+  const [msg, setMsg] = useState<Msg>(null);
+  useEffect(() => {
+    xenaxio.flows
+      .sendAs()
+      .then((s) => setOn(s.on))
+      .catch(() => setOn(false));
+  }, []);
+  if (on === null) return null;
+  const change = (next: boolean) => {
+    setMsg(null);
+    xenaxio.flows
+      .setSendAs(next)
+      .then((s) => {
+        setOn(s.on);
+        setMsg({ kind: "success", text: s.on ? t("flows.send_as_on") : t("flows.send_as_off") });
+      })
+      .catch((err) => setMsg({ kind: "error", text: errorText(t, err) }));
+  };
+  return (
+    <section className="space-y-2 rounded-lg border border-border p-4">
+      <label className="flex items-start gap-3 text-sm">
+        <input type="checkbox" className="mt-0.5 h-4 w-4" checked={on} onChange={(e) => change(e.target.checked)} />
+        <span>
+          <span className="block font-medium">{t("flows.send_as")}</span>
+          <span className="block text-xs text-muted-foreground">{t("flows.send_as_hint")}</span>
+        </span>
+      </label>
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+    </section>
+  );
+}
+
 function FlowItem({ inst, overview, initiallyOpen, onListChanged }: { inst: FlowInstallation; overview: FlowsOverview; initiallyOpen: boolean; onListChanged: () => Promise<void> }) {
   const t = useXT();
   const [open, setOpen] = useState(initiallyOpen);
@@ -714,6 +750,7 @@ export function FlowsSection() {
           <>
             <p className="text-sm text-muted-foreground">{t("flows.intro")}</p>
             {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+            <SendAs />
             {creating && (
               <NewFlow
                 overview={data}

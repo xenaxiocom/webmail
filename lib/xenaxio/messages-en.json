@@ -198,7 +198,8 @@
     "user": "Employee not found.",
     "invalid_name": "Please give a name of up to 200 characters.",
     "memory_sensitive": "The assistant does not keep such things (health, religion, politics, unions, origin, sex life, passwords, card or account numbers).",
-    "memory_empty": "Please enter a text."
+    "memory_empty": "Please enter a text.",
+    "flow_send_not_allowed": "Sending in this name is not allowed."
   },
   "login": {
     "title": "Sign in",
@@ -2403,7 +2404,11 @@
     "param_mailbox_hint": "Only shared mailboxes you may send from.",
     "admin_intro": "Employees create and set up flows in the “Flows” section. Here you see all flows of the company and decide how long their journal is kept.",
     "open_section": "Go to “Flows”",
-    "open": "Open"
+    "open": "Open",
+    "send_as": "Flows may send letters in my name",
+    "send_as_hint": "Only flows that send a letter in your name (for example your request to a supplier) then send from your mailbox and read the replies to those letters. They read no other mail. You can switch this off at any time.",
+    "send_as_on": "Flows may now send in your name.",
+    "send_as_off": "Flows no longer send in your name."
   },
   "permissions": {
     "title": "AI permissions",

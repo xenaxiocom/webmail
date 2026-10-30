@@ -198,7 +198,8 @@
     "user": "Mitarbeiter/in nicht gefunden.",
     "invalid_name": "Bitte einen Namen bis 200 Zeichen angeben.",
     "memory_sensitive": "Solche Angaben merkt sich der Assistent nicht (Gesundheit, Religion, Politik, Gewerkschaft, Herkunft, Sexualleben, Passwörter, Karten- oder Kontonummern).",
-    "memory_empty": "Bitte einen Text eingeben."
+    "memory_empty": "Bitte einen Text eingeben.",
+    "flow_send_not_allowed": "Senden in diesem Namen ist nicht erlaubt."
   },
   "login": {
     "title": "Anmelden",
@@ -2403,7 +2404,11 @@
     "param_mailbox_hint": "Nur gemeinsame Postfächer, aus denen Sie senden dürfen.",
     "admin_intro": "Flows legen Mitarbeitende im Bereich „Flows“ an und stellen sie dort ein. Hier sehen Sie alle Flows der Firma und legen fest, wie lange ihr Protokoll aufbewahrt wird.",
     "open_section": "Zum Bereich „Flows“",
-    "open": "Öffnen"
+    "open": "Öffnen",
+    "send_as": "Flows dürfen Briefe in meinem Namen senden",
+    "send_as_hint": "Nur Flows, die Briefe ausdrücklich in Ihrem Namen schicken (z. B. Ihre Anfrage an einen Lieferanten), senden dann aus Ihrem Postfach und lesen die Antworten auf diese Briefe. Andere Mails lesen sie nicht. Jederzeit wieder ausschaltbar.",
+    "send_as_on": "Flows dürfen jetzt in Ihrem Namen senden.",
+    "send_as_off": "Flows senden nicht mehr in Ihrem Namen."
   },
   "permissions": {
     "title": "KI-Berechtigungen",

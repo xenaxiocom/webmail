@@ -1003,6 +1003,9 @@ export const xenaxio = {
     runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs`),
     run: (id: string) =>
       request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    // Stage E2: flows sending letters in my name.
+    sendAs: () => request<{ on: boolean; expiresAt: string | null }>("GET", `${FLOW}/send-as`),
+    setSendAs: (on: boolean) => request<{ on: boolean; expiresAt: string | null }>("PUT", `${FLOW}/send-as`, { on }),
     // The admin of the company.
     adminOverview: () => request<FlowsAdminOverview>("GET", "/api/admin/flows"),
     setJournalYears: (journalYears: number) => request<{ ok: true }>("PUT", "/api/admin/flows/settings", { journalYears }),
