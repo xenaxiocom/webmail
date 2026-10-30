@@ -547,6 +547,37 @@ export interface Invitation {
   tenantName: string | null;
 }
 
+/** Step 85: what the AI may do with a tool (like the per-tool permissions in Claude). */
+export type ToolLevel = "allow" | "ask" | "deny";
+
+/** Step 85: one row of the page "KI-Berechtigungen". */
+export interface ToolPermission {
+  name: string;
+  group: string;
+  kind: "read" | "write-safe" | "write-confirm" | "send";
+  /** Offered in the side panel (and scheduled tasks), to outside AI chats, or both. */
+  where: "panel" | "mcp" | "both";
+  choices: ToolLevel[];
+  defaultLevel: ToolLevel;
+  choice: ToolLevel | null;
+  /** The company's limit; null: none. */
+  ceiling: ToolLevel | null;
+  level: ToolLevel;
+}
+
+export interface ToolPermissionPage {
+  tools: ToolPermission[];
+  groups: string[];
+  /** Who confirms "ask" tools for outside AI chats: the AI chat itself or the user in Xenaxio. */
+  externalConfirm: "client" | "app";
+}
+
+export interface ToolCeilingPage {
+  groups: string[];
+  tools: { name: string; kind: ToolPermission["kind"]; where: ToolPermission["where"]; group: string }[];
+  ceilings: { scope: string; level: "ask" | "deny" }[];
+}
+
 export interface McpTokenInfo {
   id: string;
   /** "oauth": an AI chat connected by signing in; "token": created by hand. */
@@ -751,6 +782,13 @@ export const xenaxio = {
   resumeSchedule: (id: string) => request<{ schedule: ScheduleInfo }>("POST", `/api/ai/schedules/${encodeURIComponent(id)}/resume`),
   runSchedule: (id: string) => request<{ started: true; conversationId: string }>("POST", `/api/ai/schedules/${encodeURIComponent(id)}/run`),
   deleteSchedule: (id: string) => request<{ ok: true }>("DELETE", `/api/ai/schedules/${encodeURIComponent(id)}`),
+  // Step 85: per-tool permissions of the AI, and the company's ceiling.
+  toolPermissions: () => request<ToolPermissionPage>("GET", "/api/ai/permissions"),
+  setToolPermission: (tool: string, level: ToolLevel | null) => request<ToolPermissionPage>("PUT", `/api/ai/permissions/tools/${encodeURIComponent(tool)}`, { level }),
+  setExternalConfirm: (confirm: "client" | "app") => request<ToolPermissionPage>("PUT", "/api/ai/permissions/external", { confirm }),
+  resetToolPermissions: () => request<ToolPermissionPage>("DELETE", "/api/ai/permissions"),
+  toolCeilings: () => request<ToolCeilingPage>("GET", "/api/admin/ai/permissions"),
+  setToolCeiling: (scope: string, level: "ask" | "deny" | null) => request<ToolCeilingPage>("PUT", "/api/admin/ai/permissions", { scope, level }),
   /** Step 51: `mcpUrl` is the company's own address; `sharedMcpUrl` the shared one. */
   mcpTokens: () => request<{ mcpUrl: string; sharedMcpUrl?: string; enabled: boolean; tokens: McpTokenInfo[] }>("GET", "/api/me/mcp-tokens"),
   createMcpToken: (name: string, days: number) => request<{ token: string; mcpUrl: string; info: McpTokenInfo }>("POST", "/api/me/mcp-tokens", { name, days }),

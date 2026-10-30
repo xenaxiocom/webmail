@@ -67,6 +67,9 @@ export interface ProposalSummary {
   to?: string[];
   preview?: string;
   attachments?: string[];
+  /** Step 85: a tool that waits only because the user wants to be asked: its name and input. */
+  tool?: string;
+  input?: Record<string, unknown>;
 }
 
 /** Step 49: a chat in the history; scheduled tasks have their own, unread until opened. */
@@ -87,6 +90,16 @@ export interface WaitingProposal {
 
 /** Step 49: a link (push, email copy) opens this chat in the panel: ?assistant=<id>. */
 export const ASSISTANT_OPEN_PARAM = "assistant";
+/** Step 85: ?assistant=waiting opens what connected AI chats wait for. */
+export const ASSISTANT_WAITING = "waiting";
+
+/** Step 85: a call of a connected AI chat (MCP) waiting for the user's confirmation. */
+export interface WaitingAction extends WaitingProposal {
+  /** The connection's name, as on "KI-Chats verbinden". */
+  client: string | null;
+  createdAt: string;
+  expiresAt: string;
+}
 
 export interface ActionResult {
   status: "done";
@@ -229,7 +242,7 @@ export function pageOf(pathname: string): UiPage | undefined {
 }
 
 export const assistant = {
-  async status(): Promise<{ configured: boolean; enabled: boolean; usage?: { warning: boolean; blocked: boolean }; unread?: number }> {
+  async status(): Promise<{ configured: boolean; enabled: boolean; usage?: { warning: boolean; blocked: boolean }; unread?: number; waiting?: number }> {
     const res = await apiFetch("/api/ai/status", { credentials: "same-origin" });
     if (!res.ok) return { configured: false, enabled: false };
     return res.json();
@@ -265,6 +278,11 @@ export const assistant = {
   },
   async reject(actionId: string): Promise<void> {
     await post(`/api/ai/actions/${encodeURIComponent(actionId)}/reject`, {});
+  },
+  /** Step 85: what connected AI chats wait for. */
+  async waiting(): Promise<WaitingAction[]> {
+    const res = await apiFetch("/api/ai/actions/waiting", { credentials: "same-origin" });
+    return res.ok ? ((await res.json()) as { actions: WaitingAction[] }).actions : [];
   },
   async conversations(): Promise<ConversationInfo[]> {
     const res = await apiFetch("/api/ai/conversations", { credentials: "same-origin" });

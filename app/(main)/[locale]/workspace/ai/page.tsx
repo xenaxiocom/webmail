@@ -354,6 +354,11 @@ function AiSettings() {
 
       <ProviderChoice data={data} busy={busy} onPick={(provider) => provider !== data.provider && change({ provider })} />
 
+      {/* Step 85: the company's limit on what AI may do, per tool. */}
+      <Link href="/workspace/ai/permissions" className="block text-sm text-primary underline underline-offset-4">
+        {t("permissions.admin_link")}
+      </Link>
+
       {!own && data.platformConfigured && (
         <section className="space-y-2 rounded-lg border border-border bg-card p-4">
           <label htmlFor="ai-model" className="font-medium">

@@ -27,6 +27,7 @@ import {
   pageOf,
   type AttachedFile,
   ASSISTANT_OPEN_PARAM,
+  ASSISTANT_WAITING,
   type ConversationInfo,
   attachedFileLink,
   chatFileProblem,
@@ -49,6 +50,7 @@ import { ProposalSeriesNote, ProposalSeriesRows } from "./proposal-series";
 import { AssistantButton, useAssistantDevice, useAssistantPositions } from "./assistant-button";
 import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
 import { toast } from "@/stores/toast-store";
+import { useToolLabel } from "./tool-permissions";
 
 type ProposalState = "pending" | "running" | "done" | "done_invited" | "invite_failed" | "rejected" | "expired" | "already" | "failed" | "memory_full" | "memory_off" | "schedule_limit";
 
@@ -57,6 +59,8 @@ interface Proposal {
   tool: string;
   summary: ProposalSummary;
   state: ProposalState;
+  /** Step 85: the connected AI chat that asked (waiting calls only). */
+  client?: string | null;
 }
 
 interface Turn {
@@ -233,6 +237,48 @@ function MemoryCard({ proposal, onDecide }: { proposal: Proposal; onDecide: (p: 
   );
 }
 
+/** Step 85: a value of a tool's input, short enough for the card. */
+function inputText(value: unknown): string {
+  const text = typeof value === "string" ? value : Array.isArray(value) && value.every((v) => typeof v === "string") ? value.join(", ") : JSON.stringify(value);
+  return text.length > 300 ? `${text.slice(0, 300)}…` : text;
+}
+
+/** Step 85: a tool that waits only because the user wants to be asked: its name and input as they will run. */
+function GenericCard({ proposal, onDecide }: { proposal: Proposal; onDecide: (p: Proposal, confirm: boolean) => void }) {
+  const t = useXT();
+  const toolLabel = useToolLabel();
+  const input = proposal.summary.input ?? {};
+  const settled = proposal.state !== "pending" && proposal.state !== "running";
+  return (
+    <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
+      <p className="font-medium text-sm">{t("assistant.waiting.action", { tool: toolLabel(proposal.tool) })}</p>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+        {Object.entries(input).map(([key, value]) => (
+          <Fragment key={key}>
+            <dt className="text-muted-foreground">{key}</dt>
+            <dd className="break-words whitespace-pre-wrap">{inputText(value)}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      {settled ? (
+        <p className={cn(proposal.state === "done" ? "text-primary" : "text-muted-foreground", "flex items-center gap-1")}>
+          {proposal.state === "done" && <Check className="h-3.5 w-3.5" />}
+          {proposal.state === "done" ? t("assistant.waiting.done") : proposal.state === "failed" ? t("assistant.tool_error") : t(`assistant.proposal.${proposal.state}`)}
+        </p>
+      ) : (
+        <div className="flex gap-2">
+          <Button size="sm" disabled={proposal.state === "running"} onClick={() => onDecide(proposal, true)}>
+            {t("assistant.proposal.confirm")}
+          </Button>
+          <Button size="sm" variant="outline" disabled={proposal.state === "running"} onClick={() => onDecide(proposal, false)}>
+            {t("assistant.proposal.reject")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProposalCard({ proposal, locale, onDecide }: { proposal: Proposal; locale: string; onDecide: (p: Proposal, confirm: boolean) => void }) {
   const t = useXT();
   const s = proposal.summary;
@@ -382,6 +428,8 @@ export function AssistantPanel() {
   const [history, setHistory] = useState<ConversationInfo[] | null>(null);
   // Step 49: results of scheduled tasks not opened yet (a dot on the button and in the history).
   const [unread, setUnread] = useState(0);
+  // Step 85: calls of connected AI chats waiting for the user's confirmation.
+  const [waiting, setWaiting] = useState(0);
   const abort = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
@@ -437,7 +485,11 @@ export function AssistantPanel() {
   // Step 49: new results of scheduled tasks, checked every two minutes while the page is open.
   useEffect(() => {
     if (!available) return;
-    const check = () => void assistant.status().then((s) => setUnread(s.unread ?? 0), () => undefined);
+    const check = () =>
+      void assistant.status().then((s) => {
+        setUnread(s.unread ?? 0);
+        setWaiting(s.waiting ?? 0);
+      }, () => undefined);
     check();
     const timer = window.setInterval(check, 120_000);
     return () => window.clearInterval(timer);
@@ -514,6 +566,9 @@ export function AssistantPanel() {
       if (code === "memory_full" || code === "memory_off" || code === "schedule_limit") return set(code);
       set(status === 410 ? "expired" : status === 409 ? "already" : status === 0 ? "pending" : "failed");
       if (status === 0) setNotice(t("errors.network"));
+    } finally {
+      // Step 85: one fewer may be waiting now.
+      if (proposal.client !== undefined) void assistant.status().then((s) => setWaiting(s.waiting ?? 0), () => undefined);
     }
   }, [t]);
 
@@ -671,23 +726,41 @@ export function AssistantPanel() {
     void assistant.status().then((s) => setUnread(s.unread ?? 0), () => undefined);
   }, []);
 
+  // Step 85: what connected AI chats wait for, as cards in a view of its own.
+  const loadWaiting = useCallback(async () => {
+    abort.current?.abort();
+    const actions = await assistant.waiting();
+    setTurns([
+      {
+        role: "assistant",
+        text: actions.length ? t("assistant.waiting.title") : t("assistant.waiting.empty"),
+        ...(actions.length ? { proposals: actions.map((a) => ({ id: a.id, tool: a.tool, summary: a.summary, client: a.client, state: "pending" as const })) } : {}),
+      },
+    ]);
+    setConversationId(undefined);
+    setHistory(null);
+    setWaiting(actions.length);
+  }, [t]);
+
   // Step 49: a link from a notification or the email copy (?assistant=<chat>) opens that chat.
+  // Step 85: ?assistant=waiting opens what connected AI chats wait for.
   useEffect(() => {
     if (!available) return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get(ASSISTANT_OPEN_PARAM);
-    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    if (!id || (id !== ASSISTANT_WAITING && !/^[0-9a-f-]{36}$/i.test(id))) return;
     params.delete(ASSISTANT_OPEN_PARAM);
     const rest = params.toString();
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
     setOpen(true);
-    void loadConversation(id);
-  }, [available, loadConversation, pathname]);
+    void (id === ASSISTANT_WAITING ? loadWaiting() : loadConversation(id));
+  }, [available, loadConversation, loadWaiting, pathname]);
 
   if (!available || HIDDEN.test(pathname)) return null;
 
   if (!open) {
-    return <AssistantButton label={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")} unread={unread > 0} onOpen={() => setOpen(true)} />;
+    const dot = unread + waiting;
+    return <AssistantButton label={dot ? t("assistant.open_unread", { count: dot }) : t("assistant.open")} unread={dot > 0} onOpen={() => setOpen(true)} />;
   }
 
   return (
@@ -756,6 +829,13 @@ export function AssistantPanel() {
             </Button>
           </div>
         </div>
+      )}
+
+      {/* Step 85: calls of connected AI chats waiting for the user. */}
+      {waiting > 0 && (
+        <button type="button" onClick={() => void loadWaiting()} className="border-b border-border bg-primary/5 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-primary/10">
+          {t("assistant.waiting.open", { count: waiting })}
+        </button>
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-3 text-sm space-y-4">
@@ -842,19 +922,24 @@ export function AssistantPanel() {
               {turn.error && <p className="text-xs text-destructive">{turn.error}</p>}
               {/* The model usually recovers from a failed step; warn only when no answer came. */}
               {turn.toolFailed && !turn.error && !turn.text.trim() && !(busy && i === turns.length - 1) && <p className="text-xs text-destructive">{t("assistant.tool_error")}</p>}
-              {turn.proposals?.map((p) =>
-                p.tool === "remember" || p.tool === "forget" ? (
-                  <MemoryCard key={p.id} proposal={p} onDecide={decide} />
-                ) : p.tool === "schedule_task" || p.tool === "update_schedule" || p.tool === "delete_schedule" ? (
-                  <ScheduleCard key={p.id} proposal={p} locale={locale} onDecide={(_card, confirm) => decide(p, confirm)} />
-                ) : p.tool === "delete_draft" ? (
-                  <DraftDeleteCard key={p.id} proposal={p} onDecide={(_draft, confirm) => decide(p, confirm)} />
-                ) : p.tool === "create_task" || p.tool === "update_task" ? (
-                  <TaskCard key={p.id} proposal={p} locale={locale} onDecide={(_task, confirm) => decide(p, confirm)} />
-                ) : (
-                  <ProposalCard key={p.id} proposal={p} locale={locale} onDecide={decide} />
-                ),
-              )}
+              {turn.proposals?.map((p) => (
+                <Fragment key={p.id}>
+                  {p.client !== undefined && <p className="text-xs text-muted-foreground">{p.client ? t("assistant.waiting.from", { client: p.client }) : t("assistant.waiting.from_unknown")}</p>}
+                  {p.summary.tool && p.summary.input ? (
+                    <GenericCard proposal={p} onDecide={decide} />
+                  ) : p.tool === "remember" || p.tool === "forget" ? (
+                    <MemoryCard key={p.id} proposal={p} onDecide={decide} />
+                  ) : p.tool === "schedule_task" || p.tool === "update_schedule" || p.tool === "delete_schedule" ? (
+                    <ScheduleCard key={p.id} proposal={p} locale={locale} onDecide={(_card, confirm) => decide(p, confirm)} />
+                  ) : p.tool === "delete_draft" ? (
+                    <DraftDeleteCard key={p.id} proposal={p} onDecide={(_draft, confirm) => decide(p, confirm)} />
+                  ) : p.tool === "create_task" || p.tool === "update_task" ? (
+                    <TaskCard key={p.id} proposal={p} locale={locale} onDecide={(_task, confirm) => decide(p, confirm)} />
+                  ) : (
+                    <ProposalCard key={p.id} proposal={p} locale={locale} onDecide={decide} />
+                  )}
+                </Fragment>
+              ))}
               {turn.sources && turn.sources.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">{t("assistant.sources")}</p>
