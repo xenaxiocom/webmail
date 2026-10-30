@@ -788,7 +788,14 @@
     },
     "remembered": "Remembered: {text}",
     "remembered_undo": "Undo",
-    "remembered_company": "This is company knowledge: your administrator deletes it under “Company knowledge”."
+    "remembered_company": "This is company knowledge: your administrator deletes it under “Company knowledge”.",
+    "tool_list_flow_tasks": "Checking what waits for you in flows…",
+    "tool_list_flow_runs": "Looking at flows…",
+    "tool_get_flow_run": "Reading the run…",
+    "tool_start_flow": "Starting the run…",
+    "tool_update_flow": "Changing the flow…",
+    "tool_add_flow_person": "Adding the person…",
+    "tool_remove_flow_person": "Removing the person…"
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -2556,6 +2563,7 @@
       "chat": "Rooms",
       "booking": "Online booking",
       "meetings": "Meetings and webinars",
+      "flows": "Flows",
       "memory": "Assistant's memory",
       "schedules": "Scheduled tasks",
       "settings": "Settings",
@@ -2599,7 +2607,14 @@
       "delete_schedule": "Delete a scheduled task",
       "find_setting": "Find a setting",
       "set_signature": "Change signature",
-      "set_out_of_office": "Change out-of-office reply"
+      "set_out_of_office": "Change out-of-office reply",
+      "list_flow_tasks": "See what waits for my decision in flows",
+      "list_flow_runs": "See runs of flows",
+      "get_flow_run": "Read a run of a flow",
+      "start_flow": "Start a run of a flow",
+      "update_flow": "Change settings of own flows",
+      "add_flow_person": "Add a person to own flows",
+      "remove_flow_person": "Remove a person from own flows"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",

@@ -788,7 +788,14 @@
     },
     "remembered": "Gemerkt: {text}",
     "remembered_undo": "Rückgängig",
-    "remembered_company": "Das ist Firmenwissen: Löschen kann es Ihr Administrator unter „Firmenwissen“."
+    "remembered_company": "Das ist Firmenwissen: Löschen kann es Ihr Administrator unter „Firmenwissen“.",
+    "tool_list_flow_tasks": "Prüfe, was in Flows auf Sie wartet…",
+    "tool_list_flow_runs": "Sehe mir die Flows an…",
+    "tool_get_flow_run": "Lese den Vorgang…",
+    "tool_start_flow": "Starte den Vorgang…",
+    "tool_update_flow": "Ändere den Flow…",
+    "tool_add_flow_person": "Füge die Person hinzu…",
+    "tool_remove_flow_person": "Entferne die Person…"
   },
   "mcp": {
     "title": "KI-Chats verbinden",
@@ -2556,6 +2563,7 @@
       "chat": "Rooms",
       "booking": "Online-Buchung",
       "meetings": "Meetings und Webinare",
+      "flows": "Flows",
       "memory": "Gedächtnis des Assistenten",
       "schedules": "Geplante Aufgaben",
       "settings": "Einstellungen",
@@ -2599,7 +2607,14 @@
       "delete_schedule": "Geplante Aufgabe löschen",
       "find_setting": "Einstellung finden",
       "set_signature": "Signatur ändern",
-      "set_out_of_office": "Abwesenheitsnotiz ändern"
+      "set_out_of_office": "Abwesenheitsnotiz ändern",
+      "list_flow_tasks": "Sehen, was in Flows auf meine Entscheidung wartet",
+      "list_flow_runs": "Vorgänge von Flows sehen",
+      "get_flow_run": "Einen Vorgang lesen",
+      "start_flow": "Einen Vorgang starten",
+      "update_flow": "Einstellungen eigener Flows ändern",
+      "add_flow_person": "Personen zu eigenen Flows hinzufügen",
+      "remove_flow_person": "Personen aus eigenen Flows entfernen"
     },
     "admin_title": "KI-Berechtigungen der Firma",
     "admin_intro": "Obergrenze für alle in der Firma. Mitarbeitende können für sich nur strenger einstellen. Lesende Werkzeuge bleiben bei „Höchstens nachfragen“ erlaubt.",
