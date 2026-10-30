@@ -2433,10 +2433,10 @@
     "admin_intro": "Employees create and set up flows in the “Flows” section. Here you see all flows of the company and decide how long their journal is kept.",
     "open_section": "Go to “Flows”",
     "open": "Open",
-    "send_as": "Flows may send letters in my name",
-    "send_as_hint": "Only flows that send a letter in your name (for example your request to a supplier) then send from your mailbox and read the replies to those letters. They read no other mail. You can switch this off at any time.",
-    "send_as_on": "Flows may now send in your name.",
-    "send_as_off": "Flows no longer send in your name.",
+    "send_as": "Flows may act in my name",
+    "send_as_hint": "Only in flows you work in: send letters from your mailbox and read the replies to them, and use your tools (calendar, tasks, files) as your AI permissions allow. What is set to \"ask\" there, you confirm yourself. You can switch this off at any time.",
+    "send_as_on": "Flows may now act in your name.",
+    "send_as_off": "Flows no longer act in your name.",
     "connections": "Connections",
     "connections_hint": "Services this flow calls. The flow calls only the listed hosts. The key is stored encrypted and never shown again; the AI does not see it.",
     "conn_url": "Address",
@@ -2451,7 +2451,8 @@
     "conn_no_key": "Key missing",
     "conn_not_set": "Not set up yet",
     "conn_remove": "Remove",
-    "conn_oauth_later": "Signing in with OAuth comes later."
+    "conn_oauth_later": "Signing in with OAuth comes later.",
+    "conn_mcp": "MCP server: the address of its endpoint, e.g. https://…/mcp"
   },
   "permissions": {
     "title": "AI permissions",

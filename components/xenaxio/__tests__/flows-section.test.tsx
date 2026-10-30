@@ -102,16 +102,16 @@ describe("Flows section (step F1.1)", () => {
   it("lets the employee allow letters in their name and take it back (stage E2)", async () => {
     flows.overview.mockResolvedValueOnce(overview());
     render(<FlowsSection />);
-    const box = (await screen.findByLabelText(/Flows dürfen Briefe in meinem Namen senden/)) as HTMLInputElement;
+    const box = (await screen.findByLabelText(/Flows dürfen in meinem Namen handeln/)) as HTMLInputElement;
     expect(box.checked).toBe(false);
     fireEvent.click(box);
     await waitFor(() => expect(flows.setSendAs).toHaveBeenCalledWith(true));
-    expect(await screen.findByText("Flows dürfen jetzt in Ihrem Namen senden.")).toBeTruthy();
+    expect(await screen.findByText("Flows dürfen jetzt in Ihrem Namen handeln.")).toBeTruthy();
     expect(box.checked).toBe(true);
   });
 
   it("sets a connection's address and key; the key is sent once and never shown (stage E2, B1)", async () => {
-    const conn = { name: "crm", label: { de: "CRM" }, note: null, hosts: ["api.crm.example"], auth: "bearer" as const, baseUrl: null, hasSecret: false };
+    const conn = { name: "crm", label: { de: "CRM" }, note: null, hosts: ["api.crm.example"], kind: "http" as const, auth: "bearer" as const, baseUrl: null, hasSecret: false };
     flows.overview.mockResolvedValueOnce(overview({ installations: [detail()] }));
     flows.flow.mockResolvedValue(detail({ connections: [conn] }));
     flows.runs.mockResolvedValue({ runs: [] });
