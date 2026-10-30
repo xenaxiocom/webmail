@@ -2320,7 +2320,6 @@
     "transcribe": "Transcribe",
     "transcribing": "Transcribing…",
     "again": "Transcribe again",
-    "has_transcript": "Has a transcript",
     "no_speech": "No speech recognised.",
     "copy": "Copy text",
     "copied": "Copied",
@@ -2349,6 +2348,7 @@
       "file_not_found": "The file is no longer there.",
       "network": "No connection. Please try again.",
       "internal": "That did not work. Please try again."
-    }
+    },
+    "show_transcript": "Show the transcript of {name}"
   }
 }

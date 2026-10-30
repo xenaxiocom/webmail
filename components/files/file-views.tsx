@@ -10,7 +10,7 @@ import {
   type IconOptions,
 } from "@/components/files/file-item-parts";
 import type { SortDir, SortKey } from "@/components/files/files-header";
-import { AudioPlayButton, AudioProgress, TranscriptBadge } from "@/components/xenaxio/files-audio";
+import { AudioPlayButton, AudioProgress, TranscriptAction, TranscriptLine } from "@/components/xenaxio/files-audio";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { isAudioResource } from "@/lib/xenaxio/transcripts";
 
@@ -24,6 +24,8 @@ export interface FileItemHandlers {
   onShare: (resource: FileResource) => void;
   canShare: (resource: FileResource) => boolean;
   dragProps: (resource: FileResource) => React.HTMLAttributes<HTMLElement> & { draggable?: boolean };
+  /** Xenaxio step 86: select the item and open the details panel (its transcript). */
+  onShowDetails?: (resource: FileResource) => void;
 }
 
 export interface FileViewProps {
@@ -224,7 +226,7 @@ function FileListRow({ resource, isSelected, isFocused, isDropTarget, isCut, isS
       className={cn(
         LIST_COLUMNS,
         "group px-4 border-b border-border/60 cursor-default select-none transition-colors outline-none",
-        touch ? "min-h-[52px] py-1.5" : "h-10",
+        touch ? "min-h-[52px] py-1.5" : audio ? "min-h-10 py-1" : "h-10",
         isSelected ? "bg-primary/10" : isDropTarget ? "bg-primary/10 ring-1 ring-inset ring-primary/50" : "hover:bg-muted/60",
         isFocused && "ring-1 ring-inset ring-ring/60",
         isCut && "opacity-50",
@@ -262,8 +264,9 @@ function FileListRow({ resource, isSelected, isFocused, isDropTarget, isCut, isS
             </button>
             {isStarred && <Star className="w-3.5 h-3.5 shrink-0 text-amber-500 fill-current" aria-label={t("favorites")} />}
             <ShareBadge resource={resource} t={t} />
-            {audio && <TranscriptBadge resource={resource} />}
+            {audio && <TranscriptAction resource={resource} onShow={() => handlers.onShowDetails?.(resource)} />}
           </div>
+          {audio && <TranscriptLine resource={resource} onShow={() => handlers.onShowDetails?.(resource)} />}
           {audio && <AudioProgress resource={resource} />}
           {touch && (
             <div className="text-xs text-muted-foreground truncate">
@@ -485,8 +488,9 @@ function FileTile({ resource, isSelected, isFocused, isCut, selecting, touch, ic
           <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
             <span className="truncate">{formatFileSize(resource.contentLength)} · {formatShortDate(resource.lastModified)}</span>
             <ShareBadge resource={resource} t={t} className="w-3 h-3" />
-            {audio && <TranscriptBadge resource={resource} />}
+            {audio && <TranscriptAction resource={resource} onShow={() => handlers.onShowDetails?.(resource)} />}
           </div>
+          {audio && <TranscriptLine resource={resource} onShow={() => handlers.onShowDetails?.(resource)} />}
           {audio && <AudioProgress resource={resource} />}
         </div>
         <button

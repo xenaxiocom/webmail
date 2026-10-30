@@ -19,6 +19,8 @@ interface TranscriptState {
   busy: Record<string, boolean>;
   errors: Record<string, string>;
   available: boolean;
+  /** The platform answered a lookup; until then the button is offered and the platform decides. */
+  known: boolean;
   reason: TranscriptionUnavailable | null;
   maxBytes: number;
   /** Texts of the audio files among these (the folder on screen). */
@@ -31,6 +33,7 @@ export const useTranscripts = create<TranscriptState>((set, get) => ({
   busy: {},
   errors: {},
   available: false,
+  known: false,
   reason: null,
   maxBytes: 0,
   lookup: async (resources) => {
@@ -38,7 +41,7 @@ export const useTranscripts = create<TranscriptState>((set, get) => ({
     if (audio.length === 0) return;
     try {
       const res = await xenaxio.lookupTranscripts(audio.slice(0, 500).map(ref));
-      set((s) => ({ byKey: { ...s.byKey, ...res.transcripts }, available: res.available, reason: res.reason ?? null, maxBytes: res.maxBytes }));
+      set((s) => ({ byKey: { ...s.byKey, ...res.transcripts }, available: res.available, known: true, reason: res.reason ?? null, maxBytes: res.maxBytes }));
     } catch {
       // Without the platform's answer the files simply show no texts.
     }

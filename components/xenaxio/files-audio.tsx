@@ -3,7 +3,7 @@
 // Step 86: audio files in Files — play right in the list (no preview window)
 // and the transcript next to the file: in the details panel, with the language
 // detected or chosen and "transcribe again".
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { Copy, FileText, Loader2, Pause, Play, RefreshCw } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { formatTime, useAudioPlayer } from "@/lib/xenaxio/audio-player";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { isAudioResource, transcriptKey, useTranscripts } from "@/lib/xenaxio/transcripts";
+import { transcriptKey, useTranscripts } from "@/lib/xenaxio/transcripts";
 import type { FileResource } from "@/stores/file-store";
 
 /** Languages offered when the detected one was wrong (ISO 639-1). */
@@ -23,15 +23,15 @@ const KNOWN_ERRORS = new Set([
   "audio_too_large", "audio_refused", "transcription_failed", "demo_ai_limit", "rate_limited", "file_not_found", "network",
 ]);
 
-/** Texts of the audio files among the folder's resources. */
+/**
+ * Texts of the audio files among the folder's resources, again whenever the
+ * listing is refreshed (a text made meanwhile by the assistant or a colleague).
+ */
 export function useTranscriptLookup(resources: FileResource[]): void {
   const lookup = useTranscripts((s) => s.lookup);
-  const audioIds = useMemo(() => resources.filter(isAudioResource).map(transcriptKey).join(","), [resources]);
   useEffect(() => {
-    if (XENAXIO_BFF && audioIds) void lookup(resources);
-    // Only when the audio files on screen change.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [audioIds, lookup]);
+    if (XENAXIO_BFF) void lookup(resources);
+  }, [resources, lookup]);
   // Leaving Files stops the sound.
   useEffect(() => () => useAudioPlayer.getState().stop(), []);
 }
@@ -94,16 +94,89 @@ export function AudioProgress({ resource, className }: { resource: FileResource;
   );
 }
 
-/** Marks a file that has a transcript; the start of the text on hover. */
-export function TranscriptBadge({ resource }: { resource: FileResource }) {
+/**
+ * In the file's row: the transcript icon when the file has a text (opens it in
+ * the details panel), else a "Transcribe" button; a spinner while it runs.
+ */
+export function TranscriptAction({ resource, onShow }: { resource: FileResource; onShow: () => void }) {
+  const t = useXT();
+  const key = transcriptKey(resource);
+  const transcript = useTranscripts((s) => s.byKey[key]);
+  const busy = useTranscripts((s) => !!s.busy[key]);
+  const error = useTranscripts((s) => s.errors[key] ?? "");
+  const available = useTranscripts((s) => s.available || !s.known);
+  const maxBytes = useTranscripts((s) => s.maxBytes);
+  const transcribe = useTranscripts((s) => s.transcribe);
+  const stop = (e: React.SyntheticEvent) => e.stopPropagation();
+  if (busy) {
+    return (
+      <span className="shrink-0 inline-flex items-center gap-1 text-xs text-muted-foreground" title={t("files_audio.transcribing")}>
+        <Loader2 className="w-3.5 h-3.5 animate-spin" />
+      </span>
+    );
+  }
+  if (transcript) {
+    const preview = transcript.text.length > 200 ? `${transcript.text.slice(0, 200)}…` : transcript.text;
+    return (
+      <button
+        type="button"
+        data-item-action
+        onClick={(e) => {
+          stop(e);
+          onShow();
+        }}
+        onDoubleClick={stop}
+        title={preview || t("files_audio.no_speech")}
+        aria-label={t("files_audio.show_transcript", { name: resource.name })}
+        className="shrink-0 p-0.5 rounded text-primary hover:bg-primary/10"
+      >
+        <FileText className="w-3.5 h-3.5" />
+      </button>
+    );
+  }
+  if (!available || (maxBytes > 0 && resource.contentLength > maxBytes)) return null;
+  return (
+    <button
+      type="button"
+      data-item-action
+      onClick={(e) => {
+        stop(e);
+        void transcribe(resource).then(() => {
+          if (useTranscripts.getState().byKey[key]) onShow();
+        });
+      }}
+      onDoubleClick={stop}
+      title={error ? t(`files_audio.errors.${KNOWN_ERRORS.has(error) ? error : "internal"}`) : t("files_audio.transcribe")}
+      className={cn(
+        "shrink-0 inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs border transition-colors",
+        error ? "border-destructive/40 text-destructive" : "border-border text-muted-foreground hover:text-foreground hover:bg-muted",
+      )}
+    >
+      <FileText className="w-3 h-3" />
+      {t("files_audio.transcribe")}
+    </button>
+  );
+}
+
+/** The start of the transcript under the file's name; opens the whole text. */
+export function TranscriptLine({ resource, onShow }: { resource: FileResource; onShow: () => void }) {
   const t = useXT();
   const transcript = useTranscripts((s) => s.byKey[transcriptKey(resource)]);
   if (!transcript) return null;
-  const preview = transcript.text.length > 200 ? `${transcript.text.slice(0, 200)}…` : transcript.text;
   return (
-    <span title={preview || t("files_audio.no_speech")} aria-label={t("files_audio.has_transcript")} className="shrink-0 text-muted-foreground">
-      <FileText className="w-3.5 h-3.5" />
-    </span>
+    <button
+      type="button"
+      data-item-action
+      onClick={(e) => {
+        e.stopPropagation();
+        onShow();
+      }}
+      onDoubleClick={(e) => e.stopPropagation()}
+      className="block w-full truncate text-start text-xs text-muted-foreground hover:text-foreground"
+      title={t("files_audio.show_transcript", { name: resource.name })}
+    >
+      {transcript.text || t("files_audio.no_speech")}
+    </button>
   );
 }
 
@@ -123,7 +196,7 @@ export function AudioDetails({ resource, onToggle }: { resource: FileResource; o
   const transcript = useTranscripts((s) => s.byKey[key]);
   const busy = useTranscripts((s) => !!s.busy[key]);
   const error = useTranscripts((s) => s.errors[key] ?? "");
-  const available = useTranscripts((s) => s.available);
+  const available = useTranscripts((s) => s.available || !s.known);
   const reason = useTranscripts((s) => s.reason);
   const maxBytes = useTranscripts((s) => s.maxBytes);
   const transcribe = useTranscripts((s) => s.transcribe);
