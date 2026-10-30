@@ -11,6 +11,8 @@ const flows = vi.hoisted(() => ({
   flow: vi.fn(),
   addPerson: vi.fn(),
   runs: vi.fn(),
+  sendAs: vi.fn(async () => ({ on: false, expiresAt: null })),
+  setSendAs: vi.fn(async (on: boolean) => ({ on, expiresAt: on ? "2027-01-28T00:00:00Z" : null })),
 }));
 vi.mock("@/lib/xenaxio/api", async (orig) => ({
   ...(await orig<typeof import("@/lib/xenaxio/api")>()),
@@ -92,6 +94,17 @@ describe("Flows section (step F1.1)", () => {
     fireEvent.click(screen.getAllByRole("button", { name: "Hinzufügen" })[0]!);
     await waitFor(() => expect(flows.addPerson).toHaveBeenCalledWith("f1", { userId: "u1", language: "uk" }));
     expect(await screen.findByText("Noch nicht verbunden")).toBeTruthy();
+  });
+
+  it("lets the employee allow letters in their name and take it back (stage E2)", async () => {
+    flows.overview.mockResolvedValueOnce(overview());
+    render(<FlowsSection />);
+    const box = (await screen.findByLabelText(/Flows dürfen Briefe in meinem Namen senden/)) as HTMLInputElement;
+    expect(box.checked).toBe(false);
+    fireEvent.click(box);
+    await waitFor(() => expect(flows.setSendAs).toHaveBeenCalledWith(true));
+    expect(await screen.findByText("Flows dürfen jetzt in Ihrem Namen senden.")).toBeTruthy();
+    expect(box.checked).toBe(true);
   });
 
   it("says when the company has no flows", async () => {
