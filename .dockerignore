@@ -9,6 +9,7 @@ lite-image
 !.env.dev.example
 scripts/
 !scripts/lite/
+!scripts/xenaxio/
 TODO.md
 *.md
 !README.md

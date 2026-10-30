@@ -28,6 +28,8 @@ export interface MeetingInfo {
   peakParticipants?: number;
   startedAt?: string | null;
   finishedAt?: string | null;
+  /** Step 92: the company's background, only for its own people. */
+  background?: MeetBackground;
 }
 
 export interface WebinarPage {
@@ -142,6 +144,16 @@ export interface MeetSettings {
   guests: boolean;
   maxParticipants: number;
   maxHours: number;
+  /** Step 92: the company's background picture for meetings; null without one. */
+  background: MeetBackground | null;
+}
+
+/** Step 92: the company's picture behind employees' cameras (for its own people only). */
+export interface MeetBackground {
+  /** Path on the platform, versioned for caching. */
+  url: string;
+  /** Employees who have not chosen a background of their own start with it. */
+  default: boolean;
 }
 
 export interface LobbyGuest {
@@ -157,7 +169,7 @@ export interface MeetingPerson {
   speaking: boolean;
 }
 
-async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: unknown): Promise<T> {
+async function call<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, body?: unknown): Promise<T> {
   let res: Response;
   try {
     res = await apiFetch(path, {
@@ -181,6 +193,24 @@ async function call<T>(method: "GET" | "POST" | "PUT", path: string, body?: unkn
   return data as T;
 }
 
+/** Step 92: a picture goes up as the raw file. */
+async function upload<T>(method: "PUT", path: string, body: Blob): Promise<T> {
+  let res: Response;
+  try {
+    res = await apiFetch(path, {
+      method,
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "x-xenaxio-csrf": "1", "Content-Type": body.type || "application/octet-stream" },
+      body,
+    });
+  } catch {
+    throw new XenaxioApiError(0, "network");
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new XenaxioApiError(res.status, typeof data.error === "string" ? data.error : "internal", data.details as Record<string, unknown> | undefined);
+  return data as T;
+}
+
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
 const MEET = "/api/meet";
 const ADMIN = "/api/admin/meetings";
@@ -188,7 +218,8 @@ const at = (code: string) => `${MEET}/${encodeURIComponent(code)}`;
 
 export const meet = {
   // The employee.
-  status: () => call<{ enabled: boolean; guests: boolean; maxParticipants: number; webinars?: boolean; maxViewers?: number }>("GET", `${MEET}/status`),
+  status: () =>
+    call<{ enabled: boolean; guests: boolean; maxParticipants: number; webinars?: boolean; maxViewers?: number; background?: MeetBackground | null }>("GET", `${MEET}/status`),
   mine: () => call<{ meetings: MeetingView[] }>("GET", MEET).then((r) => r.meetings),
   /** `until`: the end of the calendar event the meeting belongs to (the link works a day longer). */
   create: (title: string, until?: Date, kind?: MeetingKind, webinar?: WebinarFields) =>
@@ -261,7 +292,10 @@ export const meet = {
   },
   // The company admin.
   settings: () => call<MeetSettings>("GET", ADMIN),
-  saveSettings: (change: { enabled?: boolean; guests?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),
+  saveSettings: (change: { enabled?: boolean; guests?: boolean; backgroundDefault?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),
+  /** Step 92: the company's background, sent as the picture itself (the browser makes it a JPEG first). */
+  uploadBackground: (picture: Blob) => upload<MeetSettings>("PUT", `${ADMIN}/background`, picture),
+  removeBackground: () => call<MeetSettings>("DELETE", `${ADMIN}/background`),
 };
 
 /** The meeting's code from the address (/meet/<code>, also under a locale prefix). */

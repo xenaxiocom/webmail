@@ -219,6 +219,7 @@ function Page() {
           kind={step.grant.kind ?? "meeting"}
           role={step.grant.role ?? (step.info.member ? "member" : "guest")}
           guest={step.guest !== undefined ? step.guest : step.info.member ? null : loadGuestVisit(code)}
+          companyBackground={step.info.background ?? null}
           onLeave={(r) => left(step.info, r)}
         />
       </div>
@@ -260,7 +261,14 @@ function Page() {
           ) : step.info.kind === "webinar" && !step.info.member ? (
             <WatchJoin busy={busy} onSubmit={(c) => void enter(step.info, c)} />
           ) : (
-            <PreJoin askName={!step.info.member} defaultName="" submitLabel={step.info.member ? t("join") : t("ask_to_join")} busy={busy} onSubmit={(c) => void enter(step.info, c)} />
+            <PreJoin
+              askName={!step.info.member}
+              defaultName=""
+              submitLabel={step.info.member ? t("join") : t("ask_to_join")}
+              busy={busy}
+              onSubmit={(c) => void enter(step.info, c)}
+              companyBackground={step.info.background ?? null}
+            />
           )}
           {error && <p className="mt-3 max-w-md text-center text-sm text-red-300">{error}</p>}
         </>

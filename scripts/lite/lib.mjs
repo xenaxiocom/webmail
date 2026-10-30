@@ -429,7 +429,9 @@ export function buildCsp({ connectSrc = "*" } = {}) {
     // target carries its own <meta> policy that allows exactly its inline
     // scripts (withScriptHashCsp); both policies apply, so this only matters
     // where that meta is missing.
-    "script-src 'self' 'unsafe-inline'",
+    // xenaxio step 92: 'wasm-unsafe-eval' lets MediaPipe's WebAssembly (meeting backgrounds,
+    // served from this origin) compile; it does not allow eval() of JavaScript.
+    "script-src 'self' 'unsafe-inline' 'wasm-unsafe-eval'",
     "style-src 'self' 'unsafe-inline'",
     "img-src 'self' data: blob: https:",
     "font-src 'self' https: data:",
@@ -464,7 +466,8 @@ export function inlineScriptHashes(html) {
  * host's header policy, it takes away the header's 'unsafe-inline'.
  */
 export function buildScriptHashCsp(hashes) {
-  return [`script-src 'self'${hashes.map((h) => ` ${h}`).join("")}`, "object-src 'none'", "base-uri 'self'"].join("; ");
+  // xenaxio step 92: 'wasm-unsafe-eval' — see buildCsp.
+  return [`script-src 'self' 'wasm-unsafe-eval'${hashes.map((h) => ` ${h}`).join("")}`, "object-src 'none'", "base-uri 'self'"].join("; ");
 }
 
 /**

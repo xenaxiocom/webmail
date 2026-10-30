@@ -189,7 +189,7 @@ describe('lite build helpers', () => {
     const meta = `<meta http-equiv="Content-Security-Policy" content="${buildScriptHashCsp(inlineScriptHashes(html))}"/>`;
     expect(pinned.indexOf(meta)).toBe(pinned.indexOf('<meta charSet="utf-8"/>') + '<meta charSet="utf-8"/>'.length);
     expect(pinned.indexOf(meta)).toBeLessThan(pinned.indexOf('<script'));
-    expect(buildScriptHashCsp([])).toBe("script-src 'self'; object-src 'none'; base-uri 'self'");
+    expect(buildScriptHashCsp([])).toBe("script-src 'self' 'wasm-unsafe-eval'; object-src 'none'; base-uri 'self'");
     expect(withScriptHashCsp('<html><head><script>1</script></head></html>')).toMatch(/^<html><head><meta http-equiv/);
     expect(withScriptHashCsp('<html><script>1</script></html>')).toMatch(/^<html><meta http-equiv="Content-Security-Policy"[^>]*><script>/);
   });
