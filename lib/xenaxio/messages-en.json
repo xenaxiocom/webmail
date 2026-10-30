@@ -199,7 +199,12 @@
     "invalid_name": "Please give a name of up to 200 characters.",
     "memory_sensitive": "The assistant does not keep such things (health, religion, politics, unions, origin, sex life, passwords, card or account numbers).",
     "memory_empty": "Please enter a text.",
-    "flow_send_not_allowed": "Sending in this name is not allowed."
+    "flow_send_not_allowed": "Sending in this name is not allowed.",
+    "host_not_allowed": "This address is not one of the allowed hosts ({hosts}).",
+    "invalid_url": "Please give a valid address without user, query or fragment.",
+    "invalid_connection_secret": "Please give the complete key.",
+    "auth_not_supported": "This kind of sign-in is not supported yet.",
+    "flow_connection": "Connection not found."
   },
   "login": {
     "title": "Sign in",
@@ -2431,7 +2436,22 @@
     "send_as": "Flows may send letters in my name",
     "send_as_hint": "Only flows that send a letter in your name (for example your request to a supplier) then send from your mailbox and read the replies to those letters. They read no other mail. You can switch this off at any time.",
     "send_as_on": "Flows may now send in your name.",
-    "send_as_off": "Flows no longer send in your name."
+    "send_as_off": "Flows no longer send in your name.",
+    "connections": "Connections",
+    "connections_hint": "Services this flow calls. The flow calls only the listed hosts. The key is stored encrypted and never shown again; the AI does not see it.",
+    "conn_url": "Address",
+    "conn_hosts": "Allowed hosts: {hosts}",
+    "conn_header": "Header name",
+    "conn_key": "Key",
+    "conn_user": "User",
+    "conn_password": "Password",
+    "conn_token": "Token",
+    "conn_key_kept": "stored – leave empty to keep it",
+    "conn_ready": "Set up",
+    "conn_no_key": "Key missing",
+    "conn_not_set": "Not set up yet",
+    "conn_remove": "Remove",
+    "conn_oauth_later": "Signing in with OAuth comes later."
   },
   "permissions": {
     "title": "AI permissions",
