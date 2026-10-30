@@ -1868,6 +1868,7 @@
     "after_full": "The meeting is full.",
     "after_denied": "Your request was declined.",
     "rejoin": "Join again",
+    "back_to_app": "Back to {name}",
     "camera_starting": "Starting camera …",
     "camera_off": "Camera off",
     "camera_on": "Turn camera on",
