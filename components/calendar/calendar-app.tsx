@@ -99,6 +99,7 @@ import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
 import { calendarHooks } from "@/lib/plugin-hooks";
 import { eventToView } from "@/lib/plugin-projection";
+import { eventItem, useAssistantScreenItem } from "@/lib/xenaxio/assistant-screen";
 
 type PendingScopeAction =
   | { type: "edit"; event: CalendarEvent; updates: Partial<CalendarEvent>; sendScheduling?: boolean }
@@ -213,6 +214,9 @@ export function CalendarApp({ linkSegments: routeSegments }: CalendarAppProps = 
   const [swipeDirection, setSwipeDirection] = useState<'left' | 'right' | null>(null);
   const [swipeKey, setSwipeKey] = useState(0);
   const hasFetched = useRef(false);
+  // Xenaxio (step 89): the open event or task is what the assistant looks at first.
+  useAssistantScreenItem("event", eventItem(detailPinned ? detailEvent : editEvent));
+  useAssistantScreenItem("task", showTaskModal && editTask ? { id: editTask.id, name: editTask.title } : null);
 
   // Sidebar resize state
   const [calSidebarWidth, setCalSidebarWidth] = useState(() => {
