@@ -10,6 +10,7 @@ import { mediaUrl } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
 import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { reportMessage } from "@/lib/xenaxio/chat/api";
+import { isJumboEmoji } from "@/lib/xenaxio/chat/emoji";
 import { appOf, messageHtml, mentionsUser, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatDialogs } from "./dialogs";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
@@ -122,6 +123,8 @@ function Body({ message, me, onMention }: { message: Message; me: string; onMent
   // An e-mail shared into the chat: what the person wrote, then the card.
   const email = sharedEmailOf(c);
   const html = email ? (email.note ? messageHtml({ body: email.note }) : "") : messageHtml(c);
+  // Step 87: a few emoji alone are shown large.
+  const jumbo = !email && c.msgtype === "m.text" && typeof c.body === "string" && isJumboEmoji(c.body);
   return (
     <div
       className={cn(
@@ -131,6 +134,7 @@ function Body({ message, me, onMention }: { message: Message; me: string; onMent
         "[&_.chat-mention]:rounded [&_.chat-mention]:bg-primary/10 [&_.chat-mention]:px-0.5 [&_.chat-mention]:text-primary [&_.chat-mention]:cursor-pointer [&_.chat-mention]:font-medium",
         mentionsUser(c, me) && "[&_.chat-mention]:bg-amber-200/60 dark:[&_.chat-mention]:bg-amber-500/30",
         c.msgtype === "m.emote" && "italic",
+        jumbo && "text-4xl leading-tight",
       )}
       onClick={(e) => {
         const el = (e.target as HTMLElement).closest("[data-mention]");

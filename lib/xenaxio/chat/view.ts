@@ -104,10 +104,13 @@ export function threadsOf(rooms: Room[], me: string): { room: Room; root: Messag
   return out.sort((a, b) => (b.root.thread?.latestTs ?? 0) - (a.root.thread?.latestTs ?? 0));
 }
 
-/** The text of the composer's "@" or "#" suggestion at the cursor, if one is being typed. */
-export function suggestionAt(text: string, cursor: number): { trigger: "@" | "#"; query: string; start: number } | null {
+/** The text of the composer's "@", "#" or ":" (emoji) suggestion at the cursor, if one is being typed. */
+export function suggestionAt(text: string, cursor: number): { trigger: "@" | "#" | ":"; query: string; start: number } | null {
   const before = text.slice(0, cursor);
   const m = /(^|\s)([@#])([^\s@#]{0,30})$/.exec(before);
-  if (!m) return null;
-  return { trigger: m[2] as "@" | "#", query: m[3] as string, start: cursor - (m[3] as string).length - 1 };
+  if (m) return { trigger: m[2] as "@" | "#", query: m[3] as string, start: cursor - (m[3] as string).length - 1 };
+  // Step 87: ":" and two letters suggest emoji; "10:30" and ":)" do not.
+  const e = /(^|\s):([a-zA-ZäöüÄÖÜß]{2,30})$/.exec(before);
+  if (e) return { trigger: ":", query: e[2] as string, start: cursor - (e[2] as string).length - 1 };
+  return null;
 }
