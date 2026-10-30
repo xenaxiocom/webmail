@@ -678,7 +678,32 @@
       "empty": "Nothing is waiting for you.",
       "open": "{count} waiting for your confirmation",
       "done": "Done."
-    }
+    },
+    "setting": {
+      "signature_title": "Change signature",
+      "signature_remove": "Remove signature",
+      "for": "For {email}",
+      "before": "Before",
+      "empty": "(empty)",
+      "out_on": "Switch on out-of-office reply",
+      "out_off": "Switch off out-of-office reply",
+      "period": "Period",
+      "from_until": "{from} – {until}",
+      "from_only": "from {from}",
+      "until_only": "until {until}",
+      "always": "from now until you switch it off",
+      "subject": "Subject",
+      "text": "Text",
+      "running": "Saving…",
+      "signature_done": "Signature changed.",
+      "out_on_done": "Out-of-office reply switched on.",
+      "out_off_done": "Out-of-office reply switched off.",
+      "failed": "Could not be saved.",
+      "link": "See in the settings"
+    },
+    "tool_find_setting": "Looking for the setting…",
+    "tool_set_signature": "Preparing a new signature…",
+    "tool_set_out_of_office": "Preparing the out-of-office reply…"
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -2216,6 +2241,7 @@
       "meetings": "Meetings and webinars",
       "memory": "Assistant's memory",
       "schedules": "Scheduled tasks",
+      "settings": "Settings",
       "other": "More"
     },
     "tool": {
@@ -2252,7 +2278,10 @@
       "schedule_task": "Set up a scheduled task",
       "list_schedules": "Look at scheduled tasks",
       "update_schedule": "Change a scheduled task",
-      "delete_schedule": "Delete a scheduled task"
+      "delete_schedule": "Delete a scheduled task",
+      "find_setting": "Find a setting",
+      "set_signature": "Change signature",
+      "set_out_of_office": "Change out-of-office reply"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",
