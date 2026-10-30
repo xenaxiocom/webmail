@@ -252,6 +252,80 @@ describe("step 94: a steadier edge around the person", () => {
     expect(calls.at(-1)).toEqual(["bindTexture", "TEXTURE_2D", "previous-texture"]);
   });
 
+  it("step 95: with the frame as a guide, the mask comes on a half-size copy whose edge follows the picture", async () => {
+    base.masks.length = 0;
+    const { gl, calls } = fakeGl();
+    // A 4 × 2 camera frame, dark left and bright right.
+    vi.stubGlobal("OffscreenCanvas", class {
+      constructor(
+        readonly width: number,
+        readonly height: number,
+      ) {}
+      getContext() {
+        return {
+          drawImage: () => undefined,
+          getImageData: (_x: number, _y: number, w: number, h: number) => ({
+            data: new Uint8ClampedArray(w * h * 4).map((_, i) => (i % 4 === 3 ? 255 : Math.floor(i / 4) % w >= w / 2 ? 255 : 0)),
+          }),
+        };
+      }
+    });
+    const segmenter = {
+      setOptions: vi.fn(async () => undefined),
+      segmentForVideo: vi.fn((_f: unknown, _t: number, cb: (r: unknown) => void) =>
+        cb({ confidenceMasks: [{ width: 4, height: 2, getAsFloat32Array: () => Float32Array.from([1, 1, 0, 0, 1, 1, 0, 0]) }], categoryMask: {} }),
+      ),
+    };
+    const t = new MotionBackgroundTransformer({ imagePath: "data:x" } as never);
+    Object.assign(t, { imageSegmenter: segmenter, canvas: { getContext: () => gl } });
+    await t.init({} as never);
+    (t as unknown as { takeGuide(f: unknown): void }).takeGuide({ displayWidth: 4, displayHeight: 2 });
+    expect(t.refineEdge).toBe(true);
+    const s = t.imageSegmenter as unknown as { segmentForVideo(f: unknown, ts: number, cb: (r: { categoryMask: unknown }) => void): void };
+    s.segmentForVideo({}, 1, () => undefined);
+    const upload = calls.find((c) => c[0] === "texImage2D")!;
+    // A 4-wide frame needs no smaller copy (it is under 320 already): the mask has the guide's size,
+    // and its edge sits where the picture turns bright.
+    expect(upload.slice(4, 6)).toEqual([4, 2]);
+    const bytes = Array.from(upload[9] as Uint8Array);
+    expect(bytes).toHaveLength(8);
+    expect(bytes[0]).toBeLessThan(128);
+    expect(bytes[3]).toBeGreaterThan(128);
+    expect(base.masks).toEqual(["our-texture"]);
+  });
+
+  it("step 95: refining that costs too much on a device stops by itself", async () => {
+    const { gl } = fakeGl();
+    vi.stubGlobal("OffscreenCanvas", class {
+      constructor(
+        readonly width: number,
+        readonly height: number,
+      ) {}
+      getContext() {
+        return { drawImage: () => undefined, getImageData: (_x: number, _y: number, w: number, h: number) => ({ data: new Uint8ClampedArray(w * h * 4) }) };
+      }
+    });
+    const segmenter = {
+      setOptions: vi.fn(async () => undefined),
+      segmentForVideo: vi.fn((_f: unknown, _t: number, cb: (r: unknown) => void) =>
+        cb({ confidenceMasks: [{ width: 2, height: 1, getAsFloat32Array: () => Float32Array.from([1, 0]) }], categoryMask: {} }),
+      ),
+    };
+    const t = new MotionBackgroundTransformer({ imagePath: "data:x" } as never);
+    Object.assign(t, { imageSegmenter: segmenter, canvas: { getContext: () => gl } });
+    await t.init({} as never);
+    let clock = 0;
+    const now = vi.spyOn(performance, "now").mockImplementation(() => (clock += 20));
+    const s = t.imageSegmenter as unknown as { segmentForVideo(f: unknown, ts: number, cb: (r: unknown) => void): void };
+    for (let i = 0; i < 30; i++) {
+      (t as unknown as { takeGuide(f: unknown): void }).takeGuide({ displayWidth: 2, displayHeight: 1 });
+      s.segmentForVideo({}, i, () => undefined);
+    }
+    now.mockRestore();
+    expect(t.refineEdge).toBe(false);
+    expect(t.softMask).toBe(true);
+  });
+
   it("keeps the yes/no mask when the model cannot give its confidence", async () => {
     base.masks.length = 0;
     base.categoryMasks = 0;
