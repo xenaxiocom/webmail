@@ -369,6 +369,7 @@ function Connection({ flow, conn, onSaved }: { flow: FlowDetail; conn: FlowConne
         <span className="text-xs text-muted-foreground">{conn.baseUrl ? (conn.hasSecret || conn.auth === "none" ? t("flows.conn_ready") : t("flows.conn_no_key")) : t("flows.conn_not_set")}</span>
       </div>
       {conn.note && <p className="text-xs text-muted-foreground">{pick(conn.note, locale)}</p>}
+      {conn.kind === "mcp" && <p className="text-xs text-muted-foreground">{t("flows.conn_mcp")}</p>}
       <TextField label={t("flows.conn_url")} hint={t("flows.conn_hosts", { hosts: conn.hosts.join(", ") })} value={baseUrl} placeholder={`https://${conn.hosts[0]?.replace(/^\*\./, "") ?? ""}`} onChange={(e) => setBaseUrl(e.target.value)} />
       {conn.auth === "oauth2" ? (
         <Notice kind="info">{t("flows.conn_oauth_later")}</Notice>

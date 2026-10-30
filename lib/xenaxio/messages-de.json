@@ -2433,10 +2433,10 @@
     "admin_intro": "Flows legen Mitarbeitende im Bereich „Flows“ an und stellen sie dort ein. Hier sehen Sie alle Flows der Firma und legen fest, wie lange ihr Protokoll aufbewahrt wird.",
     "open_section": "Zum Bereich „Flows“",
     "open": "Öffnen",
-    "send_as": "Flows dürfen Briefe in meinem Namen senden",
-    "send_as_hint": "Nur Flows, die Briefe ausdrücklich in Ihrem Namen schicken (z. B. Ihre Anfrage an einen Lieferanten), senden dann aus Ihrem Postfach und lesen die Antworten auf diese Briefe. Andere Mails lesen sie nicht. Jederzeit wieder ausschaltbar.",
-    "send_as_on": "Flows dürfen jetzt in Ihrem Namen senden.",
-    "send_as_off": "Flows senden nicht mehr in Ihrem Namen.",
+    "send_as": "Flows dürfen in meinem Namen handeln",
+    "send_as_hint": "Nur in Flows, in denen Sie mitarbeiten: Briefe aus Ihrem Postfach senden und die Antworten darauf lesen, und Ihre Werkzeuge (Kalender, Aufgaben, Dateien) nach Ihren KI-Berechtigungen nutzen. Was dort „nachfragen“ ist, bestätigen Sie selbst. Jederzeit wieder ausschaltbar.",
+    "send_as_on": "Flows dürfen jetzt in Ihrem Namen handeln.",
+    "send_as_off": "Flows handeln nicht mehr in Ihrem Namen.",
     "connections": "Verbindungen",
     "connections_hint": "Dienste, die dieser Flow aufruft. Der Flow ruft nur die angegebenen Hosts auf. Der Schlüssel wird verschlüsselt gespeichert und nie wieder angezeigt; die KI sieht ihn nicht.",
     "conn_url": "Adresse",
@@ -2451,7 +2451,8 @@
     "conn_no_key": "Schlüssel fehlt",
     "conn_not_set": "Noch nicht eingerichtet",
     "conn_remove": "Entfernen",
-    "conn_oauth_later": "Anmeldung per OAuth kommt später."
+    "conn_oauth_later": "Anmeldung per OAuth kommt später.",
+    "conn_mcp": "MCP-Server: Adresse des Endpunkts, z. B. https://…/mcp"
   },
   "permissions": {
     "title": "KI-Berechtigungen",

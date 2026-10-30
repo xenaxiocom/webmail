@@ -754,6 +754,8 @@ export interface FlowConnection {
   label: FlowTexts | null;
   note: FlowTexts | null;
   hosts: string[];
+  /** Stage E2 (B2): an outside API, or an MCP server whose tools the flow calls. */
+  kind: "http" | "mcp";
   auth: "none" | "api_key" | "basic" | "bearer" | "oauth2";
   baseUrl: string | null;
   hasSecret: boolean;
