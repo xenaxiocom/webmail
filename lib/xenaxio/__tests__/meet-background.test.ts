@@ -1,4 +1,7 @@
+import { existsSync } from "node:fs";
 import { afterEach, describe, expect, it } from "vitest";
+import de from "@/lib/xenaxio/messages-de.json";
+import en from "@/lib/xenaxio/messages-en.json";
 import {
   backgroundSource,
   COMPANY_IMAGE,
@@ -74,6 +77,19 @@ describe("meeting background choice", () => {
     for (const t of ["image/png", "video/quicktime", ""]) expect(isMotionType(t)).toBe(false);
     expect(SCENES.length).toBeGreaterThanOrEqual(4);
     expect(PANORAMAS.length).toBeGreaterThanOrEqual(3);
+  });
+
+  it("has the files and a name in German and English for every panorama", () => {
+    expect(new Set(PANORAMAS.map((p) => p.id)).size).toBe(PANORAMAS.length);
+    for (const p of PANORAMAS) {
+      expect(existsSync(`public${p.url}`), p.url).toBe(true);
+      expect(existsSync(`public${p.thumb}`), p.thumb).toBe(true);
+      expect((de.meet.background_panoramas as Record<string, string>)[p.name], p.name).toBeTruthy();
+      expect((en.meet.background_panoramas as Record<string, string>)[p.name], p.name).toBeTruthy();
+    }
+    // On board, the view rocks.
+    expect(PANORAMAS.filter((p) => p.sway).map((p) => p.id)).toEqual(["pano-ship", "pano-cabin"]);
+    expect(backgroundSource({ kind: "panorama", id: "pano-ship" }, null, null)).toMatchObject({ type: "panorama", sway: true, yaw: 30 });
   });
 
   it("remembers the choice in this browser, and ignores anything else", () => {

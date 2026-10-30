@@ -43,7 +43,7 @@ export type BackgroundSource =
   | { type: "blur"; radius: number }
   | { type: "image"; url: string }
   | { type: "scene"; id: SceneId }
-  | { type: "panorama"; url: string; blob?: Blob; yaw?: number }
+  | { type: "panorama"; url: string; blob?: Blob; yaw?: number; sway?: boolean }
   | { type: "animation"; url: string; mime: string; blob?: Blob };
 
 export const COMPANY_IMAGE = "company";
@@ -72,14 +72,40 @@ export type SceneId = (typeof SCENES)[number];
 /**
  * Our panoramas: Poly Haven, CC0 (public/xenaxio/meet/panoramas/README.md),
  * 3072 × 1536. `yaw`: where the view starts (degrees from the middle of the
- * picture), towards its best side; the thumbnail shows that view.
+ * picture), towards its best side; the thumbnail shows that view. `sway`:
+ * the view rocks gently, as on board a ship.
  */
-export const PANORAMAS = [
+export const PANORAMAS = ([
+  // Nature.
   { id: "pano-meadow", name: "meadow", yaw: 0 },
-  { id: "pano-city", name: "city", yaw: 160 },
-  { id: "pano-loft", name: "loft", yaw: 43 },
+  { id: "pano-alps", name: "alps", yaw: 90 },
+  { id: "pano-lake", name: "lake", yaw: 60 },
+  { id: "pano-beach", name: "beach", yaw: 120 },
+  { id: "pano-autumn", name: "autumn", yaw: 90 },
+  { id: "pano-snow", name: "snow", yaw: 30 },
+  { id: "pano-garden", name: "garden", yaw: 30 },
+  // By the sea and on board.
+  { id: "pano-ship", name: "ship", yaw: 30, sway: true },
+  { id: "pano-cabin", name: "cabin", yaw: -90, sway: true },
+  { id: "pano-marina", name: "marina", yaw: 30 },
+  { id: "pano-harbour-sunset", name: "harbour_sunset", yaw: -90 },
+  { id: "pano-terrace", name: "terrace", yaw: 0 },
   { id: "pano-sunset", name: "sunset", yaw: 36 },
-].map((p) => ({ ...p, url: `/xenaxio/meet/panoramas/${p.id}.jpg`, thumb: `/xenaxio/meet/panoramas/${p.id}-thumb.jpg` }));
+  // Cities.
+  { id: "pano-city", name: "city", yaw: 160 },
+  { id: "pano-harbour", name: "harbour", yaw: -150 },
+  { id: "pano-berlin", name: "berlin", yaw: -30 },
+  { id: "pano-dresden", name: "dresden", yaw: 30 },
+  { id: "pano-shanghai", name: "shanghai", yaw: 30 },
+  { id: "pano-market", name: "market", yaw: 30 },
+  // Rooms.
+  { id: "pano-loft", name: "loft", yaw: 43 },
+  { id: "pano-living", name: "living", yaw: 0 },
+  { id: "pano-lounge", name: "lounge", yaw: -30 },
+  { id: "pano-fireplace", name: "fireplace", yaw: 110 },
+  { id: "pano-hotel", name: "hotel", yaw: 0 },
+  { id: "pano-veranda", name: "veranda", yaw: 0 },
+] as { id: string; name: string; yaw: number; sway?: boolean }[]).map((p) => ({ ...p, url: `/xenaxio/meet/panoramas/${p.id}.jpg`, thumb: `/xenaxio/meet/panoramas/${p.id}-thumb.jpg` }));
 
 /** Where MediaPipe's code (copied from node_modules at build time) and the model are served. */
 export const VISION_ASSETS = {
@@ -166,7 +192,7 @@ export function backgroundSource(choice: BackgroundChoice, company: MeetBackgrou
       return (SCENES as readonly string[]).includes(choice.id) ? { type: "scene", id: choice.id } : null;
     case "panorama": {
       const p = PANORAMAS.find((x) => x.id === choice.id);
-      return p ? { type: "panorama", url: absolute(p.url), yaw: p.yaw } : null;
+      return p ? { type: "panorama", url: absolute(p.url), yaw: p.yaw, ...(p.sway ? { sway: true } : {}) } : null;
     }
     case "image": {
       if (choice.id === COMPANY_IMAGE) return company ? fileSource(absolute(company.url), companyKind(company), company.contentType ?? "image/jpeg") : null;

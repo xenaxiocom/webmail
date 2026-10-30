@@ -4,7 +4,7 @@
 // a millisecond; a GIF frame straight from the decoder took 75 ms).
 import type { BackgroundSource, SceneId } from "@/lib/xenaxio/meet-background";
 import { type Ctx2D, drawScene } from "@/lib/xenaxio/meet-scenes";
-import { type PanoramaView, panoramaCrops } from "@/lib/xenaxio/meet-panorama";
+import { type PanoramaView, panoramaCrops, SWAY_ZOOM } from "@/lib/xenaxio/meet-panorama";
 
 export interface FrameSource {
   /** Draws the frame for `now` (ms, performance.now()); false when there is nothing to draw yet. */
@@ -46,7 +46,17 @@ async function panoramaSource(url: string, view: PanoramaView, blob?: Blob): Pro
     draw: (ctx, w, h, now) => {
       const { yaw, pitch } = view.step((now - last) / 1000);
       last = now;
+      const roll = view.roll();
+      if (roll) {
+        // On board: the horizon tilts; the picture is a little larger so no corner shows.
+        ctx.save();
+        ctx.translate(w / 2, h / 2);
+        ctx.rotate((roll * Math.PI) / 180);
+        ctx.scale(SWAY_ZOOM, SWAY_ZOOM);
+        ctx.translate(-w / 2, -h / 2);
+      }
       for (const c of panoramaCrops(pano.width, pano.height, w, h, yaw, pitch)) ctx.drawImage(pano, c.sx, c.sy, c.sw, c.sh, c.dx, 0, c.dw, h);
+      if (roll) ctx.restore();
       return true;
     },
     close: () => pano.close(),

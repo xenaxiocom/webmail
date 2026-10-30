@@ -11,6 +11,9 @@ export const HEAD_YAW = 24;
 export const HEAD_PITCH = 8;
 /** On a phone the view may look up or down this far. */
 export const MAX_PITCH = 30;
+/** How far the horizon tilts on board (degrees), and how much the picture is enlarged so the tilt shows no corners. */
+export const SWAY_ROLL = 1.8;
+export const SWAY_ZOOM = 1.08;
 
 export interface Crop {
   /** Source rectangle in the panorama. */
@@ -61,8 +64,21 @@ export class PanoramaView {
   private firstAlpha: number | null = null;
   gyroscope = false;
 
-  /** `base`: where the view starts, in degrees from the middle of the picture. */
-  constructor(private readonly base = 0) {}
+  private time = 0;
+
+  /**
+   * `base`: where the view starts, in degrees from the middle of the picture.
+   * `sway`: the view rocks gently, as on board a ship (see `roll`).
+   */
+  constructor(
+    private readonly base = 0,
+    private readonly sway = false,
+  ) {}
+
+  /** The tilt of the horizon now, in degrees: a ship's slow roll; 0 without sway. */
+  roll(): number {
+    return this.sway ? SWAY_ROLL * Math.sin(this.time * 0.7) : 0;
+  }
 
   /** The person's centre in the picture, -0.5..0.5 from the middle (x right, y down). */
   setHead(x: number, y: number): void {
@@ -85,7 +101,10 @@ export class PanoramaView {
     const k = 1 - Math.exp(-seconds * (this.gyroscope ? 12 : 3));
     this.yaw += angleDelta(this.yaw, this.targetYaw) * k;
     this.pitch += (this.targetPitch - this.pitch) * k;
-    return { yaw: this.yaw + this.base, pitch: this.pitch };
+    this.time += seconds;
+    // On board: a slow swell up and down and a little to the sides, on top of where the view looks.
+    const swell = this.sway ? { yaw: 1.2 * Math.sin(this.time * 0.45), pitch: 1.6 * Math.sin(this.time * 0.9 + 1) } : { yaw: 0, pitch: 0 };
+    return { yaw: this.yaw + this.base + swell.yaw, pitch: this.pitch + swell.pitch };
   }
 }
 
