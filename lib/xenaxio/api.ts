@@ -672,6 +672,8 @@ export interface CalendarFeed {
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
 const CALENDAR_SUBSCRIPTIONS = "/api/calendar/subscriptions";
 const CALENDAR_FEEDS = "/api/calendar/feeds";
+/** Step F1.1: flows of the employee. */
+const FLOW = "/api/flows";
 
 /** Step F1: Xenaxio Agent Flows. */
 export type FlowTexts = string | Record<string, string>;
@@ -696,11 +698,19 @@ export interface FlowTemplateInfo {
   params: Record<string, FlowParamDef>;
   directories: Record<string, FlowDirectoryDef>;
 }
+/** Step F1.1: an employee of the company (owner or person of a flow). */
+export interface FlowEmployee {
+  id: string;
+  name: string;
+  email: string;
+}
 export interface FlowInstallation {
   id: string;
   flow: string;
   version: number;
-  title: FlowTexts;
+  /** The name its owners gave it. */
+  title: string;
+  templateTitle: FlowTexts | null;
   params: Record<string, unknown>;
   paramDefs: Record<string, FlowParamDef>;
   directories: Record<string, FlowDirectoryDef>;
@@ -710,12 +720,18 @@ export interface FlowInstallation {
   botName: string | null;
   hasBot: boolean;
   createdAt: string;
+  owners: FlowEmployee[];
 }
+/** Step F1.1: a person of one flow — an employee (userId) or someone only in Telegram. */
 export interface FlowPerson {
   id: string;
   name: string;
   language: string | null;
-  telegramChatId: number | null;
+  userId: string | null;
+  linked: boolean;
+}
+export interface FlowDetail extends FlowInstallation {
+  people: FlowPerson[];
 }
 export interface FlowRunSummary {
   id: string;
@@ -736,13 +752,21 @@ export interface FlowJournalEntry {
   what: string;
   detail?: Record<string, unknown>;
 }
+/** Step F1.1: the Flows section of an employee (the admin may ask for all flows of the company). */
 export interface FlowsOverview {
   enabled: boolean;
-  journalYears: number;
+  admin: boolean;
   templates: FlowTemplateInfo[];
   installations: FlowInstallation[];
-  people: FlowPerson[];
+  employees: FlowEmployee[];
+  /** Shared mailboxes this employee may send from: the only ones their flows may write from. */
   mailboxes: { id: string; email: string }[];
+}
+/** The admin's page: how long journals stay, and every flow of the company. */
+export interface FlowsAdminOverview {
+  enabled: boolean;
+  journalYears: number;
+  installations: FlowInstallation[];
 }
 
 /** Step 86: the text of an audio file. */
@@ -935,24 +959,30 @@ export const xenaxio = {
   setCustomModelContext: (contextTokens: number | null) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom/context", { contextTokens }),
   saveScheduleSettings: (settings: ScheduleSettings) => request<{ paused: number; schedules: ScheduleSettingsInfo }>("PUT", "/api/admin/ai/schedules", settings),
   flows: {
-    overview: () => request<FlowsOverview>("GET", "/api/admin/flows"),
-    setJournalYears: (journalYears: number) => request<{ ok: true }>("PUT", "/api/admin/flows/settings", { journalYears }),
-    install: (flow: string, language: string) => request<FlowInstallation>("POST", "/api/admin/flows/installations", { flow, language }),
-    update: (id: string, body: { params?: Record<string, unknown>; language?: string; status?: "active" | "paused"; sendsPerHour?: number }) =>
-      request<FlowInstallation>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}`, body),
-    remove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/flows/installations/${encodeURIComponent(id)}`),
-    directory: (id: string, directory: string) =>
-      request<{ rows: Record<string, unknown>[] }>("GET", `/api/admin/flows/installations/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`),
+    status: () => request<{ enabled: boolean }>("GET", "/api/flows/status"),
+    overview: (all = false) => request<FlowsOverview>("GET", `/api/flows${all ? "?all=1" : ""}`),
+    flow: (id: string) => request<FlowDetail>("GET", `${FLOW}/${encodeURIComponent(id)}`),
+    install: (flow: string, language: string, title?: string) => request<FlowDetail>("POST", "/api/flows", { flow, language, ...(title ? { title } : {}) }),
+    update: (id: string, body: { title?: string; params?: Record<string, unknown>; language?: string; status?: "active" | "paused"; sendsPerHour?: number }) =>
+      request<FlowDetail>("PUT", `${FLOW}/${encodeURIComponent(id)}`, body),
+    remove: (id: string) => request<{ ok: true }>("DELETE", `${FLOW}/${encodeURIComponent(id)}`),
+    addOwner: (id: string, userId: string) => request<FlowDetail>("POST", `${FLOW}/${encodeURIComponent(id)}/owners`, { userId }),
+    removeOwner: (id: string, userId: string) => request<FlowDetail>("DELETE", `${FLOW}/${encodeURIComponent(id)}/owners/${encodeURIComponent(userId)}`),
+    addPerson: (id: string, person: { name?: string; userId?: string; language?: string | null }) => request<FlowPerson>("POST", `${FLOW}/${encodeURIComponent(id)}/people`, person),
+    removePerson: (id: string, personId: string) => request<{ ok: boolean }>("DELETE", `${FLOW}/${encodeURIComponent(id)}/people/${encodeURIComponent(personId)}`),
+    personCode: (id: string, personId: string) =>
+      request<{ code: string; link: string | null }>("POST", `${FLOW}/${encodeURIComponent(id)}/people/${encodeURIComponent(personId)}/code`, {}),
+    directory: (id: string, directory: string) => request<{ rows: Record<string, unknown>[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`),
     importDirectory: (id: string, directory: string, csv: string) =>
-      request<{ rows: number }>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`, { csv }),
-    connectTelegram: (id: string, token: string) => request<{ botName: string }>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}/telegram`, { token }),
-    disconnectTelegram: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/flows/installations/${encodeURIComponent(id)}/telegram`),
-    runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `/api/admin/flows/installations/${encodeURIComponent(id)}/runs`),
+      request<{ rows: number }>("PUT", `${FLOW}/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`, { csv }),
+    connectTelegram: (id: string, token: string) => request<{ botName: string }>("PUT", `${FLOW}/${encodeURIComponent(id)}/telegram`, { token }),
+    disconnectTelegram: (id: string) => request<{ ok: true }>("DELETE", `${FLOW}/${encodeURIComponent(id)}/telegram`),
+    runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs`),
     run: (id: string) =>
-      request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `/api/admin/flows/runs/${encodeURIComponent(id)}`),
-    addPerson: (name: string, language: string | null) => request<FlowPerson>("POST", "/api/admin/flows/people", { name, language }),
-    removePerson: (id: string) => request<{ ok: boolean }>("DELETE", `/api/admin/flows/people/${encodeURIComponent(id)}`),
-    personCode: (id: string) => request<{ code: string; link: string | null }>("POST", `/api/admin/flows/people/${encodeURIComponent(id)}/code`, {}),
+      request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    // The admin of the company.
+    adminOverview: () => request<FlowsAdminOverview>("GET", "/api/admin/flows"),
+    setJournalYears: (journalYears: number) => request<{ ok: true }>("PUT", "/api/admin/flows/settings", { journalYears }),
   },
 
   audit: (f: AuditFilter) => request<{ entries: AuditEntry[]; next: number | null }>("GET", `/api/admin/audit${auditQuery(f)}`),

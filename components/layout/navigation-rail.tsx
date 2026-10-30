@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useLayoutEffect, useCallback } from "react";
 import { createPortal } from "react-dom";
-import { Mail, CalendarEvent, Users, Folder, Settings, Keyboard, Plus, Shield, LogOut, Check, Search, Puzzle, MessagesSquare, Video } from "@/components/icons";
+import { Mail, CalendarEvent, Users, Folder, Settings, Keyboard, Plus, Shield, LogOut, Check, Search, Puzzle, MessagesSquare, Video, Share2 } from "@/components/icons";
 import { AccountSwitcher } from "./account-switcher";
 import { iconForName } from "@/components/icons";
 import { useConfig } from "@/hooks/use-config";
@@ -35,6 +35,7 @@ import { WorkspaceNavLink } from "@/components/xenaxio/workspace-nav-link";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useChatNavItem } from "@/lib/xenaxio/chat/nav";
 import { useMeetNavItem } from "@/lib/xenaxio/meet-nav";
+import { useFlowsNavItem } from "@/lib/xenaxio/flows-nav";
 
 interface NavItem {
   id: string;
@@ -314,6 +315,7 @@ export function NavigationRail({
 
   const chatNav = useChatNavItem();
   const meetNav = useMeetNavItem();
+  const flowsNav = useFlowsNavItem();
   const navItems: NavItem[] = [
     { id: "mail", icon: Mail, labelKey: "mail", href: "/", badge: inboxUnread },
     { id: "calendar", icon: CalendarEvent, labelKey: "calendar", href: "/calendar", hidden: !supportsCalendar || !calendarEnabled },
@@ -323,6 +325,8 @@ export function NavigationRail({
     { id: "chat", icon: MessagesSquare, labelKey: "chat", label: chatNav.label, href: "/chat", hidden: !chatNav.visible, badge: chatNav.badge },
     // xenaxio (step 78): video meetings, when the company has them on.
     { id: "meetings", icon: Video, labelKey: "meetings", label: meetNav.label, href: "/meetings", hidden: !meetNav.visible },
+    // xenaxio (step F1.1): flows, when the company has them on.
+    { id: "flows", icon: Share2, labelKey: "flows", label: flowsNav.label, href: "/flows", hidden: !flowsNav.visible },
   ];
 
   // When the host (e.g. the Pro shell) takes over navigation via `onNavigate`,
