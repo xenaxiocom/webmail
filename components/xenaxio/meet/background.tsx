@@ -157,6 +157,15 @@ function Tile({ selected, onClick, label, disabled, children }: { selected: bool
   );
 }
 
+function Caption({ icon, text }: { icon: ReactNode; text: string }) {
+  return (
+    <span className="flex flex-col items-center gap-1">
+      {icon}
+      <span className="text-[11px] leading-none">{text}</span>
+    </span>
+  );
+}
+
 /** The tiles to choose from; one's own picture is made smaller in the browser and stays here. */
 export function BackgroundPicker({
   choice,
@@ -197,13 +206,13 @@ export function BackgroundPicker({
     <div className="space-y-2">
       <div className="grid grid-cols-4 gap-2">
         <Tile selected={is({ kind: "none" })} onClick={() => onChoose({ kind: "none" })} label={t("background_none")}>
-          <Ban className="h-5 w-5" />
+          <Caption icon={<Ban className="h-5 w-5" />} text={t("background_none_short")} />
         </Tile>
         <Tile selected={is({ kind: "blur", strength: "light" })} onClick={() => onChoose({ kind: "blur", strength: "light" })} label={t("background_blur_light")}>
-          <Blur className="h-5 w-5 opacity-70" />
+          <Caption icon={<Blur className="h-5 w-5 opacity-70" />} text={t("background_blur_light_short")} />
         </Tile>
         <Tile selected={is({ kind: "blur", strength: "strong" })} onClick={() => onChoose({ kind: "blur", strength: "strong" })} label={t("background_blur_strong")}>
-          <Blur className="h-6 w-6" />
+          <Caption icon={<Blur className="h-5 w-5" />} text={t("background_blur_strong_short")} />
         </Tile>
         {company && (
           <Tile selected={is({ kind: "image", id: COMPANY_IMAGE })} onClick={() => onChoose({ kind: "image", id: COMPANY_IMAGE })} label={t("background_company")}>
@@ -232,7 +241,7 @@ export function BackgroundPicker({
           </div>
         )}
         <Tile selected={false} onClick={() => file.current?.click()} label={own ? t("background_own_replace") : t("background_own_upload")}>
-          <Upload className="h-5 w-5" />
+          <Caption icon={<Upload className="h-5 w-5" />} text={t("background_own_short")} />
         </Tile>
       </div>
       <input ref={file} type="file" accept="image/*" className="hidden" onChange={(e) => void pick(e)} />
