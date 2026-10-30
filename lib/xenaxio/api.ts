@@ -748,8 +748,19 @@ export interface FlowPerson {
   userId: string | null;
   linked: boolean;
 }
+/** Stage E2 (B1): a connection to an outside API the template names; the key is never sent back. */
+export interface FlowConnection {
+  name: string;
+  label: FlowTexts | null;
+  note: FlowTexts | null;
+  hosts: string[];
+  auth: "none" | "api_key" | "basic" | "bearer" | "oauth2";
+  baseUrl: string | null;
+  hasSecret: boolean;
+}
 export interface FlowDetail extends FlowInstallation {
   people: FlowPerson[];
+  connections: FlowConnection[];
 }
 export interface FlowRunSummary {
   id: string;
@@ -1003,6 +1014,10 @@ export const xenaxio = {
     runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs`),
     run: (id: string) =>
       request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    // Stage E2 (B1): connections to outside APIs; without `secret` the stored key stays.
+    setConnection: (id: string, name: string, body: { baseUrl: string; secret?: Record<string, string> }) =>
+      request<FlowDetail>("PUT", `${FLOW}/${encodeURIComponent(id)}/connections/${encodeURIComponent(name)}`, body),
+    removeConnection: (id: string, name: string) => request<FlowDetail>("DELETE", `${FLOW}/${encodeURIComponent(id)}/connections/${encodeURIComponent(name)}`),
     // Stage E2: flows sending letters in my name.
     sendAs: () => request<{ on: boolean; expiresAt: string | null }>("GET", `${FLOW}/send-as`),
     setSendAs: (on: boolean) => request<{ on: boolean; expiresAt: string | null }>("PUT", `${FLOW}/send-as`, { on }),

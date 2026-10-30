@@ -9,7 +9,8 @@
 // Step 94: a steadier edge around the person — the model's confidence,
 // smoothed over frames (lib/xenaxio/meet-mask.ts), instead of its yes/no mask.
 import { BackgroundTransformer, type TrackTransformerDestroyOptions } from "@livekit/track-processors";
-import { MaskSmoother } from "@/lib/xenaxio/meet-mask";
+import { MaskSmoother, REFINED_BIAS } from "@/lib/xenaxio/meet-mask";
+import { brightness, GUIDE_MAX_MS, GUIDE_WIDTH, GuidedFilter, shrink } from "@/lib/xenaxio/meet-guided";
 import type { FrameSource } from "@/lib/xenaxio/meet-motion";
 import { type PanoramaView, personCentre } from "@/lib/xenaxio/meet-panorama";
 
@@ -61,6 +62,16 @@ export class MotionBackgroundTransformer extends BackgroundTransformer {
   private maskTexture: WebGLTexture | null = null;
   /** Step 94: off when this browser cannot give the model's confidence (the yes/no mask then serves). */
   softMask = true;
+  /** Step 95: the mask's edge follows the picture; off by itself on a device where it costs too much. */
+  refineEdge = true;
+  private guideCanvas: OffscreenCanvas | null = null;
+  private guide: Float32Array | null = null;
+  private guideFactor = 1;
+  private filter: GuidedFilter | null = null;
+  private small: Float32Array | null = null;
+  private refined: Float32Array | null = null;
+  private refineCosts: number[] = [];
+  private guideMs = 0;
 
   constructor(options: BackgroundOptions) {
     super(options);
@@ -108,13 +119,40 @@ export class MotionBackgroundTransformer extends BackgroundTransformer {
       });
   }
 
+  /**
+   * The mask's bytes: smoothed over frames (step 94) and, with a guide of this
+   * frame, its edge following the picture on the small copy (step 95).
+   */
+  private maskBytes(confidence: { width: number; height: number; getAsFloat32Array(): Float32Array }): { mask: Uint8Array; width: number; height: number } {
+    const full = confidence.getAsFloat32Array();
+    const f = this.guideFactor;
+    const w = Math.floor(confidence.width / f);
+    const h = Math.floor(confidence.height / f);
+    const guide = this.guide;
+    if (!this.refineEdge || !guide || !this.filter || guide.length !== w * h || this.filter.width !== w) {
+      return { mask: this.smoother.next(full), width: confidence.width, height: confidence.height };
+    }
+    const started = performance.now();
+    shrink(full, confidence.width, confidence.height, f, this.small!);
+    this.filter.apply(guide, this.smoother.smooth(this.small!), this.refined!);
+    const mask = this.smoother.toBytes(this.refined!, REFINED_BIAS);
+    // Too dear on this device (with taking the guide): the step 94 mask from now on.
+    this.refineCosts.push(performance.now() - started + this.guideMs);
+    if (this.refineCosts.length > 30) this.refineCosts.shift();
+    if (this.refineCosts.length === 30 && this.refineCosts.reduce((a, b) => a + b, 0) / 30 > GUIDE_MAX_MS) {
+      this.refineEdge = false;
+      this.smoother.reset();
+    }
+    return { mask, width: w, height: h };
+  }
+
   /** Puts the smoothed mask where the package's own would go; false when it cannot (the yes/no mask then serves). */
   private showSmoothedMask(result: SegmentResult): boolean {
     const confidence = result.confidenceMasks?.[0];
     const canvas = this.canvas;
     if (!this.softMask || !confidence || !canvas || !this.gl) return false;
     try {
-      const mask = this.smoother.next(confidence.getAsFloat32Array());
+      const { mask, width, height } = this.maskBytes(confidence);
       const gl = canvas.getContext("webgl2") as WebGL2RenderingContext | null;
       if (!gl) return false;
       // The context is shared with MediaPipe and the package: what is changed here is put back.
@@ -133,7 +171,7 @@ export class MotionBackgroundTransformer extends BackgroundTransformer {
       }
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
-      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, confidence.width, confidence.height, 0, gl.RED, gl.UNSIGNED_BYTE, mask);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, width, height, 0, gl.RED, gl.UNSIGNED_BYTE, mask);
       gl.pixelStorei(gl.UNPACK_ALIGNMENT, alignment);
       gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip);
       gl.bindTexture(gl.TEXTURE_2D, bound);
@@ -203,8 +241,35 @@ export class MotionBackgroundTransformer extends BackgroundTransformer {
     this.timer = setTimeout(() => void tick(), 0);
   }
 
+  /** Step 95: the frame's brightness on a small copy, the guide for the mask's edge (the segmenter sees the same frame next). */
+  private takeGuide(frame: VideoFrame): void {
+    if (!this.softMask || !this.refineEdge) return;
+    try {
+      const factor = Math.max(1, Math.round(frame.displayWidth / GUIDE_WIDTH));
+      const w = Math.floor(frame.displayWidth / factor);
+      const h = Math.floor(frame.displayHeight / factor);
+      if (!this.guideCanvas || this.guideCanvas.width !== w || this.guideCanvas.height !== h) {
+        this.guideCanvas = new OffscreenCanvas(w, h);
+        this.guide = new Float32Array(w * h);
+        this.small = new Float32Array(w * h);
+        this.refined = new Float32Array(w * h);
+        this.filter = new GuidedFilter(w, h);
+      }
+      this.guideFactor = factor;
+      const ctx = this.guideCanvas.getContext("2d", { willReadFrequently: true }) as OffscreenCanvasRenderingContext2D | null;
+      if (!ctx) throw new Error("no canvas");
+      ctx.drawImage(frame, 0, 0, w, h);
+      brightness(ctx.getImageData(0, 0, w, h).data, this.guide!);
+    } catch {
+      this.refineEdge = false;
+    }
+  }
+
   async transform(frame: VideoFrame, controller: TransformStreamDefaultController<VideoFrame>) {
     this.size = [frame.displayWidth, frame.displayHeight];
+    const guideStarted = performance.now();
+    this.takeGuide(frame);
+    this.guideMs = performance.now() - guideStarted;
     if (this.motion && !this.paused) this.startLoop();
     const next = this.ready;
     if (next && this.gl) {

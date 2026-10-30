@@ -11,6 +11,8 @@ const flows = vi.hoisted(() => ({
   flow: vi.fn(),
   addPerson: vi.fn(),
   runs: vi.fn(),
+  setConnection: vi.fn(),
+  removeConnection: vi.fn(),
   sendAs: vi.fn(async () => ({ on: false, expiresAt: null })),
   setSendAs: vi.fn(async (on: boolean) => ({ on, expiresAt: on ? "2027-01-28T00:00:00Z" : null })),
 }));
@@ -64,6 +66,7 @@ const detail = (patch: Partial<FlowDetail> = {}): FlowDetail => ({
   createdAt: "2026-10-30T10:00:00Z",
   owners: [{ id: "u1", name: "Olena", email: "olena@bau.ua" }],
   people: [],
+  connections: [],
   ...patch,
 });
 
@@ -105,6 +108,24 @@ describe("Flows section (step F1.1)", () => {
     await waitFor(() => expect(flows.setSendAs).toHaveBeenCalledWith(true));
     expect(await screen.findByText("Flows dürfen jetzt in Ihrem Namen senden.")).toBeTruthy();
     expect(box.checked).toBe(true);
+  });
+
+  it("sets a connection's address and key; the key is sent once and never shown (stage E2, B1)", async () => {
+    const conn = { name: "crm", label: { de: "CRM" }, note: null, hosts: ["api.crm.example"], auth: "bearer" as const, baseUrl: null, hasSecret: false };
+    flows.overview.mockResolvedValueOnce(overview({ installations: [detail()] }));
+    flows.flow.mockResolvedValue(detail({ connections: [conn] }));
+    flows.runs.mockResolvedValue({ runs: [] });
+    flows.setConnection.mockResolvedValueOnce(detail({ connections: [{ ...conn, baseUrl: "https://api.crm.example", hasSecret: true }] }));
+    render(<FlowsSection />);
+    fireEvent.click(await screen.findByText("Einkauf Sihiv"));
+    expect(await screen.findByText("Verbindungen")).toBeTruthy();
+    expect(screen.getByText("Noch nicht eingerichtet")).toBeTruthy();
+    fireEvent.change(screen.getByLabelText("Adresse"), { target: { value: "https://api.crm.example" } });
+    fireEvent.change(screen.getByLabelText("Token"), { target: { value: "secret-token" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Speichern" }).at(-1)!);
+    await waitFor(() => expect(flows.setConnection).toHaveBeenCalledWith("f1", "crm", { baseUrl: "https://api.crm.example", secret: { token: "secret-token" } }));
+    expect(await screen.findByText("Eingerichtet")).toBeTruthy();
+    expect((screen.getByLabelText("Token") as HTMLInputElement).value).toBe("");
   });
 
   it("says when the company has no flows", async () => {
