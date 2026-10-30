@@ -225,8 +225,14 @@ describe("step 92 and 93: choosing the background", () => {
     expect(onChoose).toHaveBeenLastCalledWith({ kind: "image", id: "img-sea" });
     fireEvent.click(screen.getByRole("button", { name: "Nordlicht" }));
     expect(onChoose).toHaveBeenLastCalledWith({ kind: "scene", id: "aurora" });
+    fireEvent.click(screen.getByRole("button", { name: "Alpen" }));
+    expect(onChoose).toHaveBeenLastCalledWith({ kind: "panorama", id: "pano-alps" });
+    // Eight panoramas at first; the rest behind "show all".
+    expect(screen.queryByRole("button", { name: "Loft" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Alle 25 anzeigen" }));
     fireEvent.click(screen.getByRole("button", { name: "Loft" }));
     expect(onChoose).toHaveBeenLastCalledWith({ kind: "panorama", id: "pano-loft" });
+    expect(screen.getByRole("button", { name: "An Bord eines Schiffs" })).toBeInTheDocument();
     expect(screen.getByText("Panoramen 360°")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: "Eigenes Bild, GIF, Video oder Panorama hochladen" })).toBeInTheDocument();
 

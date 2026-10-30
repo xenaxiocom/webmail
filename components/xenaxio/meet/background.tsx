@@ -40,6 +40,8 @@ import { followOrientation, PanoramaView, requestMotionPermission } from "@/lib/
 import { useMeetLang } from "./lang";
 
 const PROCESSOR_NAME = "xenaxio-background";
+/** Panoramas shown before "show all" (the chosen one always shows). */
+const PANORAMAS_SHOWN = 8;
 
 /**
  * Whether this browser can do it (WebGL 2, video frames, and either
@@ -163,7 +165,7 @@ export function useBackgroundEffect(track: LocalVideoTrack | undefined, source: 
           import("./motion-transformer"),
           import("@/lib/xenaxio/meet-motion"),
         ]);
-        const view = wanted.type === "panorama" ? new PanoramaView(wanted.yaw ?? 0) : null;
+        const view = wanted.type === "panorama" ? new PanoramaView(wanted.yaw ?? 0, wanted.sway ?? false) : null;
         const motion = moves(wanted) ? await frameSource(wanted, view ?? new PanoramaView()) : null;
         if (!current) {
           motion?.close();
@@ -294,6 +296,7 @@ export function BackgroundPicker({
   const { t, lang } = useMeetLang();
   const file = useRef<HTMLInputElement>(null);
   const [problem, setProblem] = useState<string | null>(null);
+  const [allPanoramas, setAllPanoramas] = useState(false);
   const is = (c: BackgroundChoice) => sameChoice(c, choice);
   const badge = (kind: OwnBackground["kind"] | undefined) => (kind === "animation" ? "▶" : kind === "panorama" ? "360°" : undefined);
   // A panorama follows the phone's turn: iPhones ask for the motion sensors on a tap.
@@ -370,12 +373,17 @@ export function BackgroundPicker({
         ))}
       </Group>
       <Group title={t("background_group_panoramas")}>
-        {PANORAMAS.map((p) => (
+        {(allPanoramas ? PANORAMAS : PANORAMAS.filter((p, i) => i < PANORAMAS_SHOWN || is({ kind: "panorama", id: p.id }))).map((p) => (
           <Tile key={p.id} selected={is({ kind: "panorama", id: p.id })} onClick={() => pick({ kind: "panorama", id: p.id }, true)} label={t(`background_panoramas.${p.name}`)} badge="360°">
-            <img src={withBasePath(p.thumb)} alt="" className="h-full w-full object-cover" />
+            <img src={withBasePath(p.thumb)} alt="" className="h-full w-full object-cover" loading="lazy" />
           </Tile>
         ))}
       </Group>
+      {PANORAMAS.length > PANORAMAS_SHOWN && (
+        <button type="button" onClick={() => setAllPanoramas((a) => !a)} className="text-xs text-white/70 underline hover:text-white">
+          {allPanoramas ? t("background_less") : t("background_more", { count: PANORAMAS.length })}
+        </button>
+      )}
       <input ref={file} type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={(e) => void upload(e)} />
       {effect.busy && choice.kind !== "none" && <p className="text-xs text-white/60">{t("background_loading")}</p>}
       {effect.failed && <p className="text-xs text-amber-300">{t("background_failed")}</p>}

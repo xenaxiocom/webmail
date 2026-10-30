@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { angleDelta, FIELD_OF_VIEW, HEAD_YAW, PanoramaView, panoramaCrops, personCentre } from "@/lib/xenaxio/meet-panorama";
+import { angleDelta, FIELD_OF_VIEW, HEAD_YAW, PanoramaView, panoramaCrops, personCentre, SWAY_ROLL } from "@/lib/xenaxio/meet-panorama";
 
 // Step 93: a window of about 70° into a 360° panorama, moved by the phone's
 // turn or, on a computer, by the person's place in the picture.
@@ -42,6 +42,23 @@ describe("panorama view", () => {
     expect(now.yaw).toBeCloseTo(-30);
     // A panorama's view starts at its best side.
     expect(new PanoramaView(160).step(0.1).yaw).toBeCloseTo(160);
+  });
+
+  it("rocks on board: the horizon tilts and the view swells, within a few degrees", () => {
+    const still = new PanoramaView(0);
+    const ship = new PanoramaView(0, true);
+    const rolls: number[] = [];
+    const pitches: number[] = [];
+    for (let i = 0; i < 200; i++) {
+      pitches.push(ship.step(0.05).pitch);
+      rolls.push(ship.roll());
+      still.step(0.05);
+    }
+    expect(still.roll()).toBe(0);
+    expect(Math.max(...rolls)).toBeGreaterThan(1);
+    expect(Math.max(...rolls.map(Math.abs))).toBeLessThanOrEqual(SWAY_ROLL);
+    expect(Math.max(...pitches) - Math.min(...pitches)).toBeGreaterThan(2);
+    expect(Math.max(...pitches.map(Math.abs))).toBeLessThan(2);
   });
 
   it("finds the person's centre in the mask (0 = person)", () => {
