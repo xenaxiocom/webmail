@@ -10,6 +10,9 @@ import {
   type IconOptions,
 } from "@/components/files/file-item-parts";
 import type { SortDir, SortKey } from "@/components/files/files-header";
+import { AudioPlayButton, AudioProgress, TranscriptBadge } from "@/components/xenaxio/files-audio";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { isAudioResource } from "@/lib/xenaxio/transcripts";
 
 export interface FileItemHandlers {
   /** Selection click (plain, Ctrl/Cmd, Shift) on the item body. */
@@ -205,6 +208,8 @@ function FileListRow({ resource, isSelected, isFocused, isDropTarget, isCut, isS
   const t = useTranslations("files");
   const touchProps = useTouchPress(touch, selecting, resource, handlers);
   const icon = <ResourceIcon resource={resource} size="sm" options={iconOptions} />;
+  // Xenaxio step 86: audio files play right here.
+  const audio = XENAXIO_BFF && isAudioResource(resource);
   return (
     <div
       role="row"
@@ -229,7 +234,7 @@ function FileListRow({ resource, isSelected, isFocused, isDropTarget, isCut, isS
         <SelectBox checked={isSelected} visible={selecting} onToggle={() => handlers.onToggleSelect(resource)} label={t("select_item", { name: resource.name })} />
       </div>
       <div role="gridcell" className={cn("flex items-center gap-3 min-w-0", touch && !selecting && "col-span-2")}>
-        {canShowThumbnail(resource, iconOptions) ? (
+        {audio ? <AudioPlayButton resource={resource} onToggle={() => handlers.onOpen(resource)} /> : canShowThumbnail(resource, iconOptions) ? (
           <Thumbnail
             resource={resource}
             getImageUrl={getImageUrl}
@@ -257,7 +262,9 @@ function FileListRow({ resource, isSelected, isFocused, isDropTarget, isCut, isS
             </button>
             {isStarred && <Star className="w-3.5 h-3.5 shrink-0 text-amber-500 fill-current" aria-label={t("favorites")} />}
             <ShareBadge resource={resource} t={t} />
+            {audio && <TranscriptBadge resource={resource} />}
           </div>
+          {audio && <AudioProgress resource={resource} />}
           {touch && (
             <div className="text-xs text-muted-foreground truncate">
               {formatShortDate(resource.lastModified)}
@@ -429,6 +436,7 @@ function FileTile({ resource, isSelected, isFocused, isCut, selecting, touch, ic
   const t = useTranslations("files");
   const touchProps = useTouchPress(touch, selecting, resource, handlers);
   const bigIcon = <ResourceIcon resource={resource} size="xl" options={iconOptions} />;
+  const audio = XENAXIO_BFF && isAudioResource(resource);
   return (
     <div
       role="gridcell"
@@ -447,7 +455,7 @@ function FileTile({ resource, isSelected, isFocused, isCut, selecting, touch, ic
       )}
     >
       <div className="aspect-[4/3] bg-muted/50 flex items-center justify-center overflow-hidden border-b border-border/60">
-        {canShowThumbnail(resource, iconOptions) ? (
+        {audio ? <AudioPlayButton resource={resource} onToggle={() => handlers.onOpen(resource)} className="w-12 h-12" /> : canShowThumbnail(resource, iconOptions) ? (
           <Thumbnail
             resource={resource}
             getImageUrl={getImageUrl}
@@ -477,7 +485,9 @@ function FileTile({ resource, isSelected, isFocused, isCut, selecting, touch, ic
           <div className="flex items-center gap-1 text-xs text-muted-foreground min-w-0">
             <span className="truncate">{formatFileSize(resource.contentLength)} · {formatShortDate(resource.lastModified)}</span>
             <ShareBadge resource={resource} t={t} className="w-3 h-3" />
+            {audio && <TranscriptBadge resource={resource} />}
           </div>
+          {audio && <AudioProgress resource={resource} />}
         </div>
         <button
           type="button"

@@ -188,7 +188,9 @@
     "tool_not_found": "This tool does not exist.",
     "tool_denied": "This tool has been denied since. The action did not run.",
     "scope_not_found": "This group or tool does not exist.",
-    "invalid_scope": "Invalid choice."
+    "invalid_scope": "Invalid choice.",
+    "transcription_model_missing": "Enter the name of the speech model on your server first.",
+    "ai_not_configured": "No AI model is available here."
   },
   "login": {
     "title": "Sign in",
@@ -512,6 +514,7 @@
     "tool_save_file": "Saving a file…",
     "tool_create_folder": "Creating a folder…",
     "tool_save_attachment": "Saving the attachment to Files…",
+    "tool_transcribe_audio": "Transcribing the audio file…",
     "tool_list_booking_links": "Looking up your booking links…",
     "tool_list_booking_requests": "Checking booking requests…",
     "tool_list_webinars": "Checking your webinars…",
@@ -854,7 +857,19 @@
     "profile_vision_hint": "Scans, photos, receipts.",
     "profile_smart": "Thorough",
     "profile_smart_hint": "Checking, letters, long tasks.",
-    "profile_default": "Company model ({model})"
+    "profile_default": "Company model ({model})",
+    "transcription_title": "Transcribing audio",
+    "transcription_intro": "Voice messages and recordings in Files can be turned into text, by the button next to the file and by the assistant. The text stays with the file.",
+    "transcription_xenaxio": "Xenaxio speech model",
+    "transcription_xenaxio_hint": "{model} from Mistral, hosted in the EU. Counts towards the AI allowance.",
+    "transcription_custom": "Speech model on our own server",
+    "transcription_custom_hint": "Uses the address and key of your own model below; the audio does not leave your server.",
+    "transcription_custom_missing": "Set up your own model below first; the speech model runs on the same server.",
+    "transcription_off": "Off",
+    "transcription_off_hint": "Nobody in the company can transcribe audio files.",
+    "transcription_model": "Speech model on your server",
+    "transcription_model_hint": "The model name your server knows for /audio/transcriptions, e.g. a Whisper or Voxtral on vLLM.",
+    "transcription_save": "Save"
   },
   "audit": {
     "title": "Audit log",
@@ -2261,5 +2276,46 @@
     "admin_deny": "Denied",
     "admin_tools": "Single tools",
     "admin_link": "Company AI permissions: limits for everyone"
+  },
+  "files_audio": {
+    "title": "Audio",
+    "play": "Play {name}",
+    "pause": "Pause {name}",
+    "position": "Position",
+    "cannot_play": "This browser cannot play this file. Download it instead.",
+    "transcript": "Transcript",
+    "transcribe": "Transcribe",
+    "transcribing": "Transcribing…",
+    "again": "Transcribe again",
+    "has_transcript": "Has a transcript",
+    "no_speech": "No speech recognised.",
+    "copy": "Copy text",
+    "copied": "Copied",
+    "language": "Language",
+    "language_auto": "Detect automatically",
+    "language_detected": "Language detected: {language}",
+    "language_chosen": "Language chosen: {language}",
+    "unavailable": {
+      "ai_disabled": "Transcription is an AI function, and AI is switched off for you or your company.",
+      "transcription_off": "Your company's admin has switched transcription off (Administration → AI).",
+      "ai_not_configured": "No speech model is set up for your company.",
+      "transcription_model_missing": "Your company transcribes on its own server, but the admin has not named the speech model yet (Administration → AI).",
+      "ai_limit_reached": "Your monthly AI allowance is used up."
+    },
+    "errors": {
+      "ai_disabled": "AI is switched off for you or your company.",
+      "transcription_off": "Your company's admin has switched transcription off.",
+      "ai_not_configured": "No speech model is set up for your company.",
+      "transcription_model_missing": "The admin has not named the speech model yet.",
+      "ai_limit_reached": "Your monthly AI allowance is used up.",
+      "audio_too_large": "This file is too large to transcribe.",
+      "audio_refused": "The speech model could not read this recording (too long, or an unknown format).",
+      "transcription_failed": "The speech model did not answer. Please try again later.",
+      "demo_ai_limit": "The demo's AI requests are used up.",
+      "rate_limited": "Too many requests. Please wait a minute.",
+      "file_not_found": "The file is no longer there.",
+      "network": "No connection. Please try again.",
+      "internal": "That did not work. Please try again."
+    }
   }
 }

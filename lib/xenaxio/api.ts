@@ -365,6 +365,8 @@ export interface AiAdmin {
   answers?: AnswerSettings;
   /** Step 84: which model each profile uses (missing: the company's model). */
   profiles?: { map: Partial<Record<ModelProfile, string>>; options: string[]; names: ModelProfile[] };
+  /** Step 86: how audio files are transcribed (absent: not on this installation). */
+  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null };
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
 }
 
@@ -418,6 +420,9 @@ function skillApi(base: string): SkillApi {
     fileUrl: (id) => `${one(id)}/file`,
   };
 }
+/** Step 86: the platform's speech model, one on the company's own server, or off. */
+export type TranscriptionMode = "xenaxio" | "custom" | "off";
+
 export const companySkills = skillApi("/api/admin/ai/skills");
 export const ownSkills = skillApi("/api/ai/skills");
 
@@ -740,8 +745,31 @@ export interface FlowsOverview {
   mailboxes: { id: string; email: string }[];
 }
 
+/** Step 86: the text of an audio file. */
+export interface FileTranscript {
+  text: string;
+  language: string | null;
+  manual: boolean;
+  model: string;
+  audioSeconds: number;
+  updatedAt: string;
+}
+
+/** Why this person cannot transcribe now. */
+export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "ai_limit_reached";
+
+export interface TranscriptLookup {
+  available: boolean;
+  reason?: TranscriptionUnavailable;
+  maxBytes: number;
+  /** By file id; colleagues' files as "<account>:<id>". */
+  transcripts: Record<string, FileTranscript>;
+}
+
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
+  lookupTranscripts: (files: { id: string; accountId?: string }[]) => request<TranscriptLookup>("POST", "/api/files/transcripts/lookup", { files }),
+  transcribe: (file: { id: string; accountId?: string; language?: string }) => request<{ id: string; transcript: FileTranscript }>("POST", "/api/files/transcripts", file),
   /** Step 73: a demo company for this guest (or the one this browser already has). */
   demoStart: (locale: string) => request<Me & { portalUrl: string; demo: DemoInfo }>("POST", "/api/demo/start", { locale: locale === "de" ? "de" : "en" }),
   demoExtend: () => request<DemoInfo>("POST", "/api/demo/extend"),
@@ -891,6 +919,8 @@ export const xenaxio = {
   changeChatChannel: (roomId: string, change: ChatChannelChange) => request<ChatChannelAdmin>("PATCH", `/api/admin/chat/channels/${encodeURIComponent(roomId)}`, change),
   aiAdmin: () => request<AiAdmin>("GET", "/api/admin/ai"),
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
+  setTranscription: (change: { mode: TranscriptionMode; model?: string | null }) =>
+    request<{ mode: TranscriptionMode; customModel: string | null }>("PUT", "/api/admin/ai/transcription", change),
   saveCustomModel: (input: CustomModelInput) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom", input),
   testCustomModel: (model?: string) => request<{ check: CustomModelCheck; custom: CustomModel | null }>("POST", "/api/admin/ai/custom/test", model ? { model } : {}),
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),

@@ -16,6 +16,7 @@ import { CustomModelList } from "@/components/xenaxio/custom-model-list";
 import { ScheduleSettings } from "@/components/xenaxio/schedule-settings";
 import { AnswerSettings } from "@/components/xenaxio/answer-settings";
 import { ModelProfiles } from "@/components/xenaxio/model-profiles";
+import { TranscriptionSettings } from "@/components/xenaxio/transcription-settings";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { type AiAdmin, type AiProvider, type CustomModel, type CustomModelCheck, errorText, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -403,6 +404,7 @@ function AiSettings() {
         </Link>
       </section>
       {data.profiles && <ModelProfiles value={data.profiles} companyModel={own ? (data.custom?.model ?? "") : data.model} onSaved={load} />}
+      {data.transcription && <TranscriptionSettings value={data.transcription} hasOwnServer={!!data.custom} onSaved={load} />}
 
       {data.schedules && <ScheduleSettings value={data.schedules} onSaved={load} />}
 
