@@ -1,4 +1,4 @@
-// Xenaxio step 87: opening a file from a search hit, a link or the recent
+// Xenaxio step 88: opening a file from a search hit, a link or the recent
 // list, and saying which file is gone when it cannot be found.
 import { isFilePreviewable } from "@/lib/file-preview";
 import { isImageFile } from "@/components/files/file-icons";

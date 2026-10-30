@@ -1286,7 +1286,7 @@ export const useFileStore = create<FileState>((set, get) => ({
   revealNode: async (id: string) => {
     const { client, navigate } = get();
     if (!client) return null;
-    // xenaxio step 87: a failed listing throws rather than reading as "no such
+    // xenaxio step 88: a failed listing throws rather than reading as "no such
     // file", so the caller can tell a missing file from a network error.
     const nodes: FileNode[] = isCrossAccountId(id)
       ? await client.listAllFileNodesAcrossAccounts()

@@ -196,7 +196,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   const filesLinkRef = useRef<FilesDeepLink | null>(null);
   const pendingPreviewRef = useRef<string | null>(null);
 
-  // Xenaxio step 87: a search hit, a link and a recent file open the way a
+  // Xenaxio step 88: a search hit, a link and a recent file open the way a
   // double click does; a file the app cannot show is selected in its folder.
   const openFileByName = useCallback((name: string) => {
     const kind = fileOpenKind(name, isOfficeEditable);
@@ -206,7 +206,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     else setSelection(new Set([name]));
   }, [isOfficeEditable, setSelection]);
 
-  // Xenaxio step 87: once the linked folder is listed, a file the link names
+  // Xenaxio step 88: once the linked folder is listed, a file the link names
   // but the folder lacks is reported by name rather than waited for forever.
   const settlePendingPreview = useCallback(() => {
     const pending = pendingPreviewRef.current;
@@ -549,7 +549,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     }
   }, [downloadNode, t]);
 
-  // Xenaxio step 87: says which recent file is gone and drops it from the list.
+  // Xenaxio step 88: says which recent file is gone and drops it from the list.
   const revealRecent = useCallback((id: string) => revealRecentFile(id, {
     revealNode,
     recentFiles,
