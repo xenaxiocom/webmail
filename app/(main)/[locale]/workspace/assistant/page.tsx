@@ -6,6 +6,7 @@
 // Step 49: above them, the tasks the assistant carries out on a schedule.
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useLocale } from "next-intl";
+import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
@@ -174,6 +175,10 @@ export default function AssistantMemoryPage() {
   return (
     <WorkspaceShell title={t("memory.title")} backHref="/workspace">
       <div className="max-w-2xl space-y-10">
+        {/* Step 85: what the assistant may do, per tool. */}
+        <Link href="/workspace/permissions" className="block text-sm text-primary underline underline-offset-4">
+          {t("permissions.link")}
+        </Link>
         {/* Step 49: scheduled tasks of the assistant. */}
         <ScheduleList />
         <Memory />
