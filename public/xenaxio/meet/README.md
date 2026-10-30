@@ -1,4 +1,4 @@
-# Background in video meetings (step 89)
+# Background in video meetings (step 92)
 
 - `selfie_segmenter.tflite` — MediaPipe Selfie Segmenter (float16), Apache-2.0,
   from `storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/`

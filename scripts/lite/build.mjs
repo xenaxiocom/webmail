@@ -71,7 +71,7 @@ if (!argv.includes("--skip-prepare")) {
   runPrepare({ argv: argv.filter((a) => a === "--in-place"), env });
 }
 
-// xenaxio step 89: MediaPipe for meeting backgrounds goes into public/ before the export.
+// xenaxio step 92: MediaPipe for meeting backgrounds goes into public/ before the export.
 const vision = spawnSync(process.execPath, [join(repoRoot, "scripts/xenaxio/meet-vision.mjs")], { cwd: repoRoot, env, stdio: "inherit" });
 if (vision.status !== 0) process.exit(vision.status ?? 1);
 

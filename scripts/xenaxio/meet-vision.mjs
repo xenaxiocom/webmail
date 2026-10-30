@@ -1,5 +1,5 @@
 #!/usr/bin/env node
-// xenaxio step 89: MediaPipe's code for the background in video meetings
+// xenaxio step 92: MediaPipe's code for the background in video meetings
 // (blur, a picture behind the person) is served from this origin, never from
 // a CDN. It is ~19 MB of WebAssembly in node_modules/@mediapipe/tasks-vision,
 // so it is copied into public/ at build time (and for `npm run dev`) instead

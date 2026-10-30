@@ -28,7 +28,7 @@ export interface MeetingInfo {
   peakParticipants?: number;
   startedAt?: string | null;
   finishedAt?: string | null;
-  /** Step 89: the company's background, only for its own people. */
+  /** Step 92: the company's background, only for its own people. */
   background?: MeetBackground;
 }
 
@@ -144,11 +144,11 @@ export interface MeetSettings {
   guests: boolean;
   maxParticipants: number;
   maxHours: number;
-  /** Step 89: the company's background picture for meetings; null without one. */
+  /** Step 92: the company's background picture for meetings; null without one. */
   background: MeetBackground | null;
 }
 
-/** Step 89: the company's picture behind employees' cameras (for its own people only). */
+/** Step 92: the company's picture behind employees' cameras (for its own people only). */
 export interface MeetBackground {
   /** Path on the platform, versioned for caching. */
   url: string;
@@ -193,7 +193,7 @@ async function call<T>(method: "GET" | "POST" | "PUT" | "DELETE", path: string, 
   return data as T;
 }
 
-/** Step 89: a picture goes up as the raw file. */
+/** Step 92: a picture goes up as the raw file. */
 async function upload<T>(method: "PUT", path: string, body: Blob): Promise<T> {
   let res: Response;
   try {
@@ -293,7 +293,7 @@ export const meet = {
   // The company admin.
   settings: () => call<MeetSettings>("GET", ADMIN),
   saveSettings: (change: { enabled?: boolean; guests?: boolean; backgroundDefault?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),
-  /** Step 89: the company's background, sent as the picture itself (the browser makes it a JPEG first). */
+  /** Step 92: the company's background, sent as the picture itself (the browser makes it a JPEG first). */
   uploadBackground: (picture: Blob) => upload<MeetSettings>("PUT", `${ADMIN}/background`, picture),
   removeBackground: () => call<MeetSettings>("DELETE", `${ADMIN}/background`),
 };

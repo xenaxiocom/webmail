@@ -93,7 +93,7 @@ export function PreJoin({
   submitLabel: string;
   busy: boolean;
   onSubmit: (c: Choices) => void;
-  /** Step 89: the company's background picture (its own people only). */
+  /** Step 92: the company's background picture (its own people only). */
   companyBackground?: MeetBackground | null;
 }) {
   const { t } = useMeetLang();
@@ -118,7 +118,7 @@ export function PreJoin({
   const tracks = usePreviewTracks(trackOptions, onDeviceError);
   const videoTrack = tracks?.find((tr) => tr.kind === Track.Kind.Video) as LocalVideoTrack | undefined;
   const audioTrack = tracks?.find((tr) => tr.kind === Track.Kind.Audio) as LocalAudioTrack | undefined;
-  // Step 89: the background, seen here before entering; the meeting puts the same one on its camera.
+  // Step 92: the background, seen here before entering; the meeting puts the same one on its camera.
   const [canBackground] = useState(backgroundsSupported);
   const [pickerOpen, setPickerOpen] = useState(false);
   const background = useBackgroundChoice(companyBackground);

@@ -53,7 +53,7 @@ function MeetingsSettings() {
     }
   };
 
-  // Step 89: the company's picture behind employees' cameras. The browser makes it a JPEG
+  // Step 92: the company's picture behind employees' cameras. The browser makes it a JPEG
   // of at most 1920 px first, so a photo from a phone fits the platform's 2 MB.
   const fileInput = useRef<HTMLInputElement>(null);
   const changeBackground = async (action: () => Promise<MeetSettings>) => {

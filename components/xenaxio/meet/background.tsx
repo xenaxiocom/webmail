@@ -1,6 +1,6 @@
 "use client";
 
-// xenaxio step 89: the background behind one's own camera — off, blurred, or a
+// xenaxio step 92: the background behind one's own camera — off, blurred, or a
 // picture (ours, the company's, one's own). The same choice before entering
 // (preview) and in the meeting; it changes on the fly, without reconnecting.
 import { type ChangeEvent, type ReactNode, useEffect, useRef, useState } from "react";

@@ -1,7 +1,7 @@
 import { fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 89: the background behind one's own camera. LiveKit's processor is a
+// Step 92: the background behind one's own camera. LiveKit's processor is a
 // stand-in that records what the meeting asks of it; MediaPipe is never loaded.
 const made = vi.hoisted(() => [] as { options: Record<string, unknown>; name: string; switches: unknown[] }[]);
 vi.mock("@livekit/track-processors", () => ({
@@ -50,7 +50,7 @@ afterEach(() => {
   localStorage.clear();
 });
 
-describe("step 89: background effect on the camera", () => {
+describe("step 92: background effect on the camera", () => {
   it("is offered only where the browser can do it", () => {
     expect(backgroundsSupported()).toBe(false);
     canDoIt();
@@ -91,7 +91,7 @@ describe("step 89: background effect on the camera", () => {
   });
 });
 
-describe("step 89: choosing the background", () => {
+describe("step 92: choosing the background", () => {
   const props = { onOwnPicture: () => true, failed: false, busy: false, own: null };
 
   it("offers blur, our pictures, the company's only when there is one, and one's own", () => {

@@ -12,7 +12,7 @@ import {
   savedChoice,
 } from "@/lib/xenaxio/meet-background";
 
-// Step 89: which background the camera shows — the person's own choice in this
+// Step 92: which background the camera shows — the person's own choice in this
 // browser, else the company's picture when the admin made it the default.
 afterEach(() => localStorage.clear());
 

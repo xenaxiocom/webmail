@@ -1,4 +1,4 @@
-// xenaxio step 89: the background behind one's own camera in a video meeting,
+// xenaxio step 92: the background behind one's own camera in a video meeting,
 // as in Google Meet and Zoom — blurred, or replaced by a picture. It happens
 // in the browser (MediaPipe's selfie segmentation through LiveKit's track
 // processors, both Apache-2.0); the media server only ever gets the finished

@@ -280,7 +280,7 @@ function DevicePanel({ background }: { background?: ReactNode }) {
       {kinds.map((k) => (
         <DeviceRow key={k.kind} kind={k.kind} label={k.label} onChange={(id) => void room.switchActiveDevice(k.kind, id)} active={room.getActiveDevice(k.kind)} />
       ))}
-      {/* Step 89: the background behind one's own camera. */}
+      {/* Step 92: the background behind one's own camera. */}
       {background && (
         <section className="space-y-2 border-t border-white/10 pt-3">
           <h3 className="text-xs text-white/70">{t("background")}</h3>
@@ -634,7 +634,7 @@ function Meeting({
   const [myRole, setMyRole] = useState<MeetingRole>(role);
   const sends = !webinar || myRole === "host" || myRole === "presenter";
   const moderator = webinar ? myRole === "host" : member;
-  // Step 89: the background behind one's own camera. A call from Rooms does not know the
+  // Step 92: the background behind one's own camera. A call from Rooms does not know the
   // company's picture yet: people of the company ask the platform for it.
   const [company, setCompany] = useState<MeetBackground | null | undefined>(member ? companyBackground : null);
   useEffect(() => {
@@ -996,7 +996,7 @@ export function MeetingRoom({
   role?: MeetingRole;
   /** A guest's visit: its hand and reactions in a webinar go through the platform. */
   guest?: GuestKey | null;
-  /** Step 89: the company's background picture; undefined — people of the company ask for it. */
+  /** Step 92: the company's background picture; undefined — people of the company ask for it. */
   companyBackground?: MeetBackground | null;
 }) {
   const ended = useRef(false);

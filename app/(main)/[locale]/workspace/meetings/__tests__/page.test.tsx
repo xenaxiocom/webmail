@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 89: the admin's company background for meetings — upload (made smaller
+// Step 92: the admin's company background for meetings — upload (made smaller
 // in the browser first), remove, and "employees start with it".
 const api = vi.hoisted(() => ({ settings: vi.fn(), saveSettings: vi.fn(), uploadBackground: vi.fn(), removeBackground: vi.fn() }));
 const shrunk = vi.hoisted(() => new Blob(["jpeg"], { type: "image/jpeg" }));
@@ -25,7 +25,7 @@ beforeEach(() => {
   shrinkPicture.mockClear();
 });
 
-describe("step 89: company background on the meetings page", () => {
+describe("step 92: company background on the meetings page", () => {
   it("uploads a picture made smaller in the browser", async () => {
     api.settings.mockResolvedValue(base);
     api.uploadBackground.mockResolvedValue({ ...base, background: picture });
