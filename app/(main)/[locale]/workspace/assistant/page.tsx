@@ -4,6 +4,7 @@
 // note was confirmed by the user in the panel or written here; the user edits
 // and deletes them and can switch memory off. Nobody else sees these notes.
 // Step 49: above them, the tasks the assistant carries out on a schedule.
+// Step 84: below, the user's own skills and those the company gives them.
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -11,7 +12,8 @@ import { Input } from "@/components/ui/input";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { ScheduleList } from "@/components/xenaxio/schedule-list";
-import { errorText, type MemoryNote, type MemoryState, xenaxio } from "@/lib/xenaxio/api";
+import { SkillManager } from "@/components/xenaxio/skill-manager";
+import { errorText, type MemoryNote, type MemoryState, ownSkills, type SkillItem, type SkillSummary, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 
 function NoteRow({ note, maxLength, busy, onSave, onDelete }: { note: MemoryNote; maxLength: number; busy: boolean; onSave: (text: string) => Promise<boolean>; onDelete: () => void }) {
@@ -169,6 +171,51 @@ function Memory() {
   );
 }
 
+function MySkills() {
+  const t = useXT();
+  const [data, setData] = useState<{ own: SkillItem[]; company: SkillSummary[]; platform: SkillSummary[]; max: number } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const load = useCallback(async () => {
+    try {
+      setData(await xenaxio.mySkills());
+    } catch (err) {
+      setError(errorText(t, err));
+    }
+  }, [t]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+
+  if (!data) return error ? <Notice kind="error">{error}</Notice> : null;
+  const given = [...data.company, ...data.platform.filter((p) => !data.company.some((c) => c.name === p.name))];
+  return (
+    <section className="space-y-3" aria-labelledby="my-skills-title">
+      <div className="space-y-1">
+        <h2 id="my-skills-title" className="font-medium">
+          {t("skills.my_title")}
+        </h2>
+        <p className="text-sm text-muted-foreground">{t("skills.my_intro")}</p>
+      </div>
+      <SkillManager api={ownSkills} skills={data.own} max={data.max} onChanged={load} />
+      {given.length > 0 && (
+        <details className="text-sm">
+          <summary className="cursor-pointer text-muted-foreground">{t("skills.given", { count: given.length })}</summary>
+          <ul className="mt-2 space-y-1">
+            {given.map((k) => (
+              <li key={k.name}>
+                <span className="font-mono">{k.name}</span>
+                <span className="text-muted-foreground"> — {k.description}</span>
+              </li>
+            ))}
+          </ul>
+          <p className="mt-1 text-xs text-muted-foreground">{t("skills.given_hint")}</p>
+        </details>
+      )}
+    </section>
+  );
+}
+
 export default function AssistantMemoryPage() {
   const t = useXT();
   return (
@@ -177,6 +224,7 @@ export default function AssistantMemoryPage() {
         {/* Step 49: scheduled tasks of the assistant. */}
         <ScheduleList />
         <Memory />
+        <MySkills />
       </div>
     </WorkspaceShell>
   );
