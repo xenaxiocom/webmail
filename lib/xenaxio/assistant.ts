@@ -107,7 +107,9 @@ export type AssistantEvent =
   /** Step 83 (Xenacore): the plan of a longer task, shown as a checklist. */
   | { type: "plan"; items: PlanItem[] }
   /** Step 83 (Xenacore): the answer stopped at the company's limit; "Weiter" goes on. */
-  | { type: "budget"; reason: "tool_calls" | "tokens" };
+  | { type: "budget"; reason: "tool_calls" | "tokens" }
+  /** Step 84 (Xenacore): the answer follows a skill of the company or the user. */
+  | { type: "skill"; name: string };
 
 /** Step 83: one step of the assistant's plan. */
 export interface PlanItem {
@@ -209,6 +211,21 @@ export function attachedFileLink(file: AttachedFile): string | null {
 export interface ChatContext {
   emailId?: string;
   threadId?: string;
+  /** Step 84: where the person is; the assistant opens that topic of tools first. */
+  page?: UiPage;
+}
+
+export type UiPage = "mail" | "calendar" | "files" | "rooms" | "tasks";
+
+/** Step 84: the page of the app a path (without locale) belongs to. */
+export function pageOf(pathname: string): UiPage | undefined {
+  const path = pathname.replace(/\/+$/, "") || "/";
+  if (path === "/" || path === "/mail" || path.startsWith("/mail/")) return "mail";
+  if (path === "/calendar/tasks" || path.startsWith("/calendar/tasks/")) return "tasks";
+  if (path === "/calendar" || path.startsWith("/calendar/")) return "calendar";
+  if (path === "/files" || path.startsWith("/files/")) return "files";
+  if (path === "/chat" || path.startsWith("/chat/")) return "rooms";
+  return undefined;
 }
 
 export const assistant = {
