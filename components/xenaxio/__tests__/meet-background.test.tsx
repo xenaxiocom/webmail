@@ -5,21 +5,26 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // classes are stand-ins that record what the meeting asks of them; MediaPipe is
 // never loaded.
 const made = vi.hoisted(() => [] as { transformer: Record<string, unknown>; name: string; switches: unknown[] }[]);
-const base = vi.hoisted(() => ({ transforms: 0, uploads: [] as unknown[], destroyed: [] as unknown[] }));
+const base = vi.hoisted(() => ({ transforms: 0, uploads: [] as unknown[], destroyed: [] as unknown[], masks: [] as unknown[], categoryMasks: 0 }));
 vi.mock("@livekit/track-processors", () => {
   class BackgroundTransformer {
     options: Record<string, unknown>;
-    gl = { setBackgroundImage: async (b: unknown) => void base.uploads.push(b) };
+    gl = { setBackgroundImage: async (b: unknown) => void base.uploads.push(b), updateMask: (t: unknown) => void base.masks.push(t) };
+    canvas: unknown = undefined;
+    imageSegmenter: unknown = undefined;
     constructor(options: Record<string, unknown>) {
       this.options = options;
     }
+    async init() {}
     async transform() {
       base.transforms++;
     }
     async destroy(o?: unknown) {
       base.destroyed.push(o);
     }
-    async updateMask() {}
+    async updateMask() {
+      base.categoryMasks++;
+    }
   }
   class BackgroundProcessorWrapper {
     switches: unknown[] = [];
@@ -107,7 +112,8 @@ describe("step 92: background effect on the camera", () => {
     expect(made[0]!.name).toBe("xenaxio-background");
     expect(made[0]!.transformer.options).toMatchObject({
       blurRadius: 14,
-      assetPaths: { tasksVisionFileSet: `${location.origin}/xenaxio/meet/vision`, modelAssetPath: `${location.origin}/xenaxio/meet/selfie_segmenter.tflite` },
+      // Step 94: a camera of unknown shape counts as landscape (most laptops).
+      assetPaths: { tasksVisionFileSet: `${location.origin}/xenaxio/meet/vision`, modelAssetPath: `${location.origin}/xenaxio/meet/selfie_segmenter_landscape.tflite` },
     });
 
     rerender({ source: { type: "image", url: "https://x/sea.webp" } });
@@ -203,6 +209,59 @@ describe("step 93: backgrounds that move", () => {
     await update(mask);
     expect(mask.getAsUint8Array).toHaveBeenCalledTimes(1);
     expect(setHead.mock.calls[0]![0]).toBeGreaterThan(0.1);
+  });
+});
+
+describe("step 94: a steadier edge around the person", () => {
+  function fakeGl() {
+    const calls: unknown[][] = [];
+    const gl = new Proxy({} as Record<string, unknown>, {
+      get: (_t, name: string) => {
+        if (/^[A-Z_0-9]+$/.test(name)) return name;
+        if (name === "getParameter") return (p: string) => (p === "UNPACK_ALIGNMENT" ? 4 : p === "UNPACK_FLIP_Y_WEBGL" ? false : "previous-texture");
+        if (name === "createTexture") return () => "our-texture";
+        return (...args: unknown[]) => void calls.push([name, ...args]);
+      },
+    });
+    return { gl, calls };
+  }
+
+  it("asks the model for its confidence and puts the smoothed mask in place of the yes/no one", async () => {
+    base.masks.length = 0;
+    base.categoryMasks = 0;
+    const { gl, calls } = fakeGl();
+    const segmenter = {
+      setOptions: vi.fn(async () => undefined),
+      segmentForVideo: vi.fn((_f: unknown, _t: number, cb: (r: unknown) => void) =>
+        cb({ confidenceMasks: [{ width: 2, height: 1, getAsFloat32Array: () => Float32Array.from([1, 0]) }], categoryMask: {} }),
+      ),
+    };
+    const t = new MotionBackgroundTransformer({ imagePath: "data:x" } as never);
+    Object.assign(t, { imageSegmenter: segmenter, canvas: { getContext: () => gl } });
+    await t.init({} as never);
+    expect(segmenter.setOptions).toHaveBeenCalledWith({ outputConfidenceMasks: true });
+    // The package calls the segmenter and, in its callback, its own updateMask with the yes/no mask.
+    const s = t.imageSegmenter as unknown as { segmentForVideo(f: unknown, ts: number, cb: (r: { categoryMask: unknown }) => void): void };
+    s.segmentForVideo({}, 1, (r) => void (t as unknown as { updateMask(m: unknown): Promise<void> }).updateMask(r.categoryMask));
+    expect(base.masks).toEqual(["our-texture"]);
+    expect(base.categoryMasks).toBe(0);
+    const upload = calls.find((c) => c[0] === "texImage2D")!;
+    expect(upload.slice(1, 9)).toEqual(["TEXTURE_2D", 0, "R8", 2, 1, 0, "RED", "UNSIGNED_BYTE"]);
+    expect(Array.from(upload[9] as Uint8Array)).toEqual([0, 255]);
+    // What was bound before is bound again (the context is shared with MediaPipe and the package).
+    expect(calls.at(-1)).toEqual(["bindTexture", "TEXTURE_2D", "previous-texture"]);
+  });
+
+  it("keeps the yes/no mask when the model cannot give its confidence", async () => {
+    base.masks.length = 0;
+    base.categoryMasks = 0;
+    const segmenter = { setOptions: vi.fn(async () => Promise.reject(new Error("old"))), segmentForVideo: vi.fn() };
+    const t = new MotionBackgroundTransformer({ imagePath: "data:x" } as never);
+    Object.assign(t, { imageSegmenter: segmenter });
+    await t.init({} as never);
+    expect(t.softMask).toBe(false);
+    await (t as unknown as { updateMask(m: unknown): Promise<void> }).updateMask({ width: 1, height: 1, getAsUint8Array: () => new Uint8Array(1) });
+    expect(base.categoryMasks).toBe(1);
   });
 });
 

@@ -111,6 +111,8 @@ export const PANORAMAS = ([
 export const VISION_ASSETS = {
   tasksVisionFileSet: "/xenaxio/meet/vision",
   modelAssetPath: "/xenaxio/meet/selfie_segmenter.tflite",
+  /** Step 94: for landscape cameras (most laptops): faster, and the edge flickers less. */
+  landscapeModelAssetPath: "/xenaxio/meet/selfie_segmenter_landscape.tflite",
 };
 
 /** One's own file: at most 20 MB and, for a video, 30 seconds (it loops). */
@@ -124,8 +126,12 @@ function absolute(path: string): string {
   return typeof location === "undefined" ? url : new URL(url, location.origin).href;
 }
 
-export function visionAssets(): { tasksVisionFileSet: string; modelAssetPath: string } {
-  return { tasksVisionFileSet: absolute(VISION_ASSETS.tasksVisionFileSet), modelAssetPath: absolute(VISION_ASSETS.modelAssetPath) };
+/** Step 94: the landscape model for a camera wider than high, the square one otherwise (a phone held upright). */
+export function visionAssets(landscape = false): { tasksVisionFileSet: string; modelAssetPath: string } {
+  return {
+    tasksVisionFileSet: absolute(VISION_ASSETS.tasksVisionFileSet),
+    modelAssetPath: absolute(landscape ? VISION_ASSETS.landscapeModelAssetPath : VISION_ASSETS.modelAssetPath),
+  };
 }
 
 function isChoice(value: unknown): value is BackgroundChoice {
