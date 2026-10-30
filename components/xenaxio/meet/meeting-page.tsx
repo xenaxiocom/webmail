@@ -23,7 +23,7 @@ type Step =
   | { kind: "prejoin"; info: MeetingInfo }
   | { kind: "waiting"; info: MeetingInfo; choices: Choices }
   | { kind: "room"; info: MeetingInfo; grant: JoinGrant; choices: Choices; guest?: GuestKey | null }
-  | { kind: "after"; info: MeetingInfo; reason: LeaveReason | "denied" };
+  | { kind: "after"; info: MeetingInfo; reason: LeaveReason | "denied"; leftAt: number };
 
 const POLL_MS = 2000;
 
@@ -39,6 +39,67 @@ function backToApp() {
     // An odd referrer: the start page.
   }
   location.assign(withBasePath("/"));
+}
+
+/** Reasons after which the person was in the meeting: then the summary. */
+const WAS_IN: ReadonlySet<string> = new Set(["ended", "left", "removed", "lost"]);
+
+/**
+ * What the meeting was: title, when and how long, how many people (only for
+ * people of the company). The page asks again: the meeting's end and the most
+ * people come after it was loaded. Without an end yet (the server learns it a
+ * moment later) the time the person left counts.
+ */
+export function Summary({ code, info: first, leftAt, title = true }: { code: string; info: MeetingInfo; leftAt?: number; title?: boolean }) {
+  const { lang, t } = useMeetLang();
+  const [info, setInfo] = useState(first);
+  useEffect(() => {
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const load = async (again: boolean) => {
+      try {
+        const next = await meet.info(code);
+        if (stop) return;
+        setInfo(next);
+        if (again && !next.finishedAt && !next.running) timer = setTimeout(() => void load(false), 3000);
+      } catch {
+        // Keep what the page knew.
+      }
+    };
+    void load(true);
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, [code]);
+  const locale = lang === "de" ? "de-DE" : "en-GB";
+  const start = info.startedAt ? new Date(info.startedAt) : null;
+  const end = info.finishedAt ? new Date(info.finishedAt) : !info.running && leftAt ? new Date(leftAt) : null;
+  const time = (d: Date) => d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
+  const when = start
+    ? [
+        start.toLocaleDateString(locale, { day: "2-digit", month: "2-digit", year: "numeric" }),
+        end ? `${time(start)}–${time(end)}` : time(start),
+        ...(end ? [t("summary_minutes", { minutes: Math.max(1, Math.round((end.getTime() - start.getTime()) / 60_000)) })] : []),
+      ].join(" · ")
+    : null;
+  const people = !info.member
+    ? null
+    : info.running
+      ? t("summary_running", { count: info.participants ?? 0 })
+      : (info.peakParticipants ?? 0) >= 2
+        ? t("summary_people", { count: info.peakParticipants ?? 0 })
+        : info.peakParticipants === 1
+          ? t("summary_alone")
+          : null;
+  if (!title && !when && !people) return null;
+  return (
+    <div className="mx-auto mt-2 max-w-sm space-y-1 rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-sm text-white/80">
+      {title && <p className="font-medium text-white">{info.title}</p>}
+      {when && <p>{when}</p>}
+      {people && <p>{people}</p>}
+    </div>
+  );
 }
 
 /** For people of the company: the way back to the app. */
@@ -150,7 +211,7 @@ function Page() {
           });
         } else if (s.state === "denied" || s.state === "removed" || s.state === "ended") {
           saveGuestVisit(null);
-          setStep({ kind: "after", info: step.info, reason: s.state === "denied" ? "denied" : s.state === "ended" ? "ended" : "removed" });
+          setStep({ kind: "after", info: step.info, reason: s.state === "denied" ? "denied" : s.state === "ended" ? "ended" : "removed", leftAt: Date.now() });
         }
       } catch (err) {
         if (err instanceof XenaxioApiError && err.status === 404) {
@@ -203,7 +264,7 @@ function Page() {
 
   const left = (info: MeetingInfo, reason: LeaveReason) => {
     if (reason === "removed" || reason === "ended") saveGuestVisit(null);
-    setStep({ kind: "after", info, reason });
+    setStep({ kind: "after", info, reason, leftAt: Date.now() });
   };
 
   if (step.kind === "room" && code) {
@@ -233,6 +294,7 @@ function Page() {
         <div className="max-w-md text-center">
           <h1 className="mb-2 text-xl font-semibold">{step.info.title}</h1>
           <p className="text-white/80">{t(`state_${step.info.state}`, { company: step.info.company })}</p>
+          {step.info.state === "ended" && code && <Summary code={code} info={step.info} title={false} />}
           {step.info.member && <BackToApp />}
         </div>
       )}
@@ -277,6 +339,7 @@ function Page() {
       {step.kind === "after" && (
         <div className="max-w-md text-center">
           <h1 className="mb-2 text-xl font-semibold">{t(`after_${step.reason}`)}</h1>
+          {WAS_IN.has(step.reason) && code && <Summary code={code} info={step.info} leftAt={step.leftAt} />}
           <div className="flex flex-wrap justify-center gap-3">
             {(step.reason === "left" || step.reason === "lost" || step.reason === "failed" || step.reason === "full") && (
               <button type="button" onClick={() => void load()} className="mt-4 rounded-lg bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-[var(--meet-accent-text,#fff)]">
