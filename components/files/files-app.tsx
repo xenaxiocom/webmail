@@ -41,6 +41,7 @@ import { useLiteLinkSegments } from "@/hooks/use-lite-link-segments";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
+import { useAssistantScreenItem } from "@/lib/xenaxio/assistant-screen";
 
 export interface FilesAppProps {
   /** Path segments after `/files` - the folder path, one segment per level. */
@@ -131,6 +132,10 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   const [editFile, setEditFile] = useState<string | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
   const isOfficeEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
+  // Xenaxio (step 89): the file open (or the one file selected) is what the assistant looks at first.
+  const screenName = editFile ?? previewFile ?? previewImage ?? (selectedResources.size === 1 ? [...selectedResources][0] : null);
+  const screenFile = screenName ? resources.find((r) => r.name === screenName && !r.isDirectory) : undefined;
+  useAssistantScreenItem("file", screenFile ? { id: screenFile.id, name: screenFile.name } : null);
 
   // Check auth on mount – skip when already authenticated so that navigating
   // between routes doesn't retrigger checkAuth's transient `{ client: null,
