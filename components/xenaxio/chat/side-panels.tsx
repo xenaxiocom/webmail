@@ -124,13 +124,15 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
   const setPanel = useChatStore((s) => s.setPanel);
   const person = client.people.get(userId);
   const me = userId === client.userId;
-  const [status, setStatus] = useState(person?.statusMsg ?? "");
+  // The box is for a new status; the current one is shown under the name.
+  const [status, setStatus] = useState("");
   const presence = presenceOf(client, userId);
   const presenceLabel = presence === "online" ? t("chat.online") : presence === "unavailable" ? t("chat.away") : t("chat.offline");
   const saveStatus = async (value: string | null) => {
     try {
       await client.setStatus(value);
-      setStatus(value ?? "");
+      setStatus("");
+      toast.success(value ? t("chat.status_saved") : t("chat.status_cleared"));
     } catch {
       toast.error(t("chat.error"));
     }
@@ -147,7 +149,17 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
         )}
         <div className="mt-1 break-all text-xs text-muted-foreground">{userId}</div>
         <div className="text-sm text-muted-foreground">{presenceLabel}</div>
-        {person?.statusMsg && !me && <div className="mt-2 text-sm">{person.statusMsg}</div>}
+        {person?.statusMsg ? (
+          <div className="mt-2 text-sm" data-testid="chat-current-status">
+            {person.statusMsg}
+          </div>
+        ) : (
+          me && (
+            <div className="mt-2 text-sm text-muted-foreground" data-testid="chat-current-status">
+              {t("chat.status_none")}
+            </div>
+          )
+        )}
         {colleague?.email && (
           <div className="mt-4">
             <div className="text-xs font-medium text-muted-foreground">{t("chat.profile_email")}</div>
@@ -185,17 +197,20 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
         )}
         {me && (
           <div className="mt-5">
-            <div className="text-sm font-medium">{t("chat.status")}</div>
+            <label htmlFor="chat-new-status" className="text-sm font-medium">
+              {t("chat.status_new")}
+            </label>
             <div className="mt-1 flex gap-2">
               <input
+                id="chat-new-status"
                 value={status}
                 onChange={(e) => setStatus(e.target.value)}
                 placeholder={t("chat.status_placeholder")}
                 maxLength={100}
                 className="h-9 flex-1 rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-                onKeyDown={(e) => e.key === "Enter" && void saveStatus(status.trim() || null)}
+                onKeyDown={(e) => e.key === "Enter" && status.trim() && void saveStatus(status.trim())}
               />
-              <button type="button" onClick={() => void saveStatus(status.trim() || null)} className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground">
+              <button type="button" disabled={!status.trim()} onClick={() => void saveStatus(status.trim())} className="h-9 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50">
                 {t("chat.save_edit")}
               </button>
             </div>
