@@ -1908,7 +1908,7 @@
     "reconnecting": "Reconnecting …",
     "start_audio": "Turn on sound",
     "alone": "You are the only one here. Share the link to invite others.",
-    "settings": "Devices",
+    "settings": "Settings",
     "close": "Close",
     "switch_camera": "Switch camera",
     "layout_grid": "Grid",
@@ -1962,7 +1962,11 @@
       "poll_closed": "The poll is closed.",
       "already_voted": "You already voted.",
       "invalid_option": "There is no such answer.",
-      "chat_off": "The chat is off."
+      "chat_off": "The chat is off.",
+      "meet_background_missing": "Upload a picture first.",
+      "meet_background_invalid_type": "This picture cannot be used. Please choose a JPEG, PNG or WebP.",
+      "meet_background_too_large": "The picture is too large (2 MB at most).",
+      "meet_background_too_big_dimensions": "The picture is too large (4096 pixels per side at most)."
     },
     "people_one": "1 person",
     "event_create": "Create Xenaxio Meeting",
@@ -2062,7 +2066,21 @@
     "live_poll_close": "Close",
     "live_chat_to_hosts_hint": "Only the hosts see your messages.",
     "live_to_hosts": "to hosts",
-    "live_chat_to_hosts_placeholder": "Message to the hosts"
+    "live_chat_to_hosts_placeholder": "Message to the hosts",
+    "background": "Background",
+    "background_none": "No effect",
+    "background_blur_light": "Blur slightly",
+    "background_blur_strong": "Blur strongly",
+    "background_company": "Company background",
+    "background_own": "Your own picture",
+    "background_own_upload": "Upload your own picture",
+    "background_own_replace": "Another picture of your own",
+    "background_own_remove": "Remove your own picture",
+    "background_loading": "Preparing the background …",
+    "background_failed": "This browser cannot change the background right now. The camera shows the normal picture.",
+    "background_bad_picture": "This picture cannot be opened. Please choose a JPEG or PNG.",
+    "background_not_kept": "The picture works for this meeting, but the browser has no room to remember it.",
+    "background_private": "The background is made in your browser. Your own picture stays on this device."
   },
   "meetadmin": {
     "title": "Meetings",
@@ -2077,7 +2095,15 @@
     "limits": "Up to {participants} people and up to {hours} hours per meeting (set by the operator).",
     "unavailable": "This installation has no meeting server.",
     "forbidden": "The operator has blocked meetings for your company.",
-    "open": "Go to meetings"
+    "open": "Go to meetings",
+    "background_title": "Company background",
+    "background_intro": "A picture employees can show behind them in meetings, for example with your logo. Guests do not get it to choose. Blurring and their own pictures work for everyone, also without a company picture.",
+    "background_none": "No picture yet. Best is landscape (16:9), for example 1920 × 1080 pixels.",
+    "background_upload": "Upload a picture",
+    "background_replace": "Another picture",
+    "background_remove": "Remove the picture",
+    "background_default": "Employees start with this background",
+    "background_default_hint": "Applies to everyone who has not chosen a background of their own. Each person can change it before or during a meeting."
   },
   "demo": {
     "title": "Live demo",

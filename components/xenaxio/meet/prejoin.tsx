@@ -5,9 +5,11 @@
 import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useMediaDevices, usePreviewTracks } from "@livekit/components-react";
 import { type LocalAudioTrack, type LocalVideoTrack, Track } from "livekit-client";
-import { Mic, MicOff, Video, VideoOff } from "@/components/icons";
+import { MeetBackgroundIcon, Mic, MicOff, Video, VideoOff } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
+import type { MeetBackground } from "@/lib/xenaxio/meet";
+import { BackgroundPicker, backgroundsSupported, useBackgroundChoice, useBackgroundEffect } from "./background";
 import { useMeetLang } from "./lang";
 
 export interface Choices {
@@ -84,12 +86,15 @@ export function PreJoin({
   submitLabel,
   busy,
   onSubmit,
+  companyBackground,
 }: {
   askName: boolean;
   defaultName: string;
   submitLabel: string;
   busy: boolean;
   onSubmit: (c: Choices) => void;
+  /** Step 89: the company's background picture (its own people only). */
+  companyBackground?: MeetBackground | null;
 }) {
   const { t } = useMeetLang();
   const saved = useRef(savedChoices()).current;
@@ -113,6 +118,11 @@ export function PreJoin({
   const tracks = usePreviewTracks(trackOptions, onDeviceError);
   const videoTrack = tracks?.find((tr) => tr.kind === Track.Kind.Video) as LocalVideoTrack | undefined;
   const audioTrack = tracks?.find((tr) => tr.kind === Track.Kind.Audio) as LocalAudioTrack | undefined;
+  // Step 89: the background, seen here before entering; the meeting puts the same one on its camera.
+  const [canBackground] = useState(backgroundsSupported);
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const background = useBackgroundChoice(companyBackground);
+  const effect = useBackgroundEffect(canBackground ? videoTrack : undefined, background.choice, background.url);
   const videoEl = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = videoEl.current;
@@ -168,6 +178,18 @@ export function PreJoin({
         <div className="absolute bottom-3 left-1/2 flex -translate-x-1/2 items-center gap-3">
           <MediaButton kind="audio" on={audio} onClick={() => setAudio((v) => !v)} label={audio ? t("mic_off") : t("mic_on")} />
           <MediaButton kind="video" on={video} onClick={() => setVideo((v) => !v)} label={video ? t("camera_off_action") : t("camera_on")} />
+          {canBackground && video && (
+            <button
+              type="button"
+              onClick={() => setPickerOpen((o) => !o)}
+              aria-pressed={pickerOpen}
+              aria-label={t("background")}
+              title={t("background")}
+              className={cn("flex h-12 w-12 items-center justify-center rounded-full text-white transition-colors", pickerOpen || background.choice.kind !== "none" ? "bg-[var(--meet-accent,#2563eb)]" : "bg-white/15 hover:bg-white/25")}
+            >
+              <MeetBackgroundIcon className="h-5 w-5" />
+            </button>
+          )}
         </div>
         {audio && (
           <div className="absolute left-3 top-3 h-1.5 w-24 overflow-hidden rounded-full bg-white/20" aria-hidden>
@@ -176,6 +198,20 @@ export function PreJoin({
         )}
       </div>
       {deviceError && <p className="text-sm text-amber-300">{t("no_devices")}</p>}
+      {canBackground && video && pickerOpen && (
+        <section className="space-y-2">
+          <h2 className="text-xs text-white/70">{t("background")}</h2>
+          <BackgroundPicker
+            choice={background.choice}
+            onChoose={background.choose}
+            company={companyBackground}
+            own={background.own}
+            onOwnPicture={background.setOwnPicture}
+            failed={effect.failed}
+            busy={effect.busy}
+          />
+        </section>
+      )}
       <div className="grid gap-3 sm:grid-cols-2">
         <DeviceSelect kind="videoinput" value={videoDeviceId} onChange={setVideoDeviceId} label={t("camera")} />
         <DeviceSelect kind="audioinput" value={audioDeviceId} onChange={setAudioDeviceId} label={t("microphone")} />

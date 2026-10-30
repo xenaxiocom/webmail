@@ -22,7 +22,9 @@
     "typescript"
   ],
   "scripts": {
+    "predev": "node scripts/xenaxio/meet-vision.mjs",
     "dev": "next dev --turbopack",
+    "prebuild": "node scripts/xenaxio/meet-vision.mjs",
     "build": "next build --turbopack",
     "build:lite": "node scripts/lite/build.mjs",
     "lite:serve": "node scripts/lite/serve.mjs out 4173",
@@ -43,6 +45,7 @@
     "@dnd-kit/utilities": "^3.2.2",
     "@livekit/components-react": "2.9.24",
     "@livekit/components-styles": "1.2.0",
+    "@livekit/track-processors": "0.8.2",
     "@noble/curves": "^2.4.0",
     "@noble/hashes": "^2.4.0",
     "@tabler/icons-react": "^3.47.0",

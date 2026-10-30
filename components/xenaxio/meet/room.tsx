@@ -10,7 +10,7 @@
 // no video or sound, and raise a hand or react through the platform; hosts see
 // the hands, bring viewers onto the stage and take them off, name co-hosts.
 import "@livekit/components-styles";
-import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   CarouselLayout,
   ConnectionQualityIndicator,
@@ -38,7 +38,7 @@ import {
   useTracks,
   type TrackReferenceOrPlaceholder,
 } from "@livekit/components-react";
-import { ConnectionState, DisconnectReason, type Participant, RoomEvent, Track } from "livekit-client";
+import { ConnectionState, DisconnectReason, type LocalVideoTrack, type Participant, RoomEvent, Track } from "livekit-client";
 import {
   Copy,
   Hand,
@@ -60,9 +60,10 @@ import {
   X,
 } from "@/components/icons";
 import { cn } from "@/lib/utils";
-import { type GuestKey, isGuest, type LobbyGuest, meet, type MeetingKind, type MeetingRole, meetingLink, signalUrl, type WebinarStage } from "@/lib/xenaxio/meet";
+import { type GuestKey, isGuest, type LobbyGuest, meet, type MeetBackground, type MeetingKind, type MeetingRole, meetingLink, signalUrl, type WebinarStage } from "@/lib/xenaxio/meet";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import type { Choices } from "./prejoin";
+import { BackgroundPicker, backgroundsSupported, useBackgroundChoice, useBackgroundEffect } from "./background";
 import { meetError, useMeetLang } from "./lang";
 import { useWebinarLive, WebinarPanel } from "./webinar-panel";
 
@@ -266,7 +267,7 @@ function MediaToggle({ source }: { source: Track.Source.Microphone | Track.Sourc
   );
 }
 
-function DevicePanel() {
+function DevicePanel({ background }: { background?: ReactNode }) {
   const { t } = useMeetLang();
   const room = useRoomContext();
   const kinds: { kind: MediaDeviceKind; label: string }[] = [
@@ -279,6 +280,13 @@ function DevicePanel() {
       {kinds.map((k) => (
         <DeviceRow key={k.kind} kind={k.kind} label={k.label} onChange={(id) => void room.switchActiveDevice(k.kind, id)} active={room.getActiveDevice(k.kind)} />
       ))}
+      {/* Step 89: the background behind one's own camera. */}
+      {background && (
+        <section className="space-y-2 border-t border-white/10 pt-3">
+          <h3 className="text-xs text-white/70">{t("background")}</h3>
+          {background}
+        </section>
+      )}
     </div>
   );
 }
@@ -591,6 +599,7 @@ function Meeting({
   kind = "meeting",
   role = "member",
   guest = null,
+  companyBackground,
 }: {
   code: string;
   member: boolean;
@@ -601,6 +610,7 @@ function Meeting({
   kind?: MeetingKind;
   role?: MeetingRole;
   guest?: GuestKey | null;
+  companyBackground?: MeetBackground | null;
 }) {
   const dock = variant === "dock";
   const webinar = kind === "webinar";
@@ -624,6 +634,25 @@ function Meeting({
   const [myRole, setMyRole] = useState<MeetingRole>(role);
   const sends = !webinar || myRole === "host" || myRole === "presenter";
   const moderator = webinar ? myRole === "host" : member;
+  // Step 89: the background behind one's own camera. A call from Rooms does not know the
+  // company's picture yet: people of the company ask the platform for it.
+  const [company, setCompany] = useState<MeetBackground | null | undefined>(member ? companyBackground : null);
+  useEffect(() => {
+    if (company !== undefined) return;
+    let stop = false;
+    meet
+      .status()
+      .then((s) => !stop && setCompany(s.background ?? null))
+      .catch(() => !stop && setCompany(null));
+    return () => {
+      stop = true;
+    };
+  }, [company]);
+  const [canBackground] = useState(backgroundsSupported);
+  const background = useBackgroundChoice(company);
+  const { cameraTrack } = useLocalParticipant();
+  const camera = cameraTrack?.videoTrack as LocalVideoTrack | undefined;
+  const effect = useBackgroundEffect(canBackground && sends ? camera : undefined, background.choice, background.url);
   const [, setPermissions] = useState(0);
   useEffect(() => {
     const changed = () => setPermissions((n) => n + 1);
@@ -837,7 +866,23 @@ function Meeting({
                 ))}
               {panel === "chat" && <ChatPanel chat={chat} />}
               {panel === "webinar" && <WebinarPanel code={code} guest={guest} live={live} me={localParticipant.identity} />}
-              {panel === "devices" && <DevicePanel />}
+              {panel === "devices" && (
+                <DevicePanel
+                  background={
+                    canBackground && sends ? (
+                      <BackgroundPicker
+                        choice={background.choice}
+                        onChoose={background.choose}
+                        company={company}
+                        own={background.own}
+                        onOwnPicture={background.setOwnPicture}
+                        failed={effect.failed}
+                        busy={effect.busy}
+                      />
+                    ) : undefined
+                  }
+                />
+              )}
             </div>
           </aside>
         )}
@@ -935,6 +980,7 @@ export function MeetingRoom({
   kind = "meeting",
   role = "member",
   guest = null,
+  companyBackground,
 }: {
   code: string;
   token: string;
@@ -950,6 +996,8 @@ export function MeetingRoom({
   role?: MeetingRole;
   /** A guest's visit: its hand and reactions in a webinar go through the platform. */
   guest?: GuestKey | null;
+  /** Step 89: the company's background picture; undefined — people of the company ask for it. */
+  companyBackground?: MeetBackground | null;
 }) {
   const ended = useRef(false);
   // A webinar viewer has no right to send: camera and microphone stay off.
@@ -994,7 +1042,7 @@ export function MeetingRoom({
       // A dock or full-screen call places itself; only the page takes the height.
       style={variant === "page" ? { height: "100dvh" } : { display: "contents" }}
     >
-      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} kind={kind} role={role} guest={guest} />
+      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} kind={kind} role={role} guest={guest} companyBackground={companyBackground} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );

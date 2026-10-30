@@ -255,11 +255,13 @@ export async function proxy(request: NextRequest) {
     }
   }
 
+  // xenaxio step 89: 'wasm-unsafe-eval' lets MediaPipe's WebAssembly (meeting
+  // backgrounds) compile; it does not allow eval() of JavaScript.
   const scriptSrc = isSandboxPath
     ? `'self' 'nonce-${nonce}' 'unsafe-eval'`
     : isDev
     ? `'self' 'nonce-${nonce}' 'unsafe-eval'`
-    : `'self' 'nonce-${nonce}'`;
+    : `'self' 'nonce-${nonce}' 'wasm-unsafe-eval'`;
 
   // A plugin reaches the network only through api.http.fetch, which the host
   // checks against the manifest's httpOrigins (H-03). The sandbox document

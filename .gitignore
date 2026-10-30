@@ -51,3 +51,6 @@ next-env.d.ts
 
 # Sibling repos
 /repos/
+
+# xenaxio step 89: MediaPipe for meeting backgrounds, copied at build time
+/public/xenaxio/meet/vision/
