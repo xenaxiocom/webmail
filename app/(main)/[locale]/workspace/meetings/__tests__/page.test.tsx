@@ -7,13 +7,14 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const api = vi.hoisted(() => ({ settings: vi.fn(), saveSettings: vi.fn(), uploadBackground: vi.fn(), removeBackground: vi.fn() }));
 const shrunk = vi.hoisted(() => new Blob(["jpeg"], { type: "image/jpeg" }));
 const shrinkPicture = vi.hoisted(() => vi.fn(async () => shrunk));
+const pictureSize = vi.hoisted(() => vi.fn(async () => ({ width: 4000, height: 3000 })));
 
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/i18n/navigation", () => ({ Link: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a> }));
 vi.mock("@/components/xenaxio/workspace-shell", () => ({ WorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
 vi.mock("@/lib/xenaxio/meet-nav", () => ({ setMeetNavEnabled: vi.fn() }));
 vi.mock("@/lib/xenaxio/meet", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet")>()), meet: api }));
-vi.mock("@/lib/xenaxio/meet-background", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet-background")>()), shrinkPicture }));
+vi.mock("@/lib/xenaxio/meet-background", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet-background")>()), shrinkPicture, pictureSize }));
 
 const { default: MeetingsAdminPage } = await import("../page");
 
@@ -23,6 +24,7 @@ const picture = { url: "/api/meet/background?v=1", default: false };
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
   shrinkPicture.mockClear();
+  pictureSize.mockClear();
 });
 
 describe("step 92: company background on the meetings page", () => {
@@ -47,9 +49,35 @@ describe("step 92: company background on the meetings page", () => {
     fireEvent.click(await screen.findByRole("checkbox", { name: /starten mit diesem Hintergrund/ }));
     await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith({ backgroundDefault: true }));
     expect(await screen.findByRole("checkbox", { name: /starten mit diesem Hintergrund/ })).toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: "Bild entfernen" }));
+    fireEvent.click(screen.getByRole("button", { name: "Hintergrund entfernen" }));
     await waitFor(() => expect(api.removeBackground).toHaveBeenCalled());
-    expect(await screen.findByText(/Noch kein Bild/)).toBeInTheDocument();
+    expect(await screen.findByText(/Noch kein Hintergrund/)).toBeInTheDocument();
+  });
+
+  it("step 93: a video goes up as it is, a panorama as a bigger JPEG", async () => {
+    api.settings.mockResolvedValue(base);
+    api.uploadBackground.mockResolvedValue({ ...base, background: { url: "/api/meet/background?v=3", default: false, kind: "animation", contentType: "video/mp4" } });
+    const { container } = render(<MeetingsAdminPage />);
+    await screen.findByText("Hintergrund der Firma");
+    const input = container.querySelector('input[type="file"]')!;
+    expect(input).toHaveAttribute("accept", "image/*,video/mp4,video/webm");
+    const clip = new File(["mp4"], "logo.mp4", { type: "video/mp4" });
+    fireEvent.change(input, { target: { files: [clip] } });
+    await waitFor(() => expect(api.uploadBackground).toHaveBeenCalledWith(clip));
+    expect(shrinkPicture).not.toHaveBeenCalled();
+    expect(await screen.findByText("Animation")).toBeInTheDocument();
+    expect(container.querySelector("video")).toHaveAttribute("src", "/api/meet/background?v=3");
+
+    pictureSize.mockResolvedValueOnce({ width: 8192, height: 4096 });
+    const pano = new File(["x"], "buero-360.jpg", { type: "image/jpeg" });
+    fireEvent.change(input, { target: { files: [pano] } });
+    await waitFor(() => expect(shrinkPicture).toHaveBeenCalledWith(pano, 6144, 0.85));
+    // Too big a video never leaves the browser.
+    const big = new File([new Uint8Array(10 * 1024 * 1024 + 1)], "big.webm", { type: "video/webm" });
+    api.uploadBackground.mockClear();
+    fireEvent.change(input, { target: { files: [big] } });
+    expect(await screen.findByText(/Animation oder Panorama 10 MB/)).toBeInTheDocument();
+    expect(api.uploadBackground).not.toHaveBeenCalled();
   });
 
   it("names the platform's refusal", async () => {
@@ -59,6 +87,6 @@ describe("step 92: company background on the meetings page", () => {
     const { container } = render(<MeetingsAdminPage />);
     await screen.findByText("Hintergrund der Firma");
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [new File(["x"], "a.png", { type: "image/png" })] } });
-    expect(await screen.findByText("Das Bild ist zu groß (höchstens 2 MB).")).toBeInTheDocument();
+    expect(await screen.findByText("Die Datei ist zu groß (Bild höchstens 2 MB, Animation oder Panorama 10 MB).")).toBeInTheDocument();
   });
 });

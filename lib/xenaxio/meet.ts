@@ -154,6 +154,10 @@ export interface MeetBackground {
   url: string;
   /** Employees who have not chosen a background of their own start with it. */
   default: boolean;
+  /** Step 93: a still picture, an animation (GIF, MP4, WebM) or a 360° panorama; missing — a picture. */
+  kind?: "image" | "animation" | "panorama";
+  /** Step 93: the file's type, e.g. image/gif or video/mp4. */
+  contentType?: string;
 }
 
 export interface LobbyGuest {

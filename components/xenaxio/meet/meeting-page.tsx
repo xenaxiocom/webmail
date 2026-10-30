@@ -271,6 +271,8 @@ function Page() {
             />
           )}
           {error && <p className="mt-3 max-w-md text-center text-sm text-red-300">{error}</p>}
+          {/* Changed one's mind before joining: the way back (the installed app has no back button). */}
+          {step.info.member && <BackToApp />}
         </>
       )}
       {step.kind === "waiting" && (
