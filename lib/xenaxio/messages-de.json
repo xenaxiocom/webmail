@@ -2511,7 +2511,21 @@
     "conn_not_set": "Noch nicht eingerichtet",
     "conn_remove": "Entfernen",
     "conn_oauth_later": "Anmeldung per OAuth kommt später.",
-    "conn_mcp": "MCP-Server: Adresse des Endpunkts, z. B. https://…/mcp"
+    "conn_mcp": "MCP-Server: Adresse des Endpunkts, z. B. https://…/mcp",
+    "waiting": "Wartet auf mich",
+    "waiting_none": "Nichts wartet auf Ihre Entscheidung.",
+    "task_kind_decide": "Entscheidung",
+    "task_kind_confirm": "Bestätigung",
+    "task_comment": "Ihr Kommentar",
+    "task_send": "Senden",
+    "task_answered": "Beantwortet: Nr. {number}.",
+    "task_closed": "Schon entschieden: Jemand hat zuerst geantwortet.",
+    "runs_mine": "Nur meine",
+    "runs_all_steps": "Alle Schritte",
+    "waiting_for_me": "Wartet auf mich",
+    "run_updated": "geändert {when}",
+    "documents": "Dokumente",
+    "working": "Flows, in denen ich mitarbeite"
   },
   "permissions": {
     "title": "KI-Berechtigungen",

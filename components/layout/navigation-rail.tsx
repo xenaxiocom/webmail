@@ -326,7 +326,7 @@ export function NavigationRail({
     // xenaxio (step 78): video meetings, when the company has them on.
     { id: "meetings", icon: Video, labelKey: "meetings", label: meetNav.label, href: "/meetings", hidden: !meetNav.visible },
     // xenaxio (step F1.1): flows, when the company has them on.
-    { id: "flows", icon: Share2, labelKey: "flows", label: flowsNav.label, href: "/flows", hidden: !flowsNav.visible },
+    { id: "flows", icon: Share2, labelKey: "flows", label: flowsNav.label, href: "/flows", hidden: !flowsNav.visible, badge: flowsNav.badge },
   ];
 
   // When the host (e.g. the Pro shell) takes over navigation via `onNavigate`,

@@ -2511,7 +2511,21 @@
     "conn_not_set": "Not set up yet",
     "conn_remove": "Remove",
     "conn_oauth_later": "Signing in with OAuth comes later.",
-    "conn_mcp": "MCP server: the address of its endpoint, e.g. https://…/mcp"
+    "conn_mcp": "MCP server: the address of its endpoint, e.g. https://…/mcp",
+    "waiting": "Waiting for me",
+    "waiting_none": "Nothing is waiting for your decision.",
+    "task_kind_decide": "Decision",
+    "task_kind_confirm": "Confirmation",
+    "task_comment": "Your comment",
+    "task_send": "Send",
+    "task_answered": "Answered: no. {number}.",
+    "task_closed": "Already decided: someone answered this first.",
+    "runs_mine": "Only mine",
+    "runs_all_steps": "All steps",
+    "waiting_for_me": "Waiting for me",
+    "run_updated": "changed {when}",
+    "documents": "Documents",
+    "working": "Flows I work in"
   },
   "permissions": {
     "title": "AI permissions",

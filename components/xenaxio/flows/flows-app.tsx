@@ -17,6 +17,7 @@ import { Input } from "@/components/ui/input";
 import { Field, Notice, Spinner, TextField } from "@/components/xenaxio/ui";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useIsEmbedded } from "@/hooks/use-is-embedded";
+import { withBasePath } from "@/lib/browser-navigation";
 import { useIsMobile } from "@/hooks/use-media-query";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
 import { useSidebarApps } from "@/hooks/use-sidebar-apps";
@@ -26,22 +27,23 @@ import {
   type FlowConnection,
   type FlowDetail,
   type FlowInstallation,
-  type FlowJournalEntry,
   type FlowParamDef,
+  type FlowRunDetail,
   type FlowRunSummary,
+  type FlowTask,
   type FlowsOverview,
   type FlowTexts,
   XenaxioApiError,
   xenaxio,
 } from "@/lib/xenaxio/api";
-import { setFlowsNavEnabled } from "@/lib/xenaxio/flows-nav";
+import { setFlowsNavEnabled, setFlowsWaiting } from "@/lib/xenaxio/flows-nav";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { redirectToLogin, saveRedirectAfterLogin, useAuthStore } from "@/stores/auth-store";
 import { useEmailStore } from "@/stores/email-store";
 
 const select = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
 const FLOW_LANGUAGES = ["de", "en", "uk", "ru"];
-type Msg = { kind: "error" | "success"; text: string } | null;
+type Msg = { kind: "error" | "success" | "info"; text: string } | null;
 
 function pick(t: FlowTexts | null | undefined, locale: string, fallback = ""): string {
   if (!t) return fallback;
@@ -532,81 +534,293 @@ function Directory({ flow, name }: { flow: FlowDetail; name: string }) {
   );
 }
 
-function Runs({ flow }: { flow: FlowDetail }) {
+/** A value of a run's card, short: lists and objects as readable text. */
+function cardValue(v: unknown): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "string" || typeof v === "number" || typeof v === "boolean") return String(v);
+  if (Array.isArray(v)) return v.map(cardValue).join("; ");
+  const o = v as Record<string, unknown>;
+  if (typeof o.name === "string" && typeof o.id === "string") return o.name;
+  return Object.entries(o)
+    .filter(([k]) => k !== "id" && k !== "file" && k !== "files")
+    .map(([k, x]) => `${k}: ${cardValue(x)}`)
+    .join(", ");
+}
+
+function CardFields({ card }: { card: Record<string, unknown> }) {
+  const entries = Object.entries(card);
+  if (entries.length === 0) return null;
+  return (
+    <dl className="grid grid-cols-[minmax(6rem,auto)_1fr] gap-x-3 gap-y-1 text-xs">
+      {entries.map(([k, v]) => (
+        <div key={k} className="contents">
+          <dt className="text-muted-foreground">{k}</dt>
+          <dd className="min-w-0 break-words whitespace-pre-wrap">{cardValue(v)}</dd>
+        </div>
+      ))}
+    </dl>
+  );
+}
+
+/** Stage E2, part C: the card of a run — fields, documents, branches and journal. */
+function RunCard({ run, status }: { run: FlowRunDetail; status: (r: FlowRunSummary) => string }) {
   const t = useXT();
   const locale = useLocale();
+  return (
+    <div className="space-y-3 rounded-md bg-muted/50 p-3 text-sm">
+      <p className="font-medium">
+        №{run.number} · {status(run)}
+      </p>
+      <CardFields card={run.card} />
+      {run.files.length > 0 && (
+        <div>
+          <p className="text-xs font-medium">{t("flows.documents")}</p>
+          <ul className="text-xs">
+            {run.files.map((f) => (
+              <li key={f.n}>
+                <a className="underline" href={withBasePath(xenaxio.flows.fileUrl(run.id, f.n))} target="_blank" rel="noopener noreferrer">
+                  {f.name}
+                </a>
+              </li>
+            ))}
+          </ul>
+        </div>
+      )}
+      {run.branches.length > 0 && (
+        <div className="space-y-2">
+          <p className="text-xs font-medium">{t("flows.branches")}</p>
+          {run.branches.map((b) => (
+            <div key={b.id} className="space-y-1 rounded border border-border p-2">
+              <p className="text-xs font-medium">
+                №{b.number} · {status(b)}
+              </p>
+              <CardFields card={b.card} />
+            </div>
+          ))}
+        </div>
+      )}
+      <p className="text-xs font-medium">{t("flows.journal")}</p>
+      <ol className="space-y-1 text-xs">
+        {run.journal.map((e, i) => (
+          <li key={i} className="grid grid-cols-[auto_1fr] gap-2">
+            <span className="text-muted-foreground">{new Date(e.at).toLocaleString(locale)}</span>
+            <span>
+              {t(`flows.actor_${e.actor.kind}`)} · {e.what}
+              {e.step ? ` · ${e.step}` : ""}
+              {e.detail ? <span className="text-muted-foreground"> {JSON.stringify(e.detail).slice(0, 160)}</span> : null}
+            </span>
+          </li>
+        ))}
+      </ol>
+    </div>
+  );
+}
+
+/** Runs of a flow: tabs by step, "only mine", and the card of the run opened. */
+function Runs({ flowId, openRunId }: { flowId: string; openRunId?: string | null }) {
+  const t = useXT();
+  const locale = useLocale();
+  const [mine, setMine] = useState(false);
+  const [step, setStep] = useState<string | null>(null);
   const [runs, setRuns] = useState<FlowRunSummary[] | null>(null);
-  const [open, setOpen] = useState<(FlowRunSummary & { branches: FlowRunSummary[]; journal: FlowJournalEntry[] }) | null>(null);
+  const [open, setOpen] = useState<FlowRunDetail | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
+  const openRun = useCallback(
+    (id: string) =>
+      void xenaxio.flows
+        .run(id)
+        .then(setOpen)
+        .catch((err) => setMsg({ kind: "error", text: errorText(t, err) })),
+    [t],
+  );
   useEffect(() => {
     xenaxio.flows
-      .runs(flow.id)
+      .runs(flowId, mine)
       .then((r) => setRuns(r.runs))
       .catch((err) => setMsg({ kind: "error", text: errorText(t, err) }));
-  }, [flow.id, t]);
+  }, [flowId, mine, t]);
+  useEffect(() => {
+    if (openRunId) openRun(openRunId);
+  }, [openRunId, openRun]);
   const status = (r: FlowRunSummary) => `${t(`flows.run_status_${r.status}`)}${r.result && r.status === "done" ? ` · ${r.result}` : ""}${r.waiting ? ` · ${t("flows.run_waiting", { what: r.waiting })}` : ""}`;
   const when = (iso: string) => new Date(iso).toLocaleString(locale);
+  const steps = [...new Set((runs ?? []).filter((r) => r.status === "running" || r.status === "waiting").map((r) => r.step))];
+  const shown = (runs ?? []).filter((r) => !step || r.step === step);
   return (
     <div className="space-y-2">
-      <h3 className="text-sm font-medium">{t("flows.runs")}</h3>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <h3 className="text-sm font-medium">{t("flows.runs")}</h3>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={mine} onChange={(e) => setMine(e.target.checked)} />
+          {t("flows.runs_mine")}
+        </label>
+      </div>
+      {steps.length > 1 && (
+        <div role="tablist" className="flex flex-wrap gap-1">
+          {[null, ...steps].map((s) => (
+            <Button key={s ?? "all"} role="tab" aria-selected={step === s} size="sm" variant={step === s ? "secondary" : "ghost"} onClick={() => setStep(s)}>
+              {s ?? t("flows.runs_all_steps")}
+            </Button>
+          ))}
+        </div>
+      )}
       {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
       {runs === null ? (
         <Spinner label={t("flows.runs")} />
-      ) : runs.length === 0 ? (
+      ) : shown.length === 0 ? (
         <p className="text-sm text-muted-foreground">{t("flows.runs_none")}</p>
       ) : (
         <ul className="divide-y divide-border text-sm">
-          {runs.map((r) => (
+          {shown.map((r) => (
             <li key={r.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
               <span className="min-w-0">
                 <span className="font-medium">№{r.number}</span> · {r.initiator ?? "—"} · <span className="text-muted-foreground">{when(r.createdAt)}</span>
-                <span className="block text-xs text-muted-foreground">{status(r)}</span>
+                {r.waitingForMe && <span className="ml-2 rounded bg-amber-100 px-1.5 text-xs text-amber-900 dark:bg-amber-900/40 dark:text-amber-200">{t("flows.waiting_for_me")}</span>}
+                <span className="block text-xs text-muted-foreground">
+                  {status(r)} · {t("flows.run_updated", { when: when(r.updatedAt) })}
+                </span>
               </span>
-              <Button size="sm" variant="ghost" onClick={() => void xenaxio.flows.run(r.id).then(setOpen).catch((err) => setMsg({ kind: "error", text: errorText(t, err) }))}>
+              <Button size="sm" variant="ghost" onClick={() => openRun(r.id)}>
                 {t("flows.run_open")}
               </Button>
             </li>
           ))}
         </ul>
       )}
-      {open && (
-        <div className="space-y-2 rounded-md bg-muted/50 p-3 text-sm">
-          <p className="font-medium">
-            №{open.number} · {status(open)}
-          </p>
-          {open.branches.length > 0 && (
-            <div>
-              <p className="text-xs font-medium">{t("flows.branches")}</p>
-              <ul className="text-xs">
-                {open.branches.map((b) => (
-                  <li key={b.id}>
-                    №{b.number} · {status(b)}
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-          <p className="text-xs font-medium">{t("flows.journal")}</p>
-          <ol className="space-y-1 text-xs">
-            {open.journal.map((e, i) => (
-              <li key={i} className="grid grid-cols-[auto_1fr] gap-2">
-                <span className="text-muted-foreground">{new Date(e.at).toLocaleTimeString(locale)}</span>
-                <span>
-                  {t(`flows.actor_${e.actor.kind}`)} · {e.what}
-                  {e.step ? ` · ${e.step}` : ""}
-                  {e.detail ? <span className="text-muted-foreground"> {JSON.stringify(e.detail).slice(0, 160)}</span> : null}
-                </span>
-              </li>
-            ))}
-          </ol>
-        </div>
-      )}
+      {open && <RunCard run={open} status={status} />}
     </div>
   );
 }
 
+/** Stage E2, part C: decisions and confirmations waiting for me, from every flow, with the same buttons as in Telegram. */
+function Waiting({ onOpenRun }: { onOpenRun: (flowId: string, runId: string) => void }) {
+  const t = useXT();
+  const [tasks, setTasks] = useState<FlowTask[] | null>(null);
+  const [comment, setComment] = useState<{ key: string; option: string; text: string } | null>(null);
+  const [busy, setBusy] = useState<string | null>(null);
+  const [msg, setMsg] = useState<Msg>(null);
+  const load = useCallback(async () => {
+    try {
+      const r = await xenaxio.flows.tasks();
+      setTasks(r.tasks);
+      setFlowsWaiting(r.count);
+    } catch (err) {
+      setMsg({ kind: "error", text: errorText(t, err) });
+    }
+  }, [t]);
+  useEffect(() => {
+    void load();
+  }, [load]);
+  const answer = async (task: FlowTask, option: string, text?: string) => {
+    setBusy(task.key);
+    setMsg(null);
+    try {
+      await xenaxio.flows.answerTask(task.key, option, text);
+      setComment(null);
+      setMsg({ kind: "success", text: t("flows.task_answered", { number: task.runNumber }) });
+    } catch (err) {
+      if (err instanceof XenaxioApiError && err.code === "flow_task_closed") setMsg({ kind: "info", text: t("flows.task_closed") });
+      else setMsg({ kind: "error", text: errorText(t, err) });
+    } finally {
+      setBusy(null);
+      await load();
+    }
+  };
+  if (tasks === null && !msg) return null;
+  return (
+    <section className="space-y-3" aria-labelledby="flows-waiting">
+      <h2 id="flows-waiting" className="text-lg font-semibold">
+        {t("flows.waiting")}
+        {tasks && tasks.length > 0 ? ` (${tasks.length})` : ""}
+      </h2>
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+      {tasks?.length === 0 ? (
+        <p className="text-sm text-muted-foreground">{t("flows.waiting_none")}</p>
+      ) : (
+        tasks?.map((task) => (
+          <article key={task.key} className="space-y-2 rounded-lg border border-border bg-card p-4 text-sm">
+            <p className="text-xs text-muted-foreground">
+              {task.flowTitle} · №{task.runNumber} · {t(`flows.task_kind_${task.kind}`)}
+            </p>
+            <p className="font-medium">{task.title}</p>
+            {task.text && <p className="whitespace-pre-wrap">{task.text}</p>}
+            <CardFields card={task.show} />
+            {comment?.key === task.key ? (
+              <form
+                className="space-y-2"
+                onSubmit={(e: FormEvent) => {
+                  e.preventDefault();
+                  if (comment.text.trim()) void answer(task, comment.option, comment.text.trim());
+                }}
+              >
+                <label className="block text-xs font-medium" htmlFor={`comment-${task.key}`}>
+                  {t("flows.task_comment")}
+                </label>
+                <textarea
+                  id={`comment-${task.key}`}
+                  className="min-h-20 w-full rounded-md border border-input bg-background p-2 text-sm"
+                  value={comment.text}
+                  maxLength={4000}
+                  onChange={(e) => setComment({ ...comment, text: e.target.value })}
+                />
+                <div className="flex gap-2">
+                  <Button type="submit" size="sm" disabled={busy === task.key || !comment.text.trim()}>
+                    {t("flows.task_send")}
+                  </Button>
+                  <Button type="button" size="sm" variant="ghost" onClick={() => setComment(null)}>
+                    {t("flows.cancel")}
+                  </Button>
+                </div>
+              </form>
+            ) : (
+              <div className="flex flex-wrap gap-2">
+                {task.options.map((o) => (
+                  <Button
+                    key={o.id}
+                    size="sm"
+                    variant={o.comment ? "outline" : "default"}
+                    disabled={busy === task.key}
+                    onClick={() => (o.comment ? setComment({ key: task.key, option: o.id, text: "" }) : void answer(task, o.id))}
+                  >
+                    {o.label}
+                  </Button>
+                ))}
+                <Button size="sm" variant="ghost" onClick={() => onOpenRun(task.flowId, task.runId)}>
+                  {t("flows.run_open")}
+                </Button>
+              </div>
+            )}
+          </article>
+        ))
+      )}
+    </section>
+  );
+}
+
+/** Stage E2, part C: a flow I work in without owning it — its runs, not its settings. */
+function WorkingItem({ flow, openRunId }: { flow: { id: string; title: string; status: "active" | "paused" }; openRunId: string | null }) {
+  const t = useXT();
+  const [open, setOpen] = useState(!!openRunId);
+  useEffect(() => {
+    if (openRunId) setOpen(true);
+  }, [openRunId]);
+  return (
+    <details id={`flow-${flow.id}`} className="rounded-lg border border-border bg-card p-4" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
+      <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
+        <span className="font-medium">{flow.title}</span>
+        <span className={flow.status === "active" ? "text-sm text-green-700 dark:text-green-400" : "text-sm text-muted-foreground"}>{t(`flows.status_${flow.status}`)}</span>
+      </summary>
+      {open && (
+        <div className="mt-3">
+          <Runs flowId={flow.id} openRunId={openRunId} />
+        </div>
+      )}
+    </details>
+  );
+}
+
 /** One flow, loaded when opened. */
-function FlowPanel({ id, overview, onListChanged }: { id: string; overview: FlowsOverview; onListChanged: () => Promise<void> }) {
+function FlowPanel({ id, overview, onListChanged, openRunId }: { id: string; overview: FlowsOverview; onListChanged: () => Promise<void>; openRunId: string | null }) {
   const t = useXT();
   const [flow, setFlow] = useState<FlowDetail | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
@@ -680,7 +894,7 @@ function FlowPanel({ id, overview, onListChanged }: { id: string; overview: Flow
         </div>
       )}
       <Owners flow={flow} overview={overview} onSaved={saved} />
-      <Runs flow={flow} />
+      <Runs flowId={flow.id} openRunId={openRunId} />
     </div>
   );
 }
@@ -721,9 +935,24 @@ function SendAs() {
   );
 }
 
-function FlowItem({ inst, overview, initiallyOpen, onListChanged }: { inst: FlowInstallation; overview: FlowsOverview; initiallyOpen: boolean; onListChanged: () => Promise<void> }) {
+function FlowItem({
+  inst,
+  overview,
+  initiallyOpen,
+  onListChanged,
+  openRunId,
+}: {
+  inst: FlowInstallation;
+  overview: FlowsOverview;
+  initiallyOpen: boolean;
+  onListChanged: () => Promise<void>;
+  openRunId: string | null;
+}) {
   const t = useXT();
   const [open, setOpen] = useState(initiallyOpen);
+  useEffect(() => {
+    if (initiallyOpen) setOpen(true);
+  }, [initiallyOpen]);
   return (
     <details id={`flow-${inst.id}`} className="rounded-lg border border-border bg-card p-4" open={open} onToggle={(e) => setOpen((e.target as HTMLDetailsElement).open)}>
       <summary className="flex cursor-pointer flex-wrap items-center justify-between gap-2">
@@ -733,7 +962,7 @@ function FlowItem({ inst, overview, initiallyOpen, onListChanged }: { inst: Flow
         </span>
         <span className={inst.status === "active" ? "text-sm text-green-700 dark:text-green-400" : "text-sm text-muted-foreground"}>{t(`flows.status_${inst.status}`)}</span>
       </summary>
-      {open && <FlowPanel id={inst.id} overview={overview} onListChanged={onListChanged} />}
+      {open && <FlowPanel id={inst.id} overview={overview} onListChanged={onListChanged} openRunId={openRunId} />}
     </details>
   );
 }
@@ -797,6 +1026,7 @@ export function FlowsSection() {
   const [data, setData] = useState<FlowsOverview | null>(null);
   const [creating, setCreating] = useState(false);
   const [openId, setOpenId] = useState<string | null>(null);
+  const [openRun, setOpenRun] = useState<string | null>(null);
   const [msg, setMsg] = useState<Msg>(null);
   const reload = useCallback(async () => {
     try {
@@ -840,6 +1070,13 @@ export function FlowsSection() {
           <>
             <p className="text-sm text-muted-foreground">{t("flows.intro")}</p>
             {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+            <Waiting
+              onOpenRun={(flowId, runId) => {
+                setOpenId(flowId);
+                setOpenRun(runId);
+                window.setTimeout(() => document.getElementById(`flow-${flowId}`)?.scrollIntoView({ behavior: "smooth", block: "start" }), 0);
+              }}
+            />
             <SendAs />
             {creating && (
               <NewFlow
@@ -866,9 +1103,19 @@ export function FlowsSection() {
               {data.installations.length === 0 ? (
                 <p className="text-sm text-muted-foreground">{t("flows.none")}</p>
               ) : (
-                data.installations.map((inst) => <FlowItem key={inst.id} inst={inst} overview={data} initiallyOpen={inst.id === openId} onListChanged={reload} />)
+                data.installations.map((inst) => (
+                  <FlowItem key={inst.id} inst={inst} overview={data} initiallyOpen={inst.id === openId} openRunId={inst.id === openId ? openRun : null} onListChanged={reload} />
+                ))
               )}
             </section>
+            {(data.working ?? []).length > 0 && (
+              <section className="space-y-3">
+                <h2 className="text-lg font-semibold">{t("flows.working")}</h2>
+                {data.working!.map((w) => (
+                  <WorkingItem key={w.id} flow={w} openRunId={w.id === openId ? openRun : null} />
+                ))}
+              </section>
+            )}
           </>
         )}
       </div>
