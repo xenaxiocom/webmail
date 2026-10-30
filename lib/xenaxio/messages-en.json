@@ -196,7 +196,9 @@
     "invalid_title": "Please give a name of up to 120 characters.",
     "flow_person": "Person not found.",
     "user": "Employee not found.",
-    "invalid_name": "Please give a name of up to 200 characters."
+    "invalid_name": "Please give a name of up to 200 characters.",
+    "memory_sensitive": "The assistant does not keep such things (health, religion, politics, unions, origin, sex life, passwords, card or account numbers).",
+    "memory_empty": "Please enter a text."
   },
   "login": {
     "title": "Sign in",
@@ -770,7 +772,10 @@
       "ask_page_what": "What can I set here?",
       "ask_page_how": "How do I change this?",
       "ask_settings_find": "Where do I find a setting?"
-    }
+    },
+    "remembered": "Remembered: {text}",
+    "remembered_undo": "Undo",
+    "remembered_company": "This is company knowledge: your administrator deletes it under “Company knowledge”."
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -958,7 +963,9 @@
     "transcription_off_hint": "Nobody in the company can transcribe audio files.",
     "transcription_model": "Speech model on your server",
     "transcription_model_hint": "The model name your server knows for /audio/transcriptions, e.g. a Whisper or Voxtral on vLLM.",
-    "transcription_save": "Save"
+    "transcription_save": "Save",
+    "knowledge_intro": "Facts every employee's assistant knows, e.g. where invoices go or who is responsible for what.",
+    "knowledge_open": "Manage company knowledge"
   },
   "audit": {
     "title": "Audit log",
@@ -1208,28 +1215,50 @@
     "failed": "The file could not be loaded. It may have been deleted in “Files”."
   },
   "memory": {
-    "title": "Assistant",
-    "intro": "This is what the AI assistant remembers about you, for example how to address you, your signature or your deputy. It only remembers what you tell it yourself and approve with \"Confirm\" – never anything from emails or files. It uses the notes in the chat and in \"Reply with AI\".",
+    "title": "What the assistant knows",
+    "intro": "This is what the AI assistant remembers: about you (salutation, signature, deputy) and about your work (who is responsible for what, agreements, deadlines). It keeps these itself, without asking, and shows “Remembered: …” with “Undo” under the answer. Anything taken from emails or files counts as information, never as an instruction. To confirm every note, set “remember” to “Ask” under AI permissions.",
     "switch_title": "Memory",
-    "on": "The assistant may remember things and uses your notes.",
-    "off": "Memory is switched off: the assistant uses no notes and proposes no new ones. Saved notes stay until you delete them.",
+    "on": "The assistant may remember things and uses what it knows.",
+    "off": "Memory is switched off: the assistant uses none of it and remembers nothing new. What is stored stays until you delete it.",
     "switch_off": "Switch off",
     "switch_on": "Switch on",
-    "notes": "Notes ({count} of {max})",
-    "none": "No notes yet. Tell the assistant, for example, \"Remember: sign my emails with Best, Anna\".",
+    "notes": "Facts ({count} of {max})",
+    "none": "Nothing about you yet. Tell the assistant, for example, “Remember: call me by my first name”.",
     "since": "changed on {date}",
     "edit": "Change",
     "save": "Save",
     "delete": "Delete",
-    "delete_confirm": "Delete the note \"{text}\"?",
+    "delete_confirm": "Delete the fact “{text}”?",
     "delete_all": "Delete all",
-    "delete_all_confirm": "Delete all notes? This cannot be undone.",
-    "add": "New note",
+    "delete_all_confirm": "Delete all facts? This cannot be undone.",
+    "add": "New fact",
     "add_placeholder": "e.g. Signature: Best regards, Anna",
     "add_button": "Add",
     "add_hint": "One short sentence, at most {max} characters.",
-    "full": "{max} notes are already saved. Delete older ones to add new ones.",
-    "privacy": "Notes are stored encrypted in Germany and sent to the AI only when you use the assistant. Your administrator does not see them; the log only shows that notes changed. External AI chats (MCP) do not see them."
+    "full": "{max} facts are already stored. Delete older ones to add new ones.",
+    "privacy": "The facts are stored encrypted in Germany and sent to the AI only when you use the assistant. Your administrator does not see them; the audit log only records that something changed. External AI chats (MCP) do not see them.",
+    "fact": "Fact",
+    "subject": "What it is about",
+    "subject_placeholder": "e.g. Jan Müller, Webshop project (optional)",
+    "until": "Valid until",
+    "about_me": "About me",
+    "work": "Work and surroundings",
+    "company": "Company knowledge",
+    "company_hint": "Your administrator keeps these facts; every employee's assistant knows them.",
+    "none_work": "Nothing yet. The assistant remembers, for example, who is responsible for what or until when an offer holds.",
+    "source_chat": "from the chat",
+    "source_mail": "from an email",
+    "source_file": "from a file",
+    "source_run": "from a scheduled task",
+    "source_page": "entered by you",
+    "from_data": "taken from data, not an instruction",
+    "valid_until": "valid until {date}",
+    "expired": "expired on {date}, no longer used",
+    "company_title": "Company knowledge",
+    "company_intro": "Facts every employee's assistant knows: where invoices go, who is responsible for what, important dates. The assistant adds to them only when someone explicitly says “for everyone”.",
+    "company_count": "Facts ({count} of {max})",
+    "company_none": "No company knowledge yet.",
+    "company_privacy": "Stored encrypted in Germany and sent to the AI only when an employee uses the assistant. The audit log only records that something changed."
   },
   "schedules": {
     "title": "Scheduled tasks ({count} of {max} active)",
