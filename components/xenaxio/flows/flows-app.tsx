@@ -658,7 +658,7 @@ function Runs({ flowId, openRunId }: { flowId: string; openRunId?: string | null
       {steps.length > 1 && (
         <div role="tablist" className="flex flex-wrap gap-1">
           {[null, ...steps].map((s) => (
-            <Button key={s ?? "all"} role="tab" aria-selected={step === s} size="sm" variant={step === s ? "secondary" : "ghost"} onClick={() => setStep(s)}>
+            <Button key={s ?? "all"} role="tab" aria-selected={step === s} size="sm" variant={step === s ? "outline" : "ghost"} onClick={() => setStep(s)}>
               {s ?? t("flows.runs_all_steps")}
             </Button>
           ))}
