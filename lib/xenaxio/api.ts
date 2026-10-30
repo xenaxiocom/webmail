@@ -363,8 +363,63 @@ export interface AiAdmin {
   schedules?: ScheduleSettingsInfo;
   /** Step 83: steps and input tokens per answer (null: the default); they apply on the Xenacore engine. */
   answers?: AnswerSettings;
+  /** Step 84: which model each profile uses (missing: the company's model). */
+  profiles?: { map: Partial<Record<ModelProfile, string>>; options: string[]; names: ModelProfile[] };
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
 }
+
+/** Step 84: model profiles for flows and agents. */
+export type ModelProfile = "fast" | "vision" | "smart";
+
+/** Step 84: a skill of the company or of the user (SKILL.md). */
+export interface SkillItem {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  version: number;
+  updatedAt: string;
+}
+export interface SkillVersionInfo {
+  version: number;
+  name: string;
+  description: string;
+  createdAt: string;
+}
+export interface SkillSummary {
+  name: string;
+  description: string;
+}
+export type SkillInput = { name: string; description: string; body: string } | { file: string };
+/** The same calls for the company's skills (admin) and the user's own. */
+export interface SkillApi {
+  base: string;
+  get(id: string): Promise<{ skill: SkillItem & { body: string } }>;
+  create(input: SkillInput): Promise<{ skill: SkillItem }>;
+  update(id: string, input: SkillInput): Promise<{ skill: SkillItem }>;
+  setEnabled(id: string, enabled: boolean): Promise<{ skill: SkillItem }>;
+  remove(id: string): Promise<{ ok: true }>;
+  versions(id: string): Promise<{ versions: SkillVersionInfo[] }>;
+  restore(id: string, version: number): Promise<{ skill: SkillItem }>;
+  /** Address of the SKILL.md download. */
+  fileUrl(id: string): string;
+}
+function skillApi(base: string): SkillApi {
+  const one = (id: string) => `${base}/${encodeURIComponent(id)}`;
+  return {
+    base,
+    get: (id) => request("GET", one(id)),
+    create: (input) => request("POST", base, input),
+    update: (id, input) => request("PUT", one(id), input),
+    setEnabled: (id, enabled) => request("POST", `${one(id)}/enabled`, { enabled }),
+    remove: (id) => request("DELETE", one(id)),
+    versions: (id) => request("GET", `${one(id)}/versions`),
+    restore: (id, version) => request("POST", `${one(id)}/restore`, { version }),
+    fileUrl: (id) => `${one(id)}/file`,
+  };
+}
+export const companySkills = skillApi("/api/admin/ai/skills");
+export const ownSkills = skillApi("/api/ai/skills");
 
 /** Step 83: how far the assistant may go in one answer. */
 export interface AnswerSettings {
@@ -803,6 +858,11 @@ export const xenaxio = {
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
   setCustomModelFallback: (enabled: boolean) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/fallback", { enabled }),
   removeCustomModel: () => request<{ ok: true }>("DELETE", "/api/admin/ai/custom"),
+  // Step 84: skills and model profiles.
+  adminSkills: () => request<{ company: SkillItem[]; platform: (SkillSummary & { enabled: boolean })[]; max: number }>("GET", "/api/admin/ai/skills"),
+  setPlatformSkill: (name: string, enabled: boolean) => request<{ platform: (SkillSummary & { enabled: boolean })[] }>("PUT", `/api/admin/ai/platform-skills/${encodeURIComponent(name)}`, { enabled }),
+  mySkills: () => request<{ own: SkillItem[]; company: SkillSummary[]; platform: SkillSummary[]; max: number }>("GET", "/api/ai/skills"),
+  saveModelProfiles: (map: Partial<Record<ModelProfile, string | null>>) => request<{ map: Partial<Record<ModelProfile, string>> }>("PUT", "/api/admin/ai/profiles", map),
   saveAnswerSettings: (settings: { maxToolCalls: number | null; inputTokens: number | null }) => request<{ maxToolCalls: number | null; inputTokens: number | null }>("PUT", "/api/admin/ai/answers", settings),
   setCustomModelContext: (contextTokens: number | null) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom/context", { contextTokens }),
   saveScheduleSettings: (settings: ScheduleSettings) => request<{ paused: number; schedules: ScheduleSettingsInfo }>("PUT", "/api/admin/ai/schedules", settings),
