@@ -122,7 +122,9 @@ export type AssistantEvent =
   /** Step 83 (Xenacore): the answer stopped at the company's limit; "Weiter" goes on. */
   | { type: "budget"; reason: "tool_calls" | "tokens" }
   /** Step 84 (Xenacore): the answer follows a skill of the company or the user. */
-  | { type: "skill"; name: string };
+  | { type: "skill"; name: string }
+  /** Step 91 (Xenacore): facts the assistant kept in this answer; the panel offers to undo them. */
+  | { type: "memory"; items: { id: string; text: string }[] };
 
 /** Step 83: one step of the assistant's plan. */
 export interface PlanItem {

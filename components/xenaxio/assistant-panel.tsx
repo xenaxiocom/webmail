@@ -15,7 +15,7 @@ import type { FileNode } from "@/lib/jmap/types";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEmailStore } from "@/stores/email-store";
 import { cn, formatFileSize } from "@/lib/utils";
-import { errorKey, XenaxioApiError } from "@/lib/xenaxio/api";
+import { errorKey, xenaxio, XenaxioApiError } from "@/lib/xenaxio/api";
 import {
   assistant,
   assistantAvailable,
@@ -85,6 +85,8 @@ interface Turn {
   budget?: boolean;
   /** Step 84: skills the answer followed. */
   skills?: string[];
+  /** Step 91: facts the assistant kept in this answer; `undone` once the user took one back. */
+  memory?: { id: string; text: string; undone?: boolean }[];
 }
 
 /** Step 83: the assistant's plan for a longer task. */
@@ -560,6 +562,7 @@ export function AssistantPanel() {
           else if (e.type === "plan") update((turn) => ({ ...turn, plan: e.items }));
           else if (e.type === "budget") update((turn) => ({ ...turn, budget: true }));
           else if (e.type === "skill") update((turn) => ({ ...turn, skills: [...new Set([...(turn.skills ?? []), e.name])] }));
+          else if (e.type === "memory") update((turn) => ({ ...turn, memory: [...(turn.memory ?? []), ...e.items] }));
         }
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
@@ -576,6 +579,21 @@ export function AssistantPanel() {
   );
 
   /** I5: the user confirms or discards a proposal; the platform runs it exactly as shown. */
+  // Step 91: takes back a fact the assistant kept in this answer.
+  const undoMemory = useCallback(
+    async (turnIndex: number, id: string) => {
+      try {
+        await xenaxio.deleteMemory(id);
+      } catch (err) {
+        // Not among the user's own facts: a fact kept for the whole company, which the admin deletes.
+        setNotice(err instanceof XenaxioApiError && err.status === 404 ? t("assistant.remembered_company") : t(errorKey(err)));
+        return;
+      }
+      setTurns((prev) => prev.map((turn, n) => (n === turnIndex ? { ...turn, memory: turn.memory?.map((m) => (m.id === id ? { ...m, undone: true } : m)) } : turn)));
+    },
+    [t],
+  );
+
   const decide = useCallback(async (proposal: Proposal, confirm: boolean) => {
     const set = (state: ProposalState) =>
       setTurns((prev) => prev.map((turn) => (turn.proposals?.some((p) => p.id === proposal.id) ? { ...turn, proposals: turn.proposals.map((p) => (p.id === proposal.id ? { ...p, state } : p)) } : turn)));
@@ -978,6 +996,17 @@ export function AssistantPanel() {
               {turn.role === "assistant" && !turn.text && !turn.tool && busy && i === turns.length - 1 && <p className="animate-pulse text-xs text-muted-foreground">…</p>}
               {turn.notice && <p className="text-xs text-amber-700 dark:text-amber-400">{turn.notice}</p>}
               {turn.skills && turn.skills.length > 0 && <p className="text-xs text-muted-foreground">{t("assistant.skill_used", { names: turn.skills.join(", ") })}</p>}
+              {/* Step 91: what the assistant kept, with undo. */}
+              {turn.memory?.map((m) => (
+                <p key={m.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className={m.undone ? "line-through" : ""}>{t("assistant.remembered", { text: m.text })}</span>
+                  {!m.undone && (
+                    <button type="button" className="text-primary underline underline-offset-2" onClick={() => void undoMemory(i, m.id)}>
+                      {t("assistant.remembered_undo")}
+                    </button>
+                  )}
+                </p>
+              ))}
               {/* Step 83: the answer stopped at the company's limit; the next answer picks up from the plan and what was found. */}
               {turn.budget && i === turns.length - 1 && !busy && (
                 <div className="flex flex-wrap items-center gap-2">

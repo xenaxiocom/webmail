@@ -610,12 +610,28 @@ export interface RecipientDelivery {
   server?: string;
 }
 
-/** Step 36: a note the assistant keeps about the user. */
+/** Step 36: a note the assistant keeps about the user. Step 91: a fact it keeps itself (Xenacore). */
 export interface MemoryNote {
   id: string;
   text: string;
   createdAt: string;
   updatedAt: string;
+  /** Step 91: who or what it is about; absent: the user. */
+  subject?: string;
+  kind?: "person" | "work" | "episode";
+  /** user: the person said it; data: taken from an email, file or chat. */
+  trust?: "user" | "data";
+  source?: { type: "chat" | "mail" | "file" | "run" | "page"; id?: string };
+  /** Last day it holds (YYYY-MM-DD). */
+  validUntil?: string;
+  level?: "user" | "company";
+}
+
+/** Step 91: what the user or the admin writes as a fact. */
+export interface MemoryInput {
+  text: string;
+  subject?: string;
+  validUntil?: string | null;
 }
 
 /** Step 49: a task the assistant carries out on a schedule (the user's page "Geplante Aufgaben"). */
@@ -640,6 +656,8 @@ export interface ScheduleInfo {
 export interface MemoryState {
   enabled: boolean;
   notes: MemoryNote[];
+  /** Step 91: the company's facts, read-only for staff (absent on older servers). */
+  company?: MemoryNote[];
   maxNotes: number;
   maxLength: number;
 }
@@ -824,8 +842,13 @@ export const xenaxio = {
   delivery: (emailId: string) => request<{ recipients: RecipientDelivery[] }>("GET", `/api/delivery?emailId=${encodeURIComponent(emailId)}`),
   mailApps: () => request<MailAppSettings>("GET", "/api/me/mail-apps"),
   memories: () => request<MemoryState>("GET", "/api/ai/memories"),
-  addMemory: (text: string) => request<{ note: MemoryNote }>("POST", "/api/ai/memories", { text }),
-  updateMemory: (id: string, text: string) => request<{ note: MemoryNote }>("PUT", `/api/ai/memories/${encodeURIComponent(id)}`, { text }),
+  addMemory: (input: MemoryInput) => request<{ note: MemoryNote }>("POST", "/api/ai/memories", input),
+  updateMemory: (id: string, input: MemoryInput) => request<{ note: MemoryNote }>("PUT", `/api/ai/memories/${encodeURIComponent(id)}`, input),
+  // Step 91: the company's facts ("Firmenwissen"), admin only.
+  companyMemories: () => request<{ notes: MemoryNote[]; maxNotes: number; maxLength: number }>("GET", "/api/admin/ai/memories"),
+  addCompanyMemory: (input: MemoryInput) => request<{ note: MemoryNote }>("POST", "/api/admin/ai/memories", input),
+  updateCompanyMemory: (id: string, input: MemoryInput) => request<{ note: MemoryNote }>("PUT", `/api/admin/ai/memories/${encodeURIComponent(id)}`, input),
+  deleteCompanyMemory: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/ai/memories/${encodeURIComponent(id)}`),
   deleteMemory: (id: string) => request<{ ok: true }>("DELETE", `/api/ai/memories/${encodeURIComponent(id)}`),
   deleteAllMemories: () => request<{ ok: true }>("DELETE", "/api/ai/memories"),
   setMemoryEnabled: (enabled: boolean) => request<{ enabled: boolean }>("POST", "/api/ai/memories/settings", { enabled }),

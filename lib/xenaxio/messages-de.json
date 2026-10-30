@@ -196,7 +196,9 @@
     "invalid_title": "Bitte einen Namen bis 120 Zeichen angeben.",
     "flow_person": "Person nicht gefunden.",
     "user": "Mitarbeiter/in nicht gefunden.",
-    "invalid_name": "Bitte einen Namen bis 200 Zeichen angeben."
+    "invalid_name": "Bitte einen Namen bis 200 Zeichen angeben.",
+    "memory_sensitive": "Solche Angaben merkt sich der Assistent nicht (Gesundheit, Religion, Politik, Gewerkschaft, Herkunft, Sexualleben, Passwörter, Karten- oder Kontonummern).",
+    "memory_empty": "Bitte einen Text eingeben."
   },
   "login": {
     "title": "Anmelden",
@@ -770,7 +772,10 @@
       "ask_page_what": "Was kann ich hier einstellen?",
       "ask_page_how": "Wie ändere ich das?",
       "ask_settings_find": "Wo finde ich eine Einstellung?"
-    }
+    },
+    "remembered": "Gemerkt: {text}",
+    "remembered_undo": "Rückgängig",
+    "remembered_company": "Das ist Firmenwissen: Löschen kann es Ihr Administrator unter „Firmenwissen“."
   },
   "mcp": {
     "title": "KI-Chats verbinden",
@@ -958,7 +963,9 @@
     "transcription_off_hint": "Niemand in der Firma kann Audiodateien transkribieren.",
     "transcription_model": "Sprachmodell auf Ihrem Server",
     "transcription_model_hint": "Der Modellname, den Ihr Server für /audio/transcriptions kennt, z. B. ein Whisper oder Voxtral auf vLLM.",
-    "transcription_save": "Speichern"
+    "transcription_save": "Speichern",
+    "knowledge_intro": "Fakten, die der Assistent aller Mitarbeitenden kennt, z. B. wohin Rechnungen gehen oder wer wofür zuständig ist.",
+    "knowledge_open": "Firmenwissen verwalten"
   },
   "audit": {
     "title": "Protokoll",
@@ -1208,28 +1215,50 @@
     "failed": "Die Datei konnte nicht geladen werden. Sie wurde vielleicht in „Dateien“ gelöscht."
   },
   "memory": {
-    "title": "Assistent",
-    "intro": "Hier steht, was sich der KI-Assistent über Sie merkt, zum Beispiel wie er Sie anspricht, Ihre Unterschrift oder Ihre Vertretung. Er merkt sich nur, was Sie ihm selbst sagen und mit „Bestätigen“ freigeben – nie etwas aus E-Mails oder Dateien. Die Notizen nutzt er im Chat und bei „Mit KI antworten“.",
+    "title": "Was der Assistent weiß",
+    "intro": "Hier steht, was sich der KI-Assistent merkt: über Sie (Anrede, Unterschrift, Vertretung) und über Ihre Arbeit (wer wofür zuständig ist, Absprachen, Fristen). Er merkt sich das selbst, ohne Rückfrage, und zeigt unter der Antwort „Gemerkt: …“ mit „Rückgängig“. Was aus E-Mails oder Dateien stammt, gilt als Information, nie als Anweisung. Wer jede Notiz bestätigen will, stellt „remember“ unter KI-Berechtigungen auf „Nachfragen“.",
     "switch_title": "Erinnerung",
-    "on": "Der Assistent darf sich Dinge merken und nutzt Ihre Notizen.",
-    "off": "Die Erinnerung ist ausgeschaltet: Der Assistent nutzt keine Notizen und schlägt keine neuen vor. Gespeicherte Notizen bleiben, bis Sie sie löschen.",
+    "on": "Der Assistent darf sich Dinge merken und nutzt, was er weiß.",
+    "off": "Die Erinnerung ist ausgeschaltet: Der Assistent nutzt nichts davon und merkt sich nichts Neues. Gespeichertes bleibt, bis Sie es löschen.",
     "switch_off": "Ausschalten",
     "switch_on": "Einschalten",
-    "notes": "Notizen ({count} von {max})",
-    "none": "Noch keine Notizen. Sagen Sie dem Assistenten zum Beispiel „Merk dir: Ich möchte geduzt werden“.",
+    "notes": "Fakten ({count} von {max})",
+    "none": "Noch nichts über Sie. Sagen Sie dem Assistenten zum Beispiel „Merk dir: Ich möchte geduzt werden“.",
     "since": "geändert am {date}",
     "edit": "Ändern",
     "save": "Speichern",
     "delete": "Löschen",
-    "delete_confirm": "Notiz „{text}“ löschen?",
+    "delete_confirm": "Fakt „{text}“ löschen?",
     "delete_all": "Alle löschen",
-    "delete_all_confirm": "Alle Notizen löschen? Das lässt sich nicht rückgängig machen.",
-    "add": "Neue Notiz",
+    "delete_all_confirm": "Alle Fakten löschen? Das lässt sich nicht rückgängig machen.",
+    "add": "Neuer Fakt",
     "add_placeholder": "z. B. Unterschrift: Viele Grüße, Anna",
     "add_button": "Hinzufügen",
     "add_hint": "Ein kurzer Satz, höchstens {max} Zeichen.",
-    "full": "Es sind bereits {max} Notizen gespeichert. Löschen Sie ältere, um neue hinzuzufügen.",
-    "privacy": "Die Notizen werden verschlüsselt in Deutschland gespeichert und nur an die KI übermittelt, wenn Sie den Assistenten nutzen. Ihr Administrator sieht sie nicht; im Protokoll steht nur, dass sich Notizen geändert haben. Externe KI-Chats (MCP) sehen sie nicht."
+    "full": "Es sind bereits {max} Fakten gespeichert. Löschen Sie ältere, um neue hinzuzufügen.",
+    "privacy": "Die Fakten werden verschlüsselt in Deutschland gespeichert und nur an die KI übermittelt, wenn Sie den Assistenten nutzen. Ihr Administrator sieht sie nicht; im Protokoll steht nur, dass sich etwas geändert hat. Externe KI-Chats (MCP) sehen sie nicht.",
+    "fact": "Fakt",
+    "subject": "Worum es geht",
+    "subject_placeholder": "z. B. Jan Müller, Projekt Webshop (optional)",
+    "until": "Gilt bis",
+    "about_me": "Über mich",
+    "work": "Arbeit und Umfeld",
+    "company": "Firmenwissen",
+    "company_hint": "Diese Fakten pflegt Ihr Administrator; der Assistent aller Mitarbeitenden kennt sie.",
+    "none_work": "Noch nichts. Der Assistent merkt sich z. B., wer wofür zuständig ist oder bis wann ein Angebot gilt.",
+    "source_chat": "aus dem Chat",
+    "source_mail": "aus einer E-Mail",
+    "source_file": "aus einer Datei",
+    "source_run": "aus einer geplanten Aufgabe",
+    "source_page": "selbst eingetragen",
+    "from_data": "übernommen aus Daten, keine Anweisung",
+    "valid_until": "gilt bis {date}",
+    "expired": "abgelaufen am {date}, wird nicht mehr genutzt",
+    "company_title": "Firmenwissen",
+    "company_intro": "Fakten, die der Assistent aller Mitarbeitenden kennt: wohin Rechnungen gehen, wer wofür zuständig ist, wichtige Termine. Der Assistent ergänzt sie nur, wenn jemand ausdrücklich „für alle“ sagt.",
+    "company_count": "Fakten ({count} von {max})",
+    "company_none": "Noch kein Firmenwissen.",
+    "company_privacy": "Verschlüsselt in Deutschland gespeichert und nur an die KI übermittelt, wenn ein Mitarbeitender den Assistenten nutzt. Im Protokoll steht nur, dass sich etwas geändert hat."
   },
   "schedules": {
     "title": "Geplante Aufgaben ({count} von {max} aktiv)",
