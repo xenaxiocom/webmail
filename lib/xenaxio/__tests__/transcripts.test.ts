@@ -17,7 +17,7 @@ describe("audio files in Files (step 86)", () => {
   beforeEach(() => {
     lookupTranscripts.mockReset();
     transcribe.mockReset();
-    useTranscripts.setState({ byKey: {}, busy: {}, errors: {}, available: false, reason: null, maxBytes: 0 });
+    useTranscripts.setState({ byKey: {}, busy: {}, errors: {}, available: false, known: false, reason: null, maxBytes: 0 });
   });
 
   it("knows voice messages by extension or type, and folders are never audio", () => {
@@ -38,7 +38,7 @@ describe("audio files in Files (step 86)", () => {
     lookupTranscripts.mockResolvedValue({ available: true, maxBytes: 100, transcripts: { v1: { text: "Hallo", language: "de", manual: false } } });
     await useTranscripts.getState().lookup([file({}), file({ id: "t", name: "notes.txt", contentType: "text/plain" }), file({ id: "s", isShared: true, ownerAccountId: "acc-anna" })]);
     expect(lookupTranscripts).toHaveBeenCalledWith([{ id: "v1" }, { id: "s", accountId: "acc-anna" }]);
-    expect(useTranscripts.getState()).toMatchObject({ available: true, maxBytes: 100, byKey: { v1: { text: "Hallo" } } });
+    expect(useTranscripts.getState()).toMatchObject({ available: true, known: true, maxBytes: 100, byKey: { v1: { text: "Hallo" } } });
     lookupTranscripts.mockClear();
     await useTranscripts.getState().lookup([file({ id: "t", name: "notes.txt", contentType: "text/plain" })]);
     expect(lookupTranscripts).not.toHaveBeenCalled();

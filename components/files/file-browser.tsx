@@ -833,7 +833,11 @@ export function FileBrowser({
     onShare: (r) => setShareTargetId(r.id),
     canShare,
     dragProps: itemDragProps,
-  }), [handleSelectClick, handleToggleSelect, openResource, openItemMenu, onDownload, canShare, itemDragProps]);
+    onShowDetails: (r) => {
+      onSetSelection(new Set([r.name]));
+      toggleDetails(true);
+    },
+  }), [handleSelectClick, handleToggleSelect, openResource, openItemMenu, onDownload, canShare, itemDragProps, onSetSelection, toggleDetails]);
 
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));

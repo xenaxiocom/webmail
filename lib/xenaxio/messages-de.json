@@ -2320,7 +2320,6 @@
     "transcribe": "Transkribieren",
     "transcribing": "Wird transkribiert…",
     "again": "Neu transkribieren",
-    "has_transcript": "Transkript vorhanden",
     "no_speech": "Keine Sprache erkannt.",
     "copy": "Text kopieren",
     "copied": "Kopiert",
@@ -2349,6 +2348,7 @@
       "file_not_found": "Die Datei ist nicht mehr da.",
       "network": "Keine Verbindung. Bitte erneut versuchen.",
       "internal": "Das hat nicht geklappt. Bitte erneut versuchen."
-    }
+    },
+    "show_transcript": "Transkript von {name} anzeigen"
   }
 }

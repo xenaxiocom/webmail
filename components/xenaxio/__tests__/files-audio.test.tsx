@@ -2,7 +2,7 @@ import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { FileResource } from "@/stores/file-store";
 import { useTranscripts } from "@/lib/xenaxio/transcripts";
-import { AudioDetails, AudioPlayButton, TranscriptBadge } from "../files-audio";
+import { AudioDetails, AudioPlayButton, TranscriptAction, TranscriptLine } from "../files-audio";
 
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 
@@ -15,7 +15,7 @@ describe("audio files in Files (step 86)", () => {
   const transcribe = vi.fn(async () => {});
   beforeEach(() => {
     transcribe.mockClear();
-    useTranscripts.setState({ byKey: {}, busy: {}, errors: {}, available: true, reason: null, maxBytes: 25 * 1024 * 1024, transcribe });
+    useTranscripts.setState({ byKey: {}, busy: {}, errors: {}, available: true, known: true, reason: null, maxBytes: 25 * 1024 * 1024, transcribe });
   });
 
   it("plays from the row through the row's open action", () => {
@@ -40,8 +40,35 @@ describe("audio files in Files (step 86)", () => {
     fireEvent.change(screen.getByRole("combobox"), { target: { value: "uk" } });
     fireEvent.click(screen.getByText("Neu transkribieren"));
     expect(transcribe).toHaveBeenCalledWith(voice, "uk");
-    render(<TranscriptBadge resource={voice} />);
-    expect(screen.getByLabelText("Transkript vorhanden").getAttribute("title")).toBe("Привет, перезвони мне.");
+  });
+
+  it("shows in the row the start of the text and an icon that opens it", () => {
+    useTranscripts.setState({ byKey: { v1: { text: "Привет, перезвони мне.", language: "ru", manual: false, model: "m", audioSeconds: 7, updatedAt: "" } } });
+    const show = vi.fn();
+    render(<><TranscriptAction resource={voice} onShow={show} /><TranscriptLine resource={voice} onShow={show} /></>);
+    const icon = screen.getByLabelText(`Transkript von ${voice.name} anzeigen`);
+    expect(icon.getAttribute("title")).toBe("Привет, перезвони мне.");
+    fireEvent.click(icon);
+    fireEvent.click(screen.getByText("Привет, перезвони мне."));
+    expect(show).toHaveBeenCalledTimes(2);
+    expect(screen.queryByText("Transkribieren")).toBeNull();
+  });
+
+  it("offers to transcribe right in the row and opens the text when done", async () => {
+    const show = vi.fn();
+    transcribe.mockImplementationOnce(async () => {
+      useTranscripts.setState({ byKey: { v1: { text: "Hallo", language: "de", manual: false, model: "m", audioSeconds: 2, updatedAt: "" } } });
+    });
+    render(<TranscriptAction resource={voice} onShow={show} />);
+    fireEvent.click(screen.getByText("Transkribieren"));
+    expect(transcribe).toHaveBeenCalledWith(voice);
+    await vi.waitFor(() => expect(show).toHaveBeenCalledOnce());
+  });
+
+  it("offers the button when the platform has not answered yet (it decides then)", () => {
+    useTranscripts.setState({ available: false, known: false, reason: null });
+    render(<AudioDetails resource={voice} onToggle={() => {}} />);
+    expect(screen.getByText("Transkribieren")).toBeTruthy();
   });
 
   it("says why there is no button", () => {
