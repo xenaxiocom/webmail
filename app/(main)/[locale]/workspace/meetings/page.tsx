@@ -37,7 +37,7 @@ function MeetingsSettings() {
       .catch((err: unknown) => setError(errorOf(err)));
   }, [errorOf]);
 
-  const save = async (change: { enabled?: boolean; guests?: boolean; backgroundDefault?: boolean }) => {
+  const save = async (change: { enabled?: boolean; guests?: boolean; backgroundDefault?: boolean; recording?: boolean }) => {
     if (change.enabled === false && !window.confirm(t("meetadmin.switch_off_confirm"))) return;
     setBusy(true);
     setError(null);
@@ -118,6 +118,23 @@ function MeetingsSettings() {
             <span className="block text-xs text-muted-foreground">{t("meetadmin.guests_hint")}</span>
           </span>
         </label>
+        {/* Step 90: recording a meeting's sound; the one who started the meeting switches it on, every time. */}
+        {data.recordingAvailable && (
+          <label htmlFor="meet-recording" className="flex cursor-pointer items-start gap-3 border-t border-border pt-3">
+            <input
+              id="meet-recording"
+              type="checkbox"
+              className="mt-1 h-4 w-4"
+              checked={!!data.recording && data.recordingAllowed !== false}
+              disabled={busy || data.recordingAllowed === false}
+              onChange={(e) => void save({ recording: e.target.checked })}
+            />
+            <span className="space-y-0.5">
+              <span className="block text-sm font-medium">{t("meetadmin.recording")}</span>
+              <span className="block text-xs text-muted-foreground">{t(data.recordingAllowed === false ? "meetadmin.recording_forbidden" : "meetadmin.recording_hint")}</span>
+            </span>
+          </label>
+        )}
       </section>
       <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="text-sm font-medium">{t("meetadmin.background_title")}</h2>

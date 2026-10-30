@@ -90,3 +90,28 @@ describe("step 92: company background on the meetings page", () => {
     expect(await screen.findByText("Die Datei ist zu groß (Bild höchstens 2 MB, Animation oder Panorama 10 MB).")).toBeInTheDocument();
   });
 });
+
+describe("step 90: recording meetings", () => {
+  it("the admin forbids and allows it; without a recorder or when the operator blocked it there is nothing to switch", async () => {
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: true, recording: true });
+    api.saveSettings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: true, recording: false });
+    const { unmount } = render(<MeetingsAdminPage />);
+    const box = await screen.findByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith({ recording: false }));
+    expect(await screen.findByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ })).not.toBeChecked();
+    unmount();
+
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: false, recording: true });
+    const blocked = render(<MeetingsAdminPage />);
+    expect(await screen.findByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ })).toBeDisabled();
+    expect(screen.getByText(/Betreiber hat Aufnahmen/)).toBeInTheDocument();
+    blocked.unmount();
+
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: false });
+    render(<MeetingsAdminPage />);
+    expect(await screen.findByText("Hintergrund der Firma")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Aufnahme/ })).toBeNull();
+  });
+});
