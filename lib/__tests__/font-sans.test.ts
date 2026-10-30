@@ -46,9 +46,9 @@ describe('theme font (#1278)', () => {
     expect(declValue('body', 'font-family', null)).toBe('var(--font-sans)');
   });
 
-  it('defaults --font-sans to the app stack, Thai fallbacks included', () => {
+  it('defaults --font-sans to the app stack, Thai and colour emoji fallbacks included', () => {
     expect(declValue(':root, :host', '--font-sans', '@layer theme')).toBe(
-      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif',
+      '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, "Noto Sans Thai", "Leelawadee UI", Tahoma, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji"',
     );
   });
 });

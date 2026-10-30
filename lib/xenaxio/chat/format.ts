@@ -3,6 +3,7 @@
 // links, @mentions); it is sent as plain text plus Matrix HTML. Incoming HTML
 // is sanitized before it is shown (colleagues' messages are untrusted).
 import DOMPurify from "dompurify";
+import { emoticonsToEmoji } from "./emoji";
 
 export interface Mention {
   userId: string;
@@ -99,9 +100,9 @@ export function toHtml(text: string, mentions: Mention[] = []): string | null {
   return html === escapeHtml(text).replace(/\n/g, "<br>") ? null : html;
 }
 
-/** The content of a text message from the composer. */
+/** The content of a text message from the composer; typed emoticons go out as emoji (step 87). */
 export function textContent(text: string, mentions: Mention[] = []): Record<string, unknown> {
-  const body = text.trim();
+  const body = emoticonsToEmoji(text.trim());
   const used = mentions.filter((m) => body.includes(`@${m.displayName}`));
   const room = ROOM_MENTIONS.some((m) => new RegExp(`(^|\\s)${m}\\b`).test(body));
   const html = toHtml(body, used);

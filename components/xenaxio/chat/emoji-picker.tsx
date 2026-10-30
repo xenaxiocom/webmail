@@ -3,56 +3,9 @@
 // Step 43, part B: a small emoji picker for reactions and the composer. A
 // curated set with German and English search words; recently used first.
 import { useEffect, useMemo, useRef, useState } from "react";
+import { EMOJI_CATEGORIES as CATEGORIES } from "@/lib/xenaxio/chat/emoji";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { cn } from "@/lib/utils";
-
-type Entry = [emoji: string, words: string];
-
-/** Common emoji with search words (German and English). */
-const CATEGORIES: { key: string; items: Entry[] }[] = [
-  {
-    key: "smileys",
-    items: [
-      ["😀", "grinsen grin lachen smile"], ["😄", "lachen laugh freude happy"], ["😂", "tränen lachen joy tears"], ["🙂", "lächeln slight smile"], ["😉", "zwinkern wink"],
-      ["😊", "erröten blush"], ["😍", "verliebt love heart eyes"], ["🤩", "begeistert star struck"], ["😎", "cool sonnenbrille sunglasses"], ["🤔", "nachdenken thinking hmm"],
-      ["😅", "schwitzen sweat smile puh"], ["😬", "grimasse grimace oops"], ["🙃", "kopfüber upside down"], ["😴", "schlafen sleep müde"], ["😮", "überrascht wow surprised"],
-      ["😢", "traurig weinen sad cry"], ["😭", "heulen sob"], ["😡", "wütend angry"], ["🤯", "explodiert mind blown"], ["🥳", "party feiern celebrate"],
-      ["🤗", "umarmen hug"], ["🙈", "affe nicht sehen see no evil"], ["😇", "engel innocent"], ["🤝", "handschlag deal handshake"], ["🫡", "salut salute"],
-    ],
-  },
-  {
-    key: "people",
-    items: [
-      ["👍", "daumen hoch ja gut thumbs up yes ok"], ["👎", "daumen runter nein thumbs down no"], ["👏", "klatschen applaus clap"], ["🙌", "hurra hände raise hands"], ["🙏", "danke bitte thanks please pray"],
-      ["💪", "stark muskel strong"], ["👀", "augen schauen eyes look"], ["👋", "winken hallo wave hello"], ["✌️", "frieden victory peace"], ["🤞", "daumen drücken fingers crossed"],
-      ["👌", "ok perfekt perfect"], ["🫶", "herz hände heart hands"], ["🤷", "keine ahnung shrug"], ["🙋", "melden hand raise"], ["💁", "info"],
-    ],
-  },
-  {
-    key: "nature",
-    items: [
-      ["🔥", "feuer fire heiß hot lit"], ["⭐", "stern star"], ["🌟", "glänzen glowing star"], ["☀️", "sonne sun"], ["🌈", "regenbogen rainbow"],
-      ["🌧️", "regen rain"], ["❄️", "schnee snow"], ["🌱", "pflanze plant wachsen"], ["🌸", "blüte blossom"], ["🐶", "hund dog"], ["🐱", "katze cat"], ["🦄", "einhorn unicorn"],
-    ],
-  },
-  {
-    key: "objects",
-    items: [
-      ["🎉", "party konfetti tada celebrate"], ["🎂", "kuchen geburtstag birthday cake"], ["☕", "kaffee coffee"], ["🍕", "pizza"], ["🍺", "bier beer"],
-      ["🚀", "rakete rocket launch"], ["💡", "idee idea glühbirne"], ["📅", "kalender termin calendar"], ["📎", "büroklammer paperclip"], ["📌", "pin anheften"],
-      ["📈", "wachstum chart up"], ["📉", "rückgang chart down"], ["💰", "geld money"], ["🧾", "rechnung receipt invoice"], ["💻", "laptop computer"],
-      ["📞", "telefon phone call"], ["✉️", "brief mail email"], ["🔒", "schloss lock"], ["🛠️", "werkzeug tools"], ["🏆", "pokal trophy win"],
-    ],
-  },
-  {
-    key: "symbols",
-    items: [
-      ["❤️", "herz liebe heart love"], ["💙", "blaues herz blue heart"], ["💚", "grünes herz green heart"], ["✅", "erledigt done check ok"], ["☑️", "abgehakt check box"],
-      ["❌", "nein falsch no cross"], ["⚠️", "achtung warnung warning"], ["❗", "wichtig ausrufezeichen important"], ["❓", "frage question"], ["💯", "hundert perfekt hundred"],
-      ["➕", "plus"], ["🔴", "rot red"], ["🟡", "gelb yellow"], ["🟢", "grün green"], ["⏳", "warten sanduhr wait"], ["🔁", "wiederholen repeat"],
-    ],
-  },
-];
 
 const RECENT_KEY = "xenaxio.chat.recent-emoji";
 
