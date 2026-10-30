@@ -23,6 +23,7 @@ import { useSidebarApps } from "@/hooks/use-sidebar-apps";
 import { cn } from "@/lib/utils";
 import {
   errorText,
+  type FlowConnection,
   type FlowDetail,
   type FlowInstallation,
   type FlowJournalEntry,
@@ -333,6 +334,85 @@ function Owners({ flow, overview, onSaved }: { flow: FlowDetail; overview: Flows
   );
 }
 
+/** Stage E2 (B1): where the flow's outside APIs are and their keys (written here, never shown again). */
+function Connection({ flow, conn, onSaved }: { flow: FlowDetail; conn: FlowConnection; onSaved: (f: FlowDetail) => void }) {
+  const t = useXT();
+  const locale = useLocale();
+  const [baseUrl, setBaseUrl] = useState(conn.baseUrl ?? "");
+  const [secret, setSecret] = useState<Record<string, string>>({});
+  const [msg, setMsg] = useState<Msg>(null);
+  const fields: [string, string, string][] =
+    conn.auth === "api_key"
+      ? [["header", t("flows.conn_header"), "X-API-Key"], ["value", t("flows.conn_key"), ""]]
+      : conn.auth === "basic"
+        ? [["user", t("flows.conn_user"), ""], ["password", t("flows.conn_password"), ""]]
+        : conn.auth === "bearer"
+          ? [["token", t("flows.conn_token"), ""]]
+          : [];
+  const typed = Object.values(secret).some((v) => v.trim());
+  const save = (e: FormEvent) => {
+    e.preventDefault();
+    setMsg(null);
+    xenaxio.flows
+      .setConnection(flow.id, conn.name, { baseUrl: baseUrl.trim(), ...(typed ? { secret } : {}) })
+      .then((f) => {
+        setSecret({});
+        setMsg({ kind: "success", text: t("flows.saved") });
+        onSaved(f);
+      })
+      .catch((err) => setMsg({ kind: "error", text: errorText(t, err) }));
+  };
+  return (
+    <form onSubmit={save} className="space-y-2 rounded-md border border-border p-3" noValidate>
+      <div className="flex flex-wrap items-center justify-between gap-2">
+        <span className="text-sm font-medium">{pick(conn.label, locale, conn.name)}</span>
+        <span className="text-xs text-muted-foreground">{conn.baseUrl ? (conn.hasSecret || conn.auth === "none" ? t("flows.conn_ready") : t("flows.conn_no_key")) : t("flows.conn_not_set")}</span>
+      </div>
+      {conn.note && <p className="text-xs text-muted-foreground">{pick(conn.note, locale)}</p>}
+      <TextField label={t("flows.conn_url")} hint={t("flows.conn_hosts", { hosts: conn.hosts.join(", ") })} value={baseUrl} placeholder={`https://${conn.hosts[0]?.replace(/^\*\./, "") ?? ""}`} onChange={(e) => setBaseUrl(e.target.value)} />
+      {conn.auth === "oauth2" ? (
+        <Notice kind="info">{t("flows.conn_oauth_later")}</Notice>
+      ) : (
+        fields.map(([key, label, placeholder]) => (
+          <TextField
+            key={key}
+            label={label}
+            type={key === "header" || key === "user" ? "text" : "password"}
+            autoComplete="off"
+            placeholder={conn.hasSecret && key !== "header" ? t("flows.conn_key_kept") : placeholder}
+            value={secret[key] ?? ""}
+            onChange={(e) => setSecret({ ...secret, [key]: e.target.value })}
+          />
+        ))
+      )}
+      <div className="flex gap-2">
+        <Button type="submit" size="sm" disabled={!baseUrl.trim() || conn.auth === "oauth2"}>
+          {t("flows.save")}
+        </Button>
+        {conn.baseUrl && (
+          <Button
+            type="button"
+            size="sm"
+            variant="ghost"
+            onClick={() =>
+              void xenaxio.flows
+                .removeConnection(flow.id, conn.name)
+                .then((f) => {
+                  setBaseUrl("");
+                  onSaved(f);
+                })
+                .catch((err) => setMsg({ kind: "error", text: errorText(t, err) }))
+            }
+          >
+            {t("flows.conn_remove")}
+          </Button>
+        )}
+      </div>
+      {msg && <Notice kind={msg.kind}>{msg.text}</Notice>}
+    </form>
+  );
+}
+
 function Telegram({ flow, onChanged }: { flow: FlowDetail; onChanged: () => Promise<void> }) {
   const t = useXT();
   const [token, setToken] = useState("");
@@ -586,6 +666,15 @@ function FlowPanel({ id, overview, onListChanged }: { id: string; overview: Flow
           <h3 className="text-sm font-medium">{t("flows.directories")}</h3>
           {Object.keys(flow.directories).map((d) => (
             <Directory key={d} flow={flow} name={d} />
+          ))}
+        </div>
+      )}
+      {flow.connections.length > 0 && (
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">{t("flows.connections")}</h3>
+          <p className="text-xs text-muted-foreground">{t("flows.connections_hint")}</p>
+          {flow.connections.map((c) => (
+            <Connection key={c.name} flow={flow} conn={c} onSaved={saved} />
           ))}
         </div>
       )}

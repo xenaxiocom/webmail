@@ -199,7 +199,12 @@
     "invalid_name": "Bitte einen Namen bis 200 Zeichen angeben.",
     "memory_sensitive": "Solche Angaben merkt sich der Assistent nicht (Gesundheit, Religion, Politik, Gewerkschaft, Herkunft, Sexualleben, Passwörter, Karten- oder Kontonummern).",
     "memory_empty": "Bitte einen Text eingeben.",
-    "flow_send_not_allowed": "Senden in diesem Namen ist nicht erlaubt."
+    "flow_send_not_allowed": "Senden in diesem Namen ist nicht erlaubt.",
+    "host_not_allowed": "Diese Adresse gehört zu keinem erlaubten Host ({hosts}).",
+    "invalid_url": "Bitte eine gültige Adresse ohne Benutzer, Abfrage oder Anker angeben.",
+    "invalid_connection_secret": "Bitte den Schlüssel vollständig angeben.",
+    "auth_not_supported": "Diese Anmeldeart wird noch nicht unterstützt.",
+    "flow_connection": "Verbindung nicht gefunden."
   },
   "login": {
     "title": "Anmelden",
@@ -2431,7 +2436,22 @@
     "send_as": "Flows dürfen Briefe in meinem Namen senden",
     "send_as_hint": "Nur Flows, die Briefe ausdrücklich in Ihrem Namen schicken (z. B. Ihre Anfrage an einen Lieferanten), senden dann aus Ihrem Postfach und lesen die Antworten auf diese Briefe. Andere Mails lesen sie nicht. Jederzeit wieder ausschaltbar.",
     "send_as_on": "Flows dürfen jetzt in Ihrem Namen senden.",
-    "send_as_off": "Flows senden nicht mehr in Ihrem Namen."
+    "send_as_off": "Flows senden nicht mehr in Ihrem Namen.",
+    "connections": "Verbindungen",
+    "connections_hint": "Dienste, die dieser Flow aufruft. Der Flow ruft nur die angegebenen Hosts auf. Der Schlüssel wird verschlüsselt gespeichert und nie wieder angezeigt; die KI sieht ihn nicht.",
+    "conn_url": "Adresse",
+    "conn_hosts": "Erlaubte Hosts: {hosts}",
+    "conn_header": "Name des Headers",
+    "conn_key": "Schlüssel",
+    "conn_user": "Benutzer",
+    "conn_password": "Passwort",
+    "conn_token": "Token",
+    "conn_key_kept": "gespeichert – leer lassen, um ihn zu behalten",
+    "conn_ready": "Eingerichtet",
+    "conn_no_key": "Schlüssel fehlt",
+    "conn_not_set": "Noch nicht eingerichtet",
+    "conn_remove": "Entfernen",
+    "conn_oauth_later": "Anmeldung per OAuth kommt später."
   },
   "permissions": {
     "title": "KI-Berechtigungen",
