@@ -528,6 +528,8 @@ export interface OperatorTenant {
   /** Step 79: webinars (only on a media server of its own) and their viewers (null: the installation's default). */
   webinarsAllowed?: boolean;
   webinarsMaxViewers?: number | null;
+  /** Step F1: Xenaxio Agent Flows switched on by the operator. */
+  flowsEnabled?: boolean;
 }
 
 export interface OperatorReport {
@@ -634,6 +636,78 @@ export interface CalendarFeed {
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
 const CALENDAR_SUBSCRIPTIONS = "/api/calendar/subscriptions";
 const CALENDAR_FEEDS = "/api/calendar/feeds";
+
+/** Step F1: Xenaxio Agent Flows. */
+export type FlowTexts = string | Record<string, string>;
+export interface FlowParamDef {
+  type: string;
+  default?: unknown;
+  values?: string[];
+  required?: boolean;
+  label?: FlowTexts;
+  note?: FlowTexts;
+}
+export interface FlowDirectoryDef {
+  label?: FlowTexts;
+  fields: Record<string, unknown>;
+  key?: string;
+}
+export interface FlowTemplateInfo {
+  flow: string;
+  version: number;
+  title?: FlowTexts;
+  description?: FlowTexts;
+  params: Record<string, FlowParamDef>;
+  directories: Record<string, FlowDirectoryDef>;
+}
+export interface FlowInstallation {
+  id: string;
+  flow: string;
+  version: number;
+  title: FlowTexts;
+  params: Record<string, unknown>;
+  paramDefs: Record<string, FlowParamDef>;
+  directories: Record<string, FlowDirectoryDef>;
+  language: string;
+  status: "active" | "paused";
+  sendsPerHour: number;
+  botName: string | null;
+  hasBot: boolean;
+  createdAt: string;
+}
+export interface FlowPerson {
+  id: string;
+  name: string;
+  language: string | null;
+  telegramChatId: number | null;
+}
+export interface FlowRunSummary {
+  id: string;
+  number: string;
+  status: "running" | "waiting" | "done" | "failed" | "cancelled";
+  result: string | null;
+  step: string;
+  waiting: string | null;
+  initiator: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface FlowJournalEntry {
+  runId: string;
+  at: string;
+  step?: string;
+  actor: { kind: "engine" | "person" | "rule" | "model"; id?: string };
+  what: string;
+  detail?: Record<string, unknown>;
+}
+export interface FlowsOverview {
+  enabled: boolean;
+  journalYears: number;
+  templates: FlowTemplateInfo[];
+  installations: FlowInstallation[];
+  people: FlowPerson[];
+  mailboxes: { id: string; email: string }[];
+}
 
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
@@ -792,6 +866,27 @@ export const xenaxio = {
   saveAnswerSettings: (settings: { maxToolCalls: number | null; inputTokens: number | null }) => request<{ maxToolCalls: number | null; inputTokens: number | null }>("PUT", "/api/admin/ai/answers", settings),
   setCustomModelContext: (contextTokens: number | null) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom/context", { contextTokens }),
   saveScheduleSettings: (settings: ScheduleSettings) => request<{ paused: number; schedules: ScheduleSettingsInfo }>("PUT", "/api/admin/ai/schedules", settings),
+  flows: {
+    overview: () => request<FlowsOverview>("GET", "/api/admin/flows"),
+    setJournalYears: (journalYears: number) => request<{ ok: true }>("PUT", "/api/admin/flows/settings", { journalYears }),
+    install: (flow: string, language: string) => request<FlowInstallation>("POST", "/api/admin/flows/installations", { flow, language }),
+    update: (id: string, body: { params?: Record<string, unknown>; language?: string; status?: "active" | "paused"; sendsPerHour?: number }) =>
+      request<FlowInstallation>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}`, body),
+    remove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/flows/installations/${encodeURIComponent(id)}`),
+    directory: (id: string, directory: string) =>
+      request<{ rows: Record<string, unknown>[] }>("GET", `/api/admin/flows/installations/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`),
+    importDirectory: (id: string, directory: string, csv: string) =>
+      request<{ rows: number }>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`, { csv }),
+    connectTelegram: (id: string, token: string) => request<{ botName: string }>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}/telegram`, { token }),
+    disconnectTelegram: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/flows/installations/${encodeURIComponent(id)}/telegram`),
+    runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `/api/admin/flows/installations/${encodeURIComponent(id)}/runs`),
+    run: (id: string) =>
+      request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `/api/admin/flows/runs/${encodeURIComponent(id)}`),
+    addPerson: (name: string, language: string | null) => request<FlowPerson>("POST", "/api/admin/flows/people", { name, language }),
+    removePerson: (id: string) => request<{ ok: boolean }>("DELETE", `/api/admin/flows/people/${encodeURIComponent(id)}`),
+    personCode: (id: string) => request<{ code: string; link: string | null }>("POST", `/api/admin/flows/people/${encodeURIComponent(id)}/code`, {}),
+  },
+
   audit: (f: AuditFilter) => request<{ entries: AuditEntry[]; next: number | null }>("GET", `/api/admin/audit${auditQuery(f)}`),
 
   operator: {
@@ -820,6 +915,7 @@ export const xenaxio = {
         meetingsMaxHours?: number | null;
         webinarsAllowed?: boolean;
         webinarsMaxViewers?: number | null;
+        flowsEnabled?: boolean;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
