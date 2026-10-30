@@ -122,7 +122,7 @@ export function PreJoin({
   const [canBackground] = useState(backgroundsSupported);
   const [pickerOpen, setPickerOpen] = useState(false);
   const background = useBackgroundChoice(companyBackground);
-  const effect = useBackgroundEffect(canBackground ? videoTrack : undefined, background.choice, background.url);
+  const effect = useBackgroundEffect(canBackground ? videoTrack : undefined, background.source);
   const videoEl = useRef<HTMLVideoElement>(null);
   useEffect(() => {
     const el = videoEl.current;
@@ -206,9 +206,8 @@ export function PreJoin({
             onChoose={background.choose}
             company={companyBackground}
             own={background.own}
-            onOwnPicture={background.setOwnPicture}
-            failed={effect.failed}
-            busy={effect.busy}
+            onOwnFile={background.setOwnFile}
+            effect={effect}
           />
         </section>
       )}

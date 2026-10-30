@@ -652,7 +652,7 @@ function Meeting({
   const background = useBackgroundChoice(company);
   const { cameraTrack } = useLocalParticipant();
   const camera = cameraTrack?.videoTrack as LocalVideoTrack | undefined;
-  const effect = useBackgroundEffect(canBackground && sends ? camera : undefined, background.choice, background.url);
+  const effect = useBackgroundEffect(canBackground && sends ? camera : undefined, background.source);
   const [, setPermissions] = useState(0);
   useEffect(() => {
     const changed = () => setPermissions((n) => n + 1);
@@ -875,9 +875,8 @@ function Meeting({
                         onChoose={background.choose}
                         company={company}
                         own={background.own}
-                        onOwnPicture={background.setOwnPicture}
-                        failed={effect.failed}
-                        busy={effect.busy}
+                        onOwnFile={background.setOwnFile}
+                        effect={effect}
                       />
                     ) : undefined
                   }
