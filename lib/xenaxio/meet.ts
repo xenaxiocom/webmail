@@ -45,6 +45,21 @@ export interface MeetingRecording {
   folder: string | null;
   speakers: string[];
   error: string | null;
+  /** Step 90, part B: the transcript by speaker (off: no AI or transcription off; deleted: its file was deleted). */
+  transcript?: { status: TranscriptStatus; error: string | null };
+}
+
+export type TranscriptStatus = "none" | "pending" | "running" | "done" | "failed" | "off" | "deleted";
+
+/** Step 90, part B: a recording's transcript, one paragraph per turn. */
+export interface MeetingTranscript {
+  recordingId: string;
+  meeting: string;
+  startedAt: string;
+  stoppedAt: string | null;
+  timeZone: string;
+  language: string | null;
+  lines: { at: string; speaker: string; text: string }[];
 }
 
 /** Step 90: whether the meeting records now, and who may switch it. */
@@ -293,6 +308,9 @@ export const meet = {
   recording: (code: string) => call<RecordingState>("GET", `${at(code)}/recording`),
   startRecording: (code: string) => call<RecordingState>("POST", `${at(code)}/recording`),
   stopRecording: (code: string) => call<RecordingState>("DELETE", `${at(code)}/recording`),
+  // Step 90, part B: the transcript (the organizer and the people in it); the organizer asks again.
+  transcript: (recordingId: string) => call<MeetingTranscript>("GET", `${MEET}/recordings/${encodeURIComponent(recordingId)}/transcript`),
+  retryTranscript: (recordingId: string) => call<{ ok: true }>("POST", `${MEET}/recordings/${encodeURIComponent(recordingId)}/transcript`),
   // Step 79: webinars. Viewers raise a hand and react through the platform.
   hand: (code: string, raised: boolean, guest?: GuestKey | null) => call<{ ok: true }>("POST", `${at(code)}/hand`, { raised, ...(guest ?? {}) }),
   reaction: (code: string, emoji: string, guest?: GuestKey | null) => call<{ ok: true }>("POST", `${at(code)}/reaction`, { emoji, ...(guest ?? {}) }),

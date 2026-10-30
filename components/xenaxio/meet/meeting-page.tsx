@@ -13,7 +13,7 @@ import { Link } from "@/i18n/navigation";
 import { withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { contrastRatio, usePortal } from "@/lib/xenaxio/portal";
-import { type GuestKey, type JoinGrant, loadGuestVisit, meet, type MeetingInfo, meetingCode, personalLink, type RecordingState, saveGuestVisit } from "@/lib/xenaxio/meet";
+import { type GuestKey, type JoinGrant, loadGuestVisit, meet, type MeetingInfo, type MeetingRecording, meetingCode, type MeetingTranscript, personalLink, type RecordingState, saveGuestVisit } from "@/lib/xenaxio/meet";
 import { type Lang, MeetLangProvider, meetError, useMeetLang } from "./lang";
 import { type Choices, PreJoin } from "./prejoin";
 import { type LeaveReason, MeetingRoom } from "./room";
@@ -116,8 +116,72 @@ function RecordingNotice() {
   );
 }
 
-/** How long the page waits for the recording to reach Files before it stops asking. */
-const RECORDING_WAIT_MS = 120_000;
+/** How long the page waits for the recording to reach Files and be transcribed before it stops asking. */
+const RECORDING_WAIT_MS = 10 * 60_000;
+
+/** The recording or its transcript is still on its way. */
+function busy(state: RecordingState): boolean {
+  const last = state.recordings[0];
+  return state.recording || last?.status === "processing" || last?.transcript?.status === "pending" || last?.transcript?.status === "running";
+}
+
+/** Step 90, part B: the transcript of the recording: on its way, readable here, or why there is none. */
+function TranscriptPart({ recording, organizer, onRetried }: { recording: MeetingRecording; organizer: boolean; onRetried: () => void }) {
+  const { lang, t } = useMeetLang();
+  const [text, setText] = useState<MeetingTranscript | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const status = recording.transcript?.status ?? "none";
+  if (status === "none") return null;
+  const show = async () => {
+    try {
+      setText(await meet.transcript(recording.id));
+    } catch (err) {
+      setError(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+    }
+  };
+  const retry = async () => {
+    try {
+      await meet.retryTranscript(recording.id);
+      onRetried();
+    } catch (err) {
+      setError(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+    }
+  };
+  const clock = (at: string) => new Date(at).toLocaleTimeString(lang === "de" ? "de-DE" : "en-GB", { timeZone: text?.timeZone, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const why = recording.transcript?.error === "ai_disabled" ? "transcript_off_ai" : recording.transcript?.error === "transcription_off" ? "transcript_off_company" : "transcript_off";
+  return (
+    <div className="mt-3 border-t border-white/10 pt-3">
+      {status === "pending" || status === "running" ? (
+        <p>{t("transcript_running")}</p>
+      ) : status === "done" ? (
+        text ? (
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {text.lines.length === 0 && <p>{t("transcript_empty")}</p>}
+            {text.lines.map((l, i) => (
+              <p key={i}>
+                <span className="text-white/50">{clock(l.at)}</span> <span className="font-medium text-white">{l.speaker}:</span> {l.text}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <button type="button" onClick={() => void show()} className="text-[var(--meet-accent,#60a5fa)] underline">
+            {t("transcript_show")}
+          </button>
+        )
+      ) : (
+        <>
+          <p>{t(status === "failed" ? "transcript_failed" : status === "deleted" ? "transcript_deleted" : why)}</p>
+          {organizer && (
+            <button type="button" onClick={() => void retry()} className="mt-2 text-[var(--meet-accent,#60a5fa)] underline">
+              {t("transcript_retry")}
+            </button>
+          )}
+        </>
+      )}
+      {error && <p className="mt-2 text-red-300">{error}</p>}
+    </div>
+  );
+}
 
 /**
  * Step 90: after the meeting, the last recording the person may see (the
@@ -127,6 +191,8 @@ const RECORDING_WAIT_MS = 120_000;
 export function RecordingResult({ code }: { code: string }) {
   const { t } = useMeetLang();
   const [state, setState] = useState<RecordingState | null>(null);
+  // Asking again after "try again" restarts the waiting.
+  const [round, setRound] = useState(0);
   useEffect(() => {
     let stop = false;
     let timer: ReturnType<typeof setTimeout> | undefined;
@@ -136,10 +202,7 @@ export function RecordingResult({ code }: { code: string }) {
         const next = await meet.recording(code);
         if (stop) return;
         setState(next);
-        const last = next.recordings[0];
-        if (next.recording || (last && last.status === "processing")) {
-          if (Date.now() < until) timer = setTimeout(() => void load(), 4000);
-        }
+        if (busy(next) && Date.now() < until) timer = setTimeout(() => void load(), 5000);
       } catch {
         // Guests and other companies see nothing.
       }
@@ -149,7 +212,7 @@ export function RecordingResult({ code }: { code: string }) {
       stop = true;
       clearTimeout(timer);
     };
-  }, [code]);
+  }, [code, round]);
   const last = state?.recordings[0];
   if (!state || (!last && !state.recording)) return null;
   const folder = last?.status === "stored" ? last.folder : null;
@@ -173,6 +236,7 @@ export function RecordingResult({ code }: { code: string }) {
       ) : (
         <p>{t("recording_saved_organizer")}</p>
       )}
+      {last?.status === "stored" && <TranscriptPart key={`${last.id}-${round}`} recording={last} organizer={state.canControl} onRetried={() => setRound((n) => n + 1)} />}
     </div>
   );
 }
