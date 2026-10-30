@@ -57,6 +57,22 @@ describe("step 78: meeting page", () => {
     expect(api.knock).not.toHaveBeenCalled();
   });
 
+  it("lets someone of the company go back before joining; a guest gets no such button", async () => {
+    api.info.mockResolvedValue({ ...info, member: true });
+    const assign = vi.fn();
+    vi.spyOn(window, "location", "get").mockReturnValue({ ...window.location, assign, origin: window.location.origin, pathname: window.location.pathname } as Location);
+    const { unmount } = render(<MeetingPage />);
+    fireEvent.click(await screen.findByRole("button", { name: "Zurück zu Acme" }));
+    expect(assign).toHaveBeenCalledWith("/");
+    expect(api.join).not.toHaveBeenCalled();
+    unmount();
+    vi.restoreAllMocks();
+    api.info.mockResolvedValue(info);
+    render(<MeetingPage />);
+    await screen.findByRole("button", { name: "Teilnahme anfragen" });
+    expect(screen.queryByRole("button", { name: /Zurück zu/ })).toBeNull();
+  });
+
   it("makes a guest wait until admitted, and keeps the place on reload", async () => {
     api.info.mockResolvedValue(info);
     api.knock.mockResolvedValue({ guestId: "g1", key: "k".repeat(32), state: "waiting" });

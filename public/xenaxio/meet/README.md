@@ -1,4 +1,4 @@
-# Background in video meetings (step 92)
+# Background in video meetings (steps 92 and 93)
 
 - `selfie_segmenter.tflite` — MediaPipe Selfie Segmenter (float16), Apache-2.0,
   from `storage.googleapis.com/mediapipe-models/image_segmenter/selfie_segmenter/float16/latest/`
@@ -7,3 +7,4 @@
 - `vision/` — MediaPipe's WebAssembly (`@mediapipe/tasks-vision`, Apache-2.0),
   copied from `node_modules` by `scripts/xenaxio/meet-vision.mjs` at build time;
   not in git.
+- `panoramas/` — 360° panoramas from Poly Haven, CC0 (step 93; details in its README).

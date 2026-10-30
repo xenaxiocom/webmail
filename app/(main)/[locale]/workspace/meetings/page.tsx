@@ -13,7 +13,7 @@ import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { meet, type MeetSettings } from "@/lib/xenaxio/meet";
 import { setMeetNavEnabled } from "@/lib/xenaxio/meet-nav";
-import { shrinkPicture } from "@/lib/xenaxio/meet-background";
+import { COMPANY_MOTION_MAX_BYTES, isMotionType, isPanorama, pictureSize, shrinkPicture } from "@/lib/xenaxio/meet-background";
 import { withBasePath } from "@/lib/browser-navigation";
 
 function MeetingsSettings() {
@@ -55,6 +55,8 @@ function MeetingsSettings() {
 
   // Step 92: the company's picture behind employees' cameras. The browser makes it a JPEG
   // of at most 1920 px first, so a photo from a phone fits the platform's 2 MB.
+  // Step 93: a GIF or video goes up as it is (10 MB at most); a panorama (twice as
+  // wide as high) as a JPEG of at most 6144 px.
   const fileInput = useRef<HTMLInputElement>(null);
   const changeBackground = async (action: () => Promise<MeetSettings>) => {
     setBusy(true);
@@ -73,7 +75,14 @@ function MeetingsSettings() {
     if (!file) return;
     let picture: Blob;
     try {
-      picture = await shrinkPicture(file, 1920);
+      if (isMotionType(file.type)) {
+        if (file.size > COMPANY_MOTION_MAX_BYTES) return setError(t("meet.errors.meet_background_too_large"));
+        picture = file;
+      } else {
+        const size = await pictureSize(file);
+        if (!size) throw new Error("unreadable");
+        picture = isPanorama(size.width, size.height) ? await shrinkPicture(file, 6144, 0.85) : await shrinkPicture(file, 1920);
+      }
     } catch {
       setError(t("meet.errors.meet_background_invalid_type"));
       return;
@@ -114,12 +123,19 @@ function MeetingsSettings() {
         <h2 className="text-sm font-medium">{t("meetadmin.background_title")}</h2>
         <p className="text-sm text-muted-foreground">{t("meetadmin.background_intro")}</p>
         {data.background ? (
-          <img src={withBasePath(data.background.url)} alt={t("meetadmin.background_title")} className="aspect-video w-full max-w-sm rounded-md border border-border object-cover" />
+          <figure className="space-y-1">
+            {data.background.kind === "animation" && data.background.contentType?.startsWith("video/") ? (
+              <video src={withBasePath(data.background.url)} muted loop autoPlay playsInline aria-label={t("meetadmin.background_title")} className="aspect-video w-full max-w-sm rounded-md border border-border object-cover" />
+            ) : (
+              <img src={withBasePath(data.background.url)} alt={t("meetadmin.background_title")} className="aspect-video w-full max-w-sm rounded-md border border-border object-cover" />
+            )}
+            <figcaption className="text-xs text-muted-foreground">{t(`meetadmin.background_kind_${data.background.kind ?? "image"}`)}</figcaption>
+          </figure>
         ) : (
           <p className="text-xs text-muted-foreground">{t("meetadmin.background_none")}</p>
         )}
         <div className="flex flex-wrap gap-2">
-          <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={(e) => void uploadBackground(e)} />
+          <input ref={fileInput} type="file" accept="image/*,video/mp4,video/webm" className="hidden" onChange={(e) => void uploadBackground(e)} />
           <Button type="button" variant="outline" disabled={busy} onClick={() => fileInput.current?.click()}>
             <Upload className="mr-1.5 h-4 w-4" />
             {data.background ? t("meetadmin.background_replace") : t("meetadmin.background_upload")}

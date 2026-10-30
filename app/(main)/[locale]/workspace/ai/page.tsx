@@ -403,6 +403,14 @@ function AiSettings() {
           {t("aiadmin.skills_open")}
         </Link>
       </section>
+      {/* Step 91: facts every employee's assistant knows. */}
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <h2 className="font-medium">{t("memory.company_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("aiadmin.knowledge_intro")}</p>
+        <Link href="/workspace/ai/knowledge" className="text-sm text-primary underline underline-offset-4">
+          {t("aiadmin.knowledge_open")}
+        </Link>
+      </section>
       {data.profiles && <ModelProfiles value={data.profiles} companyModel={own ? (data.custom?.model ?? "") : data.model} onSaved={load} />}
       {data.transcription && <TranscriptionSettings value={data.transcription} hasOwnServer={!!data.custom} onSaved={load} />}
 

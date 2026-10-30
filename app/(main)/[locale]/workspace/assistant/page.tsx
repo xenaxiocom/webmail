@@ -1,77 +1,26 @@
 "use client";
 
-// Step 36: "Assistent" — what the assistant remembers about the user. Every
-// note was confirmed by the user in the panel or written here; the user edits
-// and deletes them and can switch memory off. Nobody else sees these notes.
+// Step 36: "Assistent" — what the assistant remembers about the user.
+// Step 91: "Was der Assistent weiß" — facts the assistant keeps itself (about
+// the user, their work and the world around it, with source and end date) and
+// the company's facts; the user changes and deletes theirs and can switch
+// memory off. Nobody else sees the user's facts.
 // Step 49: above them, the tasks the assistant carries out on a schedule.
 // Step 84: below, the user's own skills and those the company gives them.
-import { type FormEvent, useCallback, useEffect, useState } from "react";
-import { useLocale } from "next-intl";
+import { useCallback, useEffect, useState } from "react";
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { ScheduleList } from "@/components/xenaxio/schedule-list";
 import { SkillManager } from "@/components/xenaxio/skill-manager";
-import { errorText, type MemoryNote, type MemoryState, ownSkills, type SkillItem, type SkillSummary, xenaxio } from "@/lib/xenaxio/api";
+import { AddFact, FactList } from "@/components/xenaxio/memory-facts";
+import { errorText, type MemoryInput, type MemoryNote, type MemoryState, ownSkills, type SkillItem, type SkillSummary, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
-
-function NoteRow({ note, maxLength, busy, onSave, onDelete }: { note: MemoryNote; maxLength: number; busy: boolean; onSave: (text: string) => Promise<boolean>; onDelete: () => void }) {
-  const t = useXT();
-  const locale = useLocale();
-  const [editing, setEditing] = useState(false);
-  const [text, setText] = useState(note.text);
-  const date = new Date(note.updatedAt).toLocaleDateString(locale, { day: "2-digit", month: "2-digit", year: "numeric" });
-
-  const save = async (e: FormEvent) => {
-    e.preventDefault();
-    if (await onSave(text)) setEditing(false);
-  };
-
-  if (editing) {
-    return (
-      <li className="px-4 py-3">
-        <form onSubmit={save} className="flex flex-wrap items-center gap-2">
-          <Input className="min-w-0 flex-1" value={text} maxLength={maxLength} onChange={(e) => setText(e.target.value)} aria-label={t("memory.edit")} autoFocus />
-          <Button size="sm" type="submit" disabled={busy || !text.trim()}>
-            {t("memory.save")}
-          </Button>
-          <Button
-            size="sm"
-            variant="outline"
-            type="button"
-            onClick={() => {
-              setText(note.text);
-              setEditing(false);
-            }}
-          >
-            {t("common.cancel")}
-          </Button>
-        </form>
-      </li>
-    );
-  }
-  return (
-    <li className="flex flex-wrap items-center gap-3 px-4 py-3">
-      <span className="min-w-0 flex-1">
-        <span className="block break-words">{note.text}</span>
-        <span className="block text-xs text-muted-foreground">{t("memory.since", { date })}</span>
-      </span>
-      <Button size="sm" variant="outline" disabled={busy} onClick={() => setEditing(true)}>
-        {t("memory.edit")}
-      </Button>
-      <Button size="sm" variant="outline" disabled={busy} onClick={onDelete}>
-        {t("memory.delete")}
-      </Button>
-    </li>
-  );
-}
 
 function Memory() {
   const t = useXT();
   const [data, setData] = useState<MemoryState | null>(null);
-  const [text, setText] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,10 +52,7 @@ function Memory() {
     }
   };
 
-  const add = async (e: FormEvent) => {
-    e.preventDefault();
-    if (await run(() => xenaxio.addMemory(text.trim()))) setText("");
-  };
+  const add = (input: MemoryInput) => run(() => xenaxio.addMemory(input));
 
   const remove = (note: MemoryNote) => {
     if (!window.confirm(t("memory.delete_confirm", { text: note.text }))) return;
@@ -121,6 +67,9 @@ function Memory() {
   if (!data) return error ? <Notice kind="error">{error}</Notice> : <Spinner label={t("common.loading")} />;
 
   const full = data.notes.length >= data.maxNotes;
+  const aboutMe = data.notes.filter((n) => (n.kind ?? "person") === "person" && !n.subject);
+  const work = data.notes.filter((n) => !aboutMe.includes(n));
+  const save = (note: MemoryNote, input: MemoryInput) => run(() => xenaxio.updateMemory(note.id, input));
   return (
     <div className="max-w-2xl space-y-6">
       <p className="text-sm text-muted-foreground">{t("memory.intro")}</p>
@@ -134,7 +83,7 @@ function Memory() {
         </Button>
       </section>
 
-      <section className="space-y-2">
+      <section className="space-y-3">
         <div className="flex items-center justify-between gap-2">
           <h2 className="font-medium">{t("memory.notes", { count: data.notes.length, max: data.maxNotes })}</h2>
           {data.notes.length > 0 && (
@@ -143,29 +92,25 @@ function Memory() {
             </Button>
           )}
         </div>
-        {data.notes.length === 0 ? (
-          <p className="text-sm text-muted-foreground">{t("memory.none")}</p>
-        ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
-            {data.notes.map((note) => (
-              <NoteRow key={note.id} note={note} maxLength={data.maxLength} busy={busy} onSave={(next) => run(() => xenaxio.updateMemory(note.id, next.trim()))} onDelete={() => remove(note)} />
-            ))}
-          </ul>
+        {/* Step 91: about the user, about their work and the world around it, the company's. */}
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">{t("memory.about_me")}</h3>
+          <FactList notes={aboutMe} maxLength={data.maxLength} busy={busy} empty={t("memory.none")} onSave={save} onDelete={remove} />
+        </div>
+        <div className="space-y-2">
+          <h3 className="text-sm font-medium">{t("memory.work")}</h3>
+          <FactList notes={work} maxLength={data.maxLength} busy={busy} empty={t("memory.none_work")} onSave={save} onDelete={remove} />
+        </div>
+        {(data.company?.length ?? 0) > 0 && (
+          <div className="space-y-2">
+            <h3 className="text-sm font-medium">{t("memory.company")}</h3>
+            <FactList notes={data.company ?? []} maxLength={data.maxLength} busy={busy} empty="" />
+            <p className="text-xs text-muted-foreground">{t("memory.company_hint")}</p>
+          </div>
         )}
       </section>
 
-      <form onSubmit={add} className="space-y-2">
-        <label htmlFor="memory-new" className="text-sm font-medium">
-          {t("memory.add")}
-        </label>
-        <div className="flex flex-wrap gap-2">
-          <Input id="memory-new" className="min-w-0 flex-1" value={text} maxLength={data.maxLength} placeholder={t("memory.add_placeholder")} onChange={(e) => setText(e.target.value)} disabled={full} />
-          <Button type="submit" disabled={busy || full || !text.trim()}>
-            {t("memory.add_button")}
-          </Button>
-        </div>
-        <p className="text-xs text-muted-foreground">{full ? t("memory.full", { max: data.maxNotes }) : t("memory.add_hint", { max: data.maxLength })}</p>
-      </form>
+      <AddFact maxLength={data.maxLength} busy={busy} full={full} fullText={t("memory.full", { max: data.maxNotes })} hint={t("memory.add_hint", { max: data.maxLength })} onAdd={add} />
 
       <p className="text-xs text-muted-foreground">{t("memory.privacy")}</p>
     </div>
