@@ -3,10 +3,9 @@
 // Step 43, part B: one message as Slack shows it — avatar and name on the
 // first of a group, text with mentions, files, reactions, the thread line and
 // a toolbar on hover.
-import { IconBookmark, IconBookmarkFilled, IconDots, IconDownload, IconMessageCircle, IconMoodPlus, IconPin, IconX } from "@tabler/icons-react";
+import { IconBookmark, IconBookmarkFilled, IconDots, IconMessageCircle, IconMoodPlus, IconPin } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
-import { useCallback, useEffect, useState } from "react";
-import { createPortal } from "react-dom";
+import { useCallback, useState } from "react";
 import { mediaUrl } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
 import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -20,6 +19,7 @@ import { cn } from "@/lib/utils";
 import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
+import { ImageViewer } from "./image-viewer";
 import { CallCard } from "@/components/xenaxio/meet/call";
 import { callOf } from "@/lib/xenaxio/meet-call";
 
@@ -49,50 +49,6 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
       <span className="w-9 shrink-0 text-right tabular-nums">{time(message.ts)}</span>
       <span>{text}</span>
     </div>
-  );
-}
-
-/**
- * A picture over the whole window. Opening the file in a new tab left the
- * installed app (standalone window) without a way back, so it stays in the app:
- * the cross, Escape or a click beside the picture closes it.
- */
-export function ImageViewer({ src, name, download, onClose }: { src: string; name: string; download: string | null; onClose: () => void }) {
-  const t = useXT();
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key !== "Escape") return;
-      // Before the chat's own Escape (mark as read), which skips open dialogs.
-      e.stopPropagation();
-      onClose();
-    };
-    document.addEventListener("keydown", onKey, true);
-    return () => document.removeEventListener("keydown", onKey, true);
-  }, [onClose]);
-  return createPortal(
-    <div
-      role="dialog"
-      aria-modal="true"
-      aria-label={name}
-      className="fixed inset-0 z-[100] flex flex-col bg-black/90"
-      onClick={(e) => e.target === e.currentTarget && onClose()}
-    >
-      <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
-        <span className="min-w-0 flex-1 truncate text-sm">{name}</span>
-        {download && (
-          <a href={download} download={name} aria-label={t("chat.download")} title={t("chat.download")} className="rounded-full p-2 hover:bg-white/15">
-            <IconDownload size={22} />
-          </a>
-        )}
-        <button type="button" onClick={onClose} aria-label={t("chat.close")} title={t("chat.close")} className="rounded-full p-2 hover:bg-white/15">
-          <IconX size={22} />
-        </button>
-      </div>
-      <div className="flex min-h-0 flex-1 items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
-        <img src={src} alt={name} className="max-h-full max-w-full object-contain" />
-      </div>
-    </div>,
-    document.body,
   );
 }
 
