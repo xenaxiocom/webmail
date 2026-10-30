@@ -136,7 +136,7 @@ interface FileState {
   listByParentId: (parentId: string | null) => Promise<FileResource[]>;
   toggleFavorite: (path: string) => void;
   addRecentFile: (name: string, id: string) => void;
-  /** Open the folder holding a node and return the node's name, or null when it is gone. */
+  /** Open the folder holding a node and return the node's name, or null when it is gone; throws when the drive cannot be listed. */
   revealNode: (id: string) => Promise<string | null>;
   /** Rename any node by id, e.g. a folder in the tree that is not listed. */
   renameNode: (id: string, newName: string) => Promise<boolean>;
@@ -1286,14 +1286,11 @@ export const useFileStore = create<FileState>((set, get) => ({
   revealNode: async (id: string) => {
     const { client, navigate } = get();
     if (!client) return null;
-    let nodes: FileNode[];
-    try {
-      nodes = isCrossAccountId(id)
-        ? await client.listAllFileNodesAcrossAccounts()
-        : await client.listAllFileNodes();
-    } catch {
-      return null;
-    }
+    // xenaxio step 87: a failed listing throws rather than reading as "no such
+    // file", so the caller can tell a missing file from a network error.
+    const nodes: FileNode[] = isCrossAccountId(id)
+      ? await client.listAllFileNodesAcrossAccounts()
+      : await client.listAllFileNodes();
     const byId = new Map(nodes.map(n => [n.id, n]));
     const node = byId.get(id);
     if (!node) return null;

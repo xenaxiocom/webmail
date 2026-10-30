@@ -2310,6 +2310,9 @@
     "admin_tools": "Einzelne Werkzeuge",
     "admin_link": "KI-Berechtigungen der Firma: Obergrenzen für alle"
   },
+  "files_open": {
+    "load_failed": "Dateien konnten nicht geladen werden."
+  },
   "files_audio": {
     "title": "Audio",
     "play": "{name} abspielen",

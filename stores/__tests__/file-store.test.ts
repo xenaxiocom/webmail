@@ -503,6 +503,13 @@ describe('file-store folder tree and moves', () => {
     useFileStore.getState().initClient(client);
     expect(await useFileStore.getState().revealNode('gone')).toBeNull();
   });
+
+  it('throws when the drive cannot be listed, rather than reporting the node gone', async () => {
+    const client = makeMockClient([dir('a', 'A', null)]);
+    client.listAllFileNodes = async () => { throw new Error('network'); };
+    useFileStore.getState().initClient(client);
+    await expect(useFileStore.getState().revealNode('a')).rejects.toThrow('network');
+  });
 });
 
 describe('file-store upload result', () => {

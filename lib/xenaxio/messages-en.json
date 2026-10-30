@@ -2310,6 +2310,9 @@
     "admin_tools": "Single tools",
     "admin_link": "Company AI permissions: limits for everyone"
   },
+  "files_open": {
+    "load_failed": "Couldn't load files."
+  },
   "files_audio": {
     "title": "Audio",
     "play": "Play {name}",
