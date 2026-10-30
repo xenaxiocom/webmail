@@ -363,8 +363,63 @@ export interface AiAdmin {
   schedules?: ScheduleSettingsInfo;
   /** Step 83: steps and input tokens per answer (null: the default); they apply on the Xenacore engine. */
   answers?: AnswerSettings;
+  /** Step 84: which model each profile uses (missing: the company's model). */
+  profiles?: { map: Partial<Record<ModelProfile, string>>; options: string[]; names: ModelProfile[] };
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
 }
+
+/** Step 84: model profiles for flows and agents. */
+export type ModelProfile = "fast" | "vision" | "smart";
+
+/** Step 84: a skill of the company or of the user (SKILL.md). */
+export interface SkillItem {
+  id: string;
+  name: string;
+  description: string;
+  enabled: boolean;
+  version: number;
+  updatedAt: string;
+}
+export interface SkillVersionInfo {
+  version: number;
+  name: string;
+  description: string;
+  createdAt: string;
+}
+export interface SkillSummary {
+  name: string;
+  description: string;
+}
+export type SkillInput = { name: string; description: string; body: string } | { file: string };
+/** The same calls for the company's skills (admin) and the user's own. */
+export interface SkillApi {
+  base: string;
+  get(id: string): Promise<{ skill: SkillItem & { body: string } }>;
+  create(input: SkillInput): Promise<{ skill: SkillItem }>;
+  update(id: string, input: SkillInput): Promise<{ skill: SkillItem }>;
+  setEnabled(id: string, enabled: boolean): Promise<{ skill: SkillItem }>;
+  remove(id: string): Promise<{ ok: true }>;
+  versions(id: string): Promise<{ versions: SkillVersionInfo[] }>;
+  restore(id: string, version: number): Promise<{ skill: SkillItem }>;
+  /** Address of the SKILL.md download. */
+  fileUrl(id: string): string;
+}
+function skillApi(base: string): SkillApi {
+  const one = (id: string) => `${base}/${encodeURIComponent(id)}`;
+  return {
+    base,
+    get: (id) => request("GET", one(id)),
+    create: (input) => request("POST", base, input),
+    update: (id, input) => request("PUT", one(id), input),
+    setEnabled: (id, enabled) => request("POST", `${one(id)}/enabled`, { enabled }),
+    remove: (id) => request("DELETE", one(id)),
+    versions: (id) => request("GET", `${one(id)}/versions`),
+    restore: (id, version) => request("POST", `${one(id)}/restore`, { version }),
+    fileUrl: (id) => `${one(id)}/file`,
+  };
+}
+export const companySkills = skillApi("/api/admin/ai/skills");
+export const ownSkills = skillApi("/api/ai/skills");
 
 /** Step 83: how far the assistant may go in one answer. */
 export interface AnswerSettings {
@@ -473,6 +528,8 @@ export interface OperatorTenant {
   /** Step 79: webinars (only on a media server of its own) and their viewers (null: the installation's default). */
   webinarsAllowed?: boolean;
   webinarsMaxViewers?: number | null;
+  /** Step F1: Xenaxio Agent Flows switched on by the operator. */
+  flowsEnabled?: boolean;
 }
 
 export interface OperatorReport {
@@ -610,6 +667,78 @@ export interface CalendarFeed {
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
 const CALENDAR_SUBSCRIPTIONS = "/api/calendar/subscriptions";
 const CALENDAR_FEEDS = "/api/calendar/feeds";
+
+/** Step F1: Xenaxio Agent Flows. */
+export type FlowTexts = string | Record<string, string>;
+export interface FlowParamDef {
+  type: string;
+  default?: unknown;
+  values?: string[];
+  required?: boolean;
+  label?: FlowTexts;
+  note?: FlowTexts;
+}
+export interface FlowDirectoryDef {
+  label?: FlowTexts;
+  fields: Record<string, unknown>;
+  key?: string;
+}
+export interface FlowTemplateInfo {
+  flow: string;
+  version: number;
+  title?: FlowTexts;
+  description?: FlowTexts;
+  params: Record<string, FlowParamDef>;
+  directories: Record<string, FlowDirectoryDef>;
+}
+export interface FlowInstallation {
+  id: string;
+  flow: string;
+  version: number;
+  title: FlowTexts;
+  params: Record<string, unknown>;
+  paramDefs: Record<string, FlowParamDef>;
+  directories: Record<string, FlowDirectoryDef>;
+  language: string;
+  status: "active" | "paused";
+  sendsPerHour: number;
+  botName: string | null;
+  hasBot: boolean;
+  createdAt: string;
+}
+export interface FlowPerson {
+  id: string;
+  name: string;
+  language: string | null;
+  telegramChatId: number | null;
+}
+export interface FlowRunSummary {
+  id: string;
+  number: string;
+  status: "running" | "waiting" | "done" | "failed" | "cancelled";
+  result: string | null;
+  step: string;
+  waiting: string | null;
+  initiator: string | null;
+  createdAt: string;
+  updatedAt: string;
+}
+export interface FlowJournalEntry {
+  runId: string;
+  at: string;
+  step?: string;
+  actor: { kind: "engine" | "person" | "rule" | "model"; id?: string };
+  what: string;
+  detail?: Record<string, unknown>;
+}
+export interface FlowsOverview {
+  enabled: boolean;
+  journalYears: number;
+  templates: FlowTemplateInfo[];
+  installations: FlowInstallation[];
+  people: FlowPerson[];
+  mailboxes: { id: string; email: string }[];
+}
 
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
@@ -767,9 +896,35 @@ export const xenaxio = {
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
   setCustomModelFallback: (enabled: boolean) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/fallback", { enabled }),
   removeCustomModel: () => request<{ ok: true }>("DELETE", "/api/admin/ai/custom"),
+  // Step 84: skills and model profiles.
+  adminSkills: () => request<{ company: SkillItem[]; platform: (SkillSummary & { enabled: boolean })[]; max: number }>("GET", "/api/admin/ai/skills"),
+  setPlatformSkill: (name: string, enabled: boolean) => request<{ platform: (SkillSummary & { enabled: boolean })[] }>("PUT", `/api/admin/ai/platform-skills/${encodeURIComponent(name)}`, { enabled }),
+  mySkills: () => request<{ own: SkillItem[]; company: SkillSummary[]; platform: SkillSummary[]; max: number }>("GET", "/api/ai/skills"),
+  saveModelProfiles: (map: Partial<Record<ModelProfile, string | null>>) => request<{ map: Partial<Record<ModelProfile, string>> }>("PUT", "/api/admin/ai/profiles", map),
   saveAnswerSettings: (settings: { maxToolCalls: number | null; inputTokens: number | null }) => request<{ maxToolCalls: number | null; inputTokens: number | null }>("PUT", "/api/admin/ai/answers", settings),
   setCustomModelContext: (contextTokens: number | null) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom/context", { contextTokens }),
   saveScheduleSettings: (settings: ScheduleSettings) => request<{ paused: number; schedules: ScheduleSettingsInfo }>("PUT", "/api/admin/ai/schedules", settings),
+  flows: {
+    overview: () => request<FlowsOverview>("GET", "/api/admin/flows"),
+    setJournalYears: (journalYears: number) => request<{ ok: true }>("PUT", "/api/admin/flows/settings", { journalYears }),
+    install: (flow: string, language: string) => request<FlowInstallation>("POST", "/api/admin/flows/installations", { flow, language }),
+    update: (id: string, body: { params?: Record<string, unknown>; language?: string; status?: "active" | "paused"; sendsPerHour?: number }) =>
+      request<FlowInstallation>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}`, body),
+    remove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/flows/installations/${encodeURIComponent(id)}`),
+    directory: (id: string, directory: string) =>
+      request<{ rows: Record<string, unknown>[] }>("GET", `/api/admin/flows/installations/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`),
+    importDirectory: (id: string, directory: string, csv: string) =>
+      request<{ rows: number }>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`, { csv }),
+    connectTelegram: (id: string, token: string) => request<{ botName: string }>("PUT", `/api/admin/flows/installations/${encodeURIComponent(id)}/telegram`, { token }),
+    disconnectTelegram: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/flows/installations/${encodeURIComponent(id)}/telegram`),
+    runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `/api/admin/flows/installations/${encodeURIComponent(id)}/runs`),
+    run: (id: string) =>
+      request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `/api/admin/flows/runs/${encodeURIComponent(id)}`),
+    addPerson: (name: string, language: string | null) => request<FlowPerson>("POST", "/api/admin/flows/people", { name, language }),
+    removePerson: (id: string) => request<{ ok: boolean }>("DELETE", `/api/admin/flows/people/${encodeURIComponent(id)}`),
+    personCode: (id: string) => request<{ code: string; link: string | null }>("POST", `/api/admin/flows/people/${encodeURIComponent(id)}/code`, {}),
+  },
+
   audit: (f: AuditFilter) => request<{ entries: AuditEntry[]; next: number | null }>("GET", `/api/admin/audit${auditQuery(f)}`),
 
   operator: {
@@ -798,6 +953,7 @@ export const xenaxio = {
         meetingsMaxHours?: number | null;
         webinarsAllowed?: boolean;
         webinarsMaxViewers?: number | null;
+        flowsEnabled?: boolean;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),

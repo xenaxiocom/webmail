@@ -24,6 +24,7 @@ import {
   type AssistantCommand,
   type AssistantEvent,
   assistantIds,
+  pageOf,
   type AttachedFile,
   ASSISTANT_OPEN_PARAM,
   ASSISTANT_WAITING,
@@ -80,6 +81,8 @@ interface Turn {
   plan?: PlanItem[];
   /** Step 83: the answer stopped at the company's limit; "Weiter" goes on. */
   budget?: boolean;
+  /** Step 84: skills the answer followed. */
+  skills?: string[];
 }
 
 /** Step 83: the assistant's plan for a longer task. */
@@ -525,6 +528,7 @@ export function AssistantPanel() {
           else if (e.type === "notice") update((turn) => ({ ...turn, notice: t(`assistant.notice_${e.code}`) }));
           else if (e.type === "plan") update((turn) => ({ ...turn, plan: e.items }));
           else if (e.type === "budget") update((turn) => ({ ...turn, budget: true }));
+          else if (e.type === "skill") update((turn) => ({ ...turn, skills: [...new Set([...(turn.skills ?? []), e.name])] }));
         }
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
@@ -569,7 +573,9 @@ export function AssistantPanel() {
   }, [t]);
 
   // Step 31: mail of a shared mailbox is named with its account.
-  const context = selectedEmail ? assistantIds(selectedEmail) : {};
+  // Step 84: and the page the person is on.
+  const page = pageOf(pathname);
+  const context = { ...(selectedEmail ? assistantIds(selectedEmail) : {}), ...(page ? { page } : {}) };
 
   // Step 33: files wait under the input until the message is sent.
   const ready = pending.filter((p) => p.file).map((p) => p.file as AttachedFile);
@@ -903,6 +909,7 @@ export function AssistantPanel() {
               {turn.tool && <p className="animate-pulse text-xs text-muted-foreground">{t(`assistant.tool_${turn.tool}`)}</p>}
               {turn.role === "assistant" && !turn.text && !turn.tool && busy && i === turns.length - 1 && <p className="animate-pulse text-xs text-muted-foreground">…</p>}
               {turn.notice && <p className="text-xs text-amber-700 dark:text-amber-400">{turn.notice}</p>}
+              {turn.skills && turn.skills.length > 0 && <p className="text-xs text-muted-foreground">{t("assistant.skill_used", { names: turn.skills.join(", ") })}</p>}
               {/* Step 83: the answer stopped at the company's limit; the next answer picks up from the plan and what was found. */}
               {turn.budget && i === turns.length - 1 && !busy && (
                 <div className="flex flex-wrap items-center gap-2">
