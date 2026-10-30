@@ -27,6 +27,32 @@ type Step =
 
 const POLL_MS = 2000;
 
+/**
+ * Back to the app after the meeting. A link from the chat or the calendar opens
+ * the meeting in the same window (in the installed app there is no address bar
+ * and no back button), so go back there; otherwise to the start page.
+ */
+function backToApp() {
+  try {
+    if (history.length > 1 && document.referrer && new URL(document.referrer).origin === location.origin) return history.back();
+  } catch {
+    // An odd referrer: the start page.
+  }
+  location.assign(withBasePath("/"));
+}
+
+/** For people of the company: the way back to the app. */
+function BackToApp() {
+  const { t } = useMeetLang();
+  const portal = usePortal();
+  const name = portal?.kind === "tenant" ? portal.name : t("app_name");
+  return (
+    <button type="button" onClick={backToApp} className="mt-4 rounded-lg border border-white/20 px-4 py-2 text-white/90 hover:bg-white/10">
+      {t("back_to_app", { name })}
+    </button>
+  );
+}
+
 /** Step 79: a guest of a webinar only watches — a name, no camera check. */
 function WatchJoin({ busy, onSubmit }: { busy: boolean; onSubmit: (c: Choices) => void }) {
   const { t } = useMeetLang();
@@ -207,6 +233,7 @@ function Page() {
         <div className="max-w-md text-center">
           <h1 className="mb-2 text-xl font-semibold">{step.info.title}</h1>
           <p className="text-white/80">{t(`state_${step.info.state}`, { company: step.info.company })}</p>
+          {step.info.member && <BackToApp />}
         </div>
       )}
       {step.kind === "prejoin" && step.info.kind === "webinar" && step.info.webinar && !step.info.member && (
@@ -250,11 +277,14 @@ function Page() {
       {step.kind === "after" && (
         <div className="max-w-md text-center">
           <h1 className="mb-2 text-xl font-semibold">{t(`after_${step.reason}`)}</h1>
-          {(step.reason === "left" || step.reason === "lost" || step.reason === "failed" || step.reason === "full") && (
-            <button type="button" onClick={() => void load()} className="mt-4 rounded-lg bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-[var(--meet-accent-text,#fff)]">
-              {t("rejoin")}
-            </button>
-          )}
+          <div className="flex flex-wrap justify-center gap-3">
+            {(step.reason === "left" || step.reason === "lost" || step.reason === "failed" || step.reason === "full") && (
+              <button type="button" onClick={() => void load()} className="mt-4 rounded-lg bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-[var(--meet-accent-text,#fff)]">
+                {t("rejoin")}
+              </button>
+            )}
+            {step.info.member && <BackToApp />}
+          </div>
         </div>
       )}
     </Shell>

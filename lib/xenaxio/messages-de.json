@@ -1926,6 +1926,7 @@
     "after_full": "Die Besprechung ist voll.",
     "after_denied": "Ihre Anfrage wurde abgelehnt.",
     "rejoin": "Wieder beitreten",
+    "back_to_app": "Zurück zu {name}",
     "camera_starting": "Kamera startet …",
     "camera_off": "Kamera aus",
     "camera_on": "Kamera einschalten",
