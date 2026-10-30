@@ -11,10 +11,64 @@ import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { Link } from "@/i18n/navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { meet, type MeetSettings } from "@/lib/xenaxio/meet";
+import { type CompanyRecording, meet, type MeetSettings } from "@/lib/xenaxio/meet";
+import { formatSize } from "@/lib/xenaxio/admin-files";
 import { setMeetNavEnabled } from "@/lib/xenaxio/meet-nav";
 import { COMPANY_MOTION_MAX_BYTES, isMotionType, isPanorama, pictureSize, shrinkPicture } from "@/lib/xenaxio/meet-background";
 import { withBasePath } from "@/lib/browser-navigation";
+
+/**
+ * Step 90, part D: every recording of the company — who recorded what, how
+ * big, whether there is a transcript; deleting removes sound and transcript,
+ * also from the organizer's Files, and tells the organizer.
+ */
+function CompanyRecordings() {
+  const t = useXT();
+  const [list, setList] = useState<CompanyRecording[] | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => {
+    meet
+      .recordings()
+      .then(setList)
+      .catch(() => setList([]));
+  }, []);
+  if (!list || list.length === 0) return null;
+  const remove = async (r: CompanyRecording) => {
+    if (!window.confirm(t("meetadmin.recordings_delete_confirm", { meeting: r.meeting, organizer: r.organizer ?? "–" }))) return;
+    setError(null);
+    try {
+      await meet.deleteRecording(r.id);
+      setList((l) => (l ?? []).filter((x) => x.id !== r.id));
+    } catch (err) {
+      const code = err instanceof XenaxioApiError ? err.code : "internal";
+      const text = t(`meet.errors.${code}`);
+      setError(text === `meet.errors.${code}` ? t("meet.errors.internal") : text);
+    }
+  };
+  return (
+    <section className="space-y-3 rounded-lg border border-border bg-card p-4">
+      <h2 className="text-sm font-medium">{t("meetadmin.recordings_title")}</h2>
+      <p className="text-sm text-muted-foreground">{t("meetadmin.recordings_intro")}</p>
+      {error && <Notice kind="error">{error}</Notice>}
+      <ul className="divide-y divide-border">
+        {list.map((r) => (
+          <li key={r.id} className="flex items-start gap-3 py-2">
+            <span className="min-w-0 flex-1 text-sm">
+              <span className="block truncate font-medium">{r.meeting}</span>
+              <span className="block text-xs text-muted-foreground">
+                {new Date(r.startedAt).toLocaleString(undefined, { dateStyle: "short", timeStyle: "short" })} · {r.organizer ?? "–"} · {formatSize(r.bytes, "de")} ·{" "}
+                {t(`meetadmin.recordings_transcript_${r.transcript}`)}
+              </span>
+            </span>
+            <Button variant="outline" size="sm" disabled={r.status === "recording"} onClick={() => void remove(r)} aria-label={t("meetadmin.recordings_delete", { meeting: r.meeting })}>
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </li>
+        ))}
+      </ul>
+    </section>
+  );
+}
 
 function MeetingsSettings() {
   const t = useXT();
@@ -190,6 +244,9 @@ export default function MeetingsAdminPage() {
   return (
     <WorkspaceShell title={t("meetadmin.title")} backHref="/workspace" requireAdmin>
       <MeetingsSettings />
+      <div className="mt-6 max-w-2xl">
+        <CompanyRecordings />
+      </div>
     </WorkspaceShell>
   );
 }

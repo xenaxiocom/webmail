@@ -199,7 +199,12 @@
     "invalid_name": "Please give a name of up to 200 characters.",
     "memory_sensitive": "The assistant does not keep such things (health, religion, politics, unions, origin, sex life, passwords, card or account numbers).",
     "memory_empty": "Please enter a text.",
-    "flow_send_not_allowed": "Sending in this name is not allowed."
+    "flow_send_not_allowed": "Sending in this name is not allowed.",
+    "file_not_found": "This file no longer exists.",
+    "not_a_folder": "This is not a folder.",
+    "not_a_file": "This is a folder, not a file.",
+    "file_too_large": "The file is too large to open here.",
+    "file_not_deleted": "The file could not be deleted."
   },
   "login": {
     "title": "Sign in",
@@ -277,7 +282,9 @@
     "flows": "Flows",
     "flows_desc": "All flows of the company and how long their journal is kept",
     "permissions": "AI permissions",
-    "permissions_desc": "What the assistant and connected AI chats may do without asking"
+    "permissions_desc": "What the assistant and connected AI chats may do without asking",
+    "files": "Employees' files",
+    "files_desc": "See, open and delete employees' files"
   },
   "domain": {
     "title": "Domains and DNS",
@@ -2101,7 +2108,9 @@
       "meet_background_missing": "Upload a picture first.",
       "meet_background_invalid_type": "This file cannot be used. Please choose a picture (JPEG, PNG, WebP), a GIF or a video (MP4, WebM).",
       "meet_background_too_large": "The file is too large (picture 2 MB at most, animation or panorama 10 MB).",
-      "meet_background_too_big_dimensions": "The picture is too large (4096 pixels per side at most, a panorama 8192)."
+      "meet_background_too_big_dimensions": "The picture is too large (4096 pixels per side at most, a panorama 8192).",
+      "recording_running": "The recording is still running. Stop it first.",
+      "file_not_deleted": "The recording's files could not be deleted."
     },
     "people_one": "1 person",
     "event_create": "Create Xenaxio Meeting",
@@ -2293,7 +2302,18 @@
     "background_default_hint": "Applies to everyone who has not chosen a background of their own. Each person can change it before or during a meeting.",
     "background_kind_animation": "Animation",
     "background_kind_panorama": "360° panorama",
-    "background_kind_image": "Picture"
+    "background_kind_image": "Picture",
+    "recordings_title": "Recordings",
+    "recordings_intro": "All recordings of meetings in your company. Deleting removes the sound and the transcript, also from the Files of the person who recorded; they get an e-mail about it.",
+    "recordings_delete": "Delete the recording of {meeting}",
+    "recordings_delete_confirm": "Delete the recording of \"{meeting}\" ({organizer}) with its transcript for good?",
+    "recordings_transcript_done": "transcript",
+    "recordings_transcript_pending": "transcript being made",
+    "recordings_transcript_running": "transcript being made",
+    "recordings_transcript_none": "being saved",
+    "recordings_transcript_failed": "transcript failed",
+    "recordings_transcript_off": "no transcript",
+    "recordings_transcript_deleted": "transcript deleted"
   },
   "demo": {
     "title": "Live demo",
@@ -2597,5 +2617,19 @@
       "internal": "That did not work. Please try again."
     },
     "show_transcript": "Show the transcript of {name}"
+  },
+  "adminfiles": {
+    "title": "Employees' files",
+    "intro": "As administrator you can see, open and delete the files of everyone in your company — for example to free up space. Every look, download and deletion is recorded in the audit log, and the person gets an e-mail when files are deleted. Let your employees know that administrators can do this.",
+    "people": "People",
+    "path": "Folder",
+    "used": "{size} used (mail and files)",
+    "total": "Files: {size} in total",
+    "truncated": "This person has very many files; not all may be shown.",
+    "empty": "This folder is empty.",
+    "select": "Select {name}",
+    "delete": "Delete selected ({count})",
+    "delete_confirm": "Delete {count} items of {name} for good? Folders are deleted with everything in them. {name} gets an e-mail about it.\n\n{names}",
+    "deleted": "{count} deleted."
   }
 }

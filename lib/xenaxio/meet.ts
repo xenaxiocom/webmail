@@ -62,6 +62,20 @@ export interface MeetingTranscript {
   lines: { at: string; speaker: string; text: string }[];
 }
 
+/** Step 90, part D: a recording as the company's admin sees it. */
+export interface CompanyRecording {
+  id: string;
+  meeting: string;
+  organizer: string | null;
+  startedAt: string;
+  stoppedAt: string | null;
+  status: MeetingRecording["status"];
+  transcript: TranscriptStatus;
+  folder: string | null;
+  bytes: number;
+  speakers: string[];
+}
+
 /** Step 90: whether the meeting records now, and who may switch it. */
 export interface RecordingState {
   recording: boolean;
@@ -354,6 +368,9 @@ export const meet = {
   /** Step 92: the company's background, sent as the picture itself (the browser makes it a JPEG first). */
   uploadBackground: (picture: Blob) => upload<MeetSettings>("PUT", `${ADMIN}/background`, picture),
   removeBackground: () => call<MeetSettings>("DELETE", `${ADMIN}/background`),
+  // Step 90, part D: the company's recordings; deleting one (sound and transcript, in the organizer's Files too).
+  recordings: () => call<{ recordings: CompanyRecording[] }>("GET", `${ADMIN}/recordings`).then((r) => r.recordings),
+  deleteRecording: (id: string) => call<{ ok: true }>("DELETE", `${ADMIN}/recordings/${encodeURIComponent(id)}`),
 };
 
 /** The meeting's code from the address (/meet/<code>, also under a locale prefix). */
