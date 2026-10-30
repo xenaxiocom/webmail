@@ -38,6 +38,8 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
     // Step 79: webinars, off until the company has a media server of its own.
     webinarsAllowed: tenant.webinarsAllowed ?? false,
     webinarsMax: tenant.webinarsMaxViewers ? String(tenant.webinarsMaxViewers) : "",
+    // Step 90: recording meetings' sound (allowed unless the operator blocks it).
+    recordingAllowed: tenant.meetingsRecordingAllowed ?? true,
     // Step F1: Xenaxio Agent Flows for the company.
     flowsEnabled: tenant.flowsEnabled ?? false,
   });
@@ -60,6 +62,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         meetingsMaxHours: form.meetingsHours ? Number(form.meetingsHours) : null,
         webinarsAllowed: form.webinarsAllowed,
         webinarsMaxViewers: form.webinarsMax ? Number(form.webinarsMax) : null,
+        meetingsRecordingAllowed: form.recordingAllowed,
         flowsEnabled: form.flowsEnabled,
       });
       setMessage({ kind: "success", text: t("operator.saved") });
@@ -68,7 +71,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
       setMessage({ kind: "error", text: t(errorKey(err)) });
     }
   };
-  const set = (k: Exclude<keyof typeof form, "meetingsAllowed" | "webinarsAllowed" | "aiEngine" | "flowsEnabled">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: Exclude<keyof typeof form, "meetingsAllowed" | "webinarsAllowed" | "recordingAllowed" | "aiEngine" | "flowsEnabled">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   return (
     <form onSubmit={save} className="grid gap-3 rounded-md bg-muted/50 p-3 sm:grid-cols-2" noValidate>
       <TextField label={t("operator.max_mailboxes")} type="number" min={1} value={form.maxMailboxes} onChange={set("maxMailboxes")} />
@@ -114,6 +117,10 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         {t("operator.webinars_allowed")}
       </label>
       <TextField label={t("operator.webinars_max")} type="number" min={1} max={300} hint={t("operator.default_hint", { value: 100 })} value={form.webinarsMax} onChange={set("webinarsMax")} />
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.recordingAllowed} onChange={(e) => setForm({ ...form, recordingAllowed: e.target.checked })} />
+        {t("operator.recording_allowed")}
+      </label>
       <label className="flex items-center gap-2 text-sm sm:col-span-2">
         <input type="checkbox" className="h-4 w-4" checked={form.flowsEnabled} onChange={(e) => setForm({ ...form, flowsEnabled: e.target.checked })} />
         {t("operator.flows_enabled")}

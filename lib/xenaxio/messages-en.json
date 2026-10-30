@@ -209,7 +209,9 @@
     "not_a_folder": "This is not a folder.",
     "not_a_file": "This is a folder, not a file.",
     "file_too_large": "The file is too large to open here.",
-    "file_not_deleted": "The file could not be deleted."
+    "file_not_deleted": "The file could not be deleted.",
+    "speech_server_missing": "Set up the speech server first.",
+    "speech_server_unchecked": "Test the speech server's connection first."
   },
   "login": {
     "title": "Sign in",
@@ -471,7 +473,24 @@
     "meetings_hours": "Hours per meeting",
     "webinars_allowed": "Webinars allowed (only with a media server of its own)",
     "webinars_max": "Viewers per webinar",
-    "flows_enabled": "Flows (Xenaxio Agent Flows) allowed"
+    "flows_enabled": "Flows (Xenaxio Agent Flows) allowed",
+    "tab_models": "AI models",
+    "recording_allowed": "Recording meetings allowed",
+    "models_intro": "The models of this installation: what Xenaxio answers with, what company admins may choose, and how speech is turned into text. Your choice here overrides the deploy's variables (LLM_MODEL, LLM_MODELS, STT_MODEL). The Mistral key stays in the deploy and is not shown.",
+    "models_no_key": "No Mistral key in the deploy: the platform's chat and speech models are off (an own Whisper server still works).",
+    "models_chat": "Chat model",
+    "models_default": "Default model (companies that chose none)",
+    "models_allowed": "Models company admins may choose (comma-separated)",
+    "models_from_config": "From the deploy: {model}; choice: {models}",
+    "models_test": "Test",
+    "models_reset": "Back to the deploy's values",
+    "models_speech": "Speech model (Xenaxio speech model of the companies)",
+    "models_speech_mistral": "Mistral (Voxtral, EU)",
+    "models_speech_mistral_hint": "With the platform's Mistral key. From the deploy: {model}.",
+    "models_speech_own": "Own Whisper server of this installation",
+    "models_speech_own_hint": "Nothing goes to Mistral. Its minutes count in each company's AI allowance.",
+    "models_test_ok": "Works ({ms} ms).",
+    "models_test_failed": "Test failed: {error}"
   },
   "about": {
     "based_on": "Based on",
@@ -966,7 +985,7 @@
     "profile_smart_hint": "Checking, letters, long tasks.",
     "profile_default": "Company model ({model})",
     "transcription_title": "Transcribing audio",
-    "transcription_intro": "Voice messages and recordings in Files can be turned into text, by the button next to the file and by the assistant. The text stays with the file.",
+    "transcription_intro": "Voice messages in Files and recordings of meetings can be turned into text, by the button next to the file, by the assistant and after a recorded meeting.",
     "transcription_xenaxio": "Xenaxio speech model",
     "transcription_xenaxio_hint": "{model} from Mistral, hosted in the EU. Counts towards the AI allowance.",
     "transcription_custom": "Speech model on our own server",
@@ -978,7 +997,30 @@
     "transcription_model_hint": "The model name your server knows for /audio/transcriptions, e.g. a Whisper or Voxtral on vLLM.",
     "transcription_save": "Save",
     "knowledge_intro": "Facts every employee's assistant knows, e.g. where invoices go or who is responsible for what.",
-    "knowledge_open": "Manage company knowledge"
+    "knowledge_open": "Manage company knowledge",
+    "transcription_own_server": "Own speech server",
+    "transcription_own_server_hint": "Your company's speech server (e.g. Whisper), separate from your own chat model. Nothing goes to Mistral; not counted towards the AI allowance.",
+    "transcription_own_server_missing": "Enter your speech server below and test the connection first.",
+    "speech_url": "Address (base URL)",
+    "speech_profile": "Kind of server",
+    "speech_profile_openai": "OpenAI-compatible (Whisper via Speaches, vLLM, faster-whisper-server)",
+    "speech_profile_mistral": "Mistral-compatible (Voxtral)",
+    "speech_model": "Speech model",
+    "speech_key": "API key",
+    "speech_key_kept": "Stored — leave empty to keep it",
+    "speech_key_none": "Optional",
+    "speech_save": "Save server",
+    "speech_test": "Test connection",
+    "speech_remove": "Remove server",
+    "speech_removed": "Removed. Transcribing is off until you choose another way.",
+    "speech_untested": "Not tested yet: test the connection before choosing this server.",
+    "speech_check_ok": "Connection works: the server took a test sound ({ms} ms).",
+    "speech_check_address_not_allowed": "This address is not allowed (only public https addresses on the Xenaxio cloud).",
+    "speech_check_unreachable": "The server cannot be reached.",
+    "speech_check_timeout": "The server did not answer in time.",
+    "speech_check_unauthorized": "The server refused the key.",
+    "speech_check_model_not_found": "The server does not know this model or address (404).",
+    "speech_check_bad_response": "The server answered with an error ({status})."
   },
   "audit": {
     "title": "Audit log",
@@ -2620,7 +2662,8 @@
       "transcription_off": "Your company's admin has switched transcription off (Administration → AI).",
       "ai_not_configured": "No speech model is set up for your company.",
       "transcription_model_missing": "Your company transcribes on its own server, but the admin has not named the speech model yet (Administration → AI).",
-      "ai_limit_reached": "Your monthly AI allowance is used up."
+      "ai_limit_reached": "Your monthly AI allowance is used up.",
+      "speech_server_missing": "Your company transcribes on its own speech server, but it is not set up or its test did not pass (Administration → AI)."
     },
     "errors": {
       "ai_disabled": "AI is switched off for you or your company.",
@@ -2635,7 +2678,8 @@
       "rate_limited": "Too many requests. Please wait a minute.",
       "file_not_found": "The file is no longer there.",
       "network": "No connection. Please try again.",
-      "internal": "That did not work. Please try again."
+      "internal": "That did not work. Please try again.",
+      "speech_server_missing": "The company's speech server is not set up."
     },
     "show_transcript": "Show the transcript of {name}"
   },

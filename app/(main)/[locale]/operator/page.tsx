@@ -11,6 +11,7 @@ import {
   OperatorReportView,
   OperatorTenants,
 } from "@/components/xenaxio/operator-tenants";
+import { OperatorModels } from "@/components/xenaxio/operator-models";
 import {
   AuthCard,
   Field,
@@ -86,7 +87,7 @@ function Console({
   const [lang, setLang] = useState<"de" | "en">("de");
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"tenants" | "report" | "invitations">(
+  const [tab, setTab] = useState<"tenants" | "report" | "invitations" | "models">(
     "tenants",
   );
 
@@ -157,7 +158,7 @@ function Console({
           className="flex gap-1 border-b border-border"
           aria-label={t("operator.title")}
         >
-          {(["tenants", "report", "invitations"] as const).map((k) => (
+          {(["tenants", "report", "invitations", "models"] as const).map((k) => (
             <button
               key={k}
               type="button"
@@ -171,6 +172,7 @@ function Console({
         </nav>
         {tab === "tenants" && <OperatorTenants />}
         {tab === "report" && <OperatorReportView />}
+        {tab === "models" && <OperatorModels />}
         {tab === "invitations" && (
           <>
             {error && <Notice kind="error">{error}</Notice>}

@@ -209,7 +209,9 @@
     "not_a_folder": "Das ist kein Ordner.",
     "not_a_file": "Das ist ein Ordner, keine Datei.",
     "file_too_large": "Die Datei ist zu groß, um sie hier zu öffnen.",
-    "file_not_deleted": "Die Datei konnte nicht gelöscht werden."
+    "file_not_deleted": "Die Datei konnte nicht gelöscht werden.",
+    "speech_server_missing": "Richten Sie zuerst den Sprachserver ein.",
+    "speech_server_unchecked": "Testen Sie zuerst die Verbindung des Sprachservers."
   },
   "login": {
     "title": "Anmelden",
@@ -471,7 +473,24 @@
     "meetings_hours": "Stunden pro Meeting",
     "webinars_allowed": "Webinare erlaubt (nur mit eigenem Medienserver)",
     "webinars_max": "Zuschauer pro Webinar",
-    "flows_enabled": "Flows (Xenaxio Agent Flows) erlaubt"
+    "flows_enabled": "Flows (Xenaxio Agent Flows) erlaubt",
+    "tab_models": "KI-Modelle",
+    "recording_allowed": "Aufnahme von Besprechungen erlaubt",
+    "models_intro": "Die Modelle dieser Installation: womit Xenaxio antwortet, was Firmen-Admins wählen dürfen und wie Sprache zu Text wird. Ihre Wahl hier ersetzt die Variablen der Bereitstellung (LLM_MODEL, LLM_MODELS, STT_MODEL). Der Mistral-Schlüssel bleibt in der Bereitstellung und wird nicht angezeigt.",
+    "models_no_key": "Kein Mistral-Schlüssel in der Bereitstellung: Chat- und Sprachmodell der Plattform sind aus (ein eigener Whisper-Server funktioniert trotzdem).",
+    "models_chat": "Chat-Modell",
+    "models_default": "Standardmodell (für Firmen ohne eigene Wahl)",
+    "models_allowed": "Modelle, die Firmen-Admins wählen dürfen (durch Komma getrennt)",
+    "models_from_config": "Aus der Bereitstellung: {model}; Auswahl: {models}",
+    "models_test": "Testen",
+    "models_reset": "Zurück zu den Werten der Bereitstellung",
+    "models_speech": "Sprachmodell (Xenaxio-Sprachmodell der Firmen)",
+    "models_speech_mistral": "Mistral (Voxtral, EU)",
+    "models_speech_mistral_hint": "Mit dem Mistral-Schlüssel der Plattform. Aus der Bereitstellung: {model}.",
+    "models_speech_own": "Eigener Whisper-Server dieser Installation",
+    "models_speech_own_hint": "Nichts geht an Mistral. Seine Minuten zählen zum KI-Kontingent jeder Firma.",
+    "models_test_ok": "Funktioniert ({ms} ms).",
+    "models_test_failed": "Test fehlgeschlagen: {error}"
   },
   "about": {
     "based_on": "Basiert auf",
@@ -966,7 +985,7 @@
     "profile_smart_hint": "Abgleich, Briefe, lange Aufgaben.",
     "profile_default": "Modell des Unternehmens ({model})",
     "transcription_title": "Audio transkribieren",
-    "transcription_intro": "Sprachnachrichten und Aufnahmen in den Dateien lassen sich in Text umwandeln – per Knopf neben der Datei und durch den Assistenten. Der Text bleibt bei der Datei.",
+    "transcription_intro": "Sprachnachrichten in Dateien und Aufnahmen von Besprechungen können in Text umgewandelt werden – per Knopf neben der Datei, durch den Assistenten und nach einer aufgenommenen Besprechung.",
     "transcription_xenaxio": "Sprachmodell von Xenaxio",
     "transcription_xenaxio_hint": "{model} von Mistral, gehostet in der EU. Zählt zum KI-Kontingent.",
     "transcription_custom": "Sprachmodell auf dem eigenen Server",
@@ -978,7 +997,30 @@
     "transcription_model_hint": "Der Modellname, den Ihr Server für /audio/transcriptions kennt, z. B. ein Whisper oder Voxtral auf vLLM.",
     "transcription_save": "Speichern",
     "knowledge_intro": "Fakten, die der Assistent aller Mitarbeitenden kennt, z. B. wohin Rechnungen gehen oder wer wofür zuständig ist.",
-    "knowledge_open": "Firmenwissen verwalten"
+    "knowledge_open": "Firmenwissen verwalten",
+    "transcription_own_server": "Eigener Sprachserver",
+    "transcription_own_server_hint": "Der Sprachserver Ihrer Firma (z. B. Whisper), unabhängig von Ihrem eigenen Chat-Modell. Nichts geht an Mistral; zählt nicht zum KI-Kontingent.",
+    "transcription_own_server_missing": "Tragen Sie unten Ihren Sprachserver ein und testen Sie zuerst die Verbindung.",
+    "speech_url": "Adresse (Basis-URL)",
+    "speech_profile": "Art des Servers",
+    "speech_profile_openai": "OpenAI-kompatibel (Whisper über Speaches, vLLM, faster-whisper-server)",
+    "speech_profile_mistral": "Mistral-kompatibel (Voxtral)",
+    "speech_model": "Sprachmodell",
+    "speech_key": "API-Schlüssel",
+    "speech_key_kept": "Gespeichert – leer lassen, um ihn zu behalten",
+    "speech_key_none": "Optional",
+    "speech_save": "Server speichern",
+    "speech_test": "Verbindung testen",
+    "speech_remove": "Server entfernen",
+    "speech_removed": "Entfernt. Transkribieren ist aus, bis Sie einen anderen Weg wählen.",
+    "speech_untested": "Noch nicht getestet: Testen Sie die Verbindung, bevor Sie diesen Server wählen.",
+    "speech_check_ok": "Verbindung klappt: Der Server hat einen Testton angenommen ({ms} ms).",
+    "speech_check_address_not_allowed": "Diese Adresse ist nicht erlaubt (in der Xenaxio-Cloud nur öffentliche https-Adressen).",
+    "speech_check_unreachable": "Der Server ist nicht erreichbar.",
+    "speech_check_timeout": "Der Server hat nicht rechtzeitig geantwortet.",
+    "speech_check_unauthorized": "Der Server hat den Schlüssel abgelehnt.",
+    "speech_check_model_not_found": "Der Server kennt dieses Modell oder diese Adresse nicht (404).",
+    "speech_check_bad_response": "Der Server hat mit einem Fehler geantwortet ({status})."
   },
   "audit": {
     "title": "Protokoll",
@@ -2620,7 +2662,8 @@
       "transcription_off": "Der Admin Ihrer Firma hat das Transkribieren ausgeschaltet (Verwaltung → KI).",
       "ai_not_configured": "Für Ihre Firma ist kein Sprachmodell eingerichtet.",
       "transcription_model_missing": "Ihre Firma transkribiert auf dem eigenen Server, aber der Admin hat das Sprachmodell noch nicht eingetragen (Verwaltung → KI).",
-      "ai_limit_reached": "Ihr monatliches KI-Kontingent ist aufgebraucht."
+      "ai_limit_reached": "Ihr monatliches KI-Kontingent ist aufgebraucht.",
+      "speech_server_missing": "Ihre Firma transkribiert auf ihrem eigenen Sprachserver, aber er ist nicht eingerichtet oder sein Test ist fehlgeschlagen (Verwaltung → KI)."
     },
     "errors": {
       "ai_disabled": "Die KI ist für Sie oder Ihre Firma ausgeschaltet.",
@@ -2635,7 +2678,8 @@
       "rate_limited": "Zu viele Anfragen. Bitte eine Minute warten.",
       "file_not_found": "Die Datei ist nicht mehr da.",
       "network": "Keine Verbindung. Bitte erneut versuchen.",
-      "internal": "Das hat nicht geklappt. Bitte erneut versuchen."
+      "internal": "Das hat nicht geklappt. Bitte erneut versuchen.",
+      "speech_server_missing": "Der Sprachserver der Firma ist nicht eingerichtet."
     },
     "show_transcript": "Transkript von {name} anzeigen"
   },

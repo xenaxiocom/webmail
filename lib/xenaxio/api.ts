@@ -366,7 +366,7 @@ export interface AiAdmin {
   /** Step 84: which model each profile uses (missing: the company's model). */
   profiles?: { map: Partial<Record<ModelProfile, string>>; options: string[]; names: ModelProfile[] };
   /** Step 86: how audio files are transcribed (absent: not on this installation). */
-  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null };
+  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null; ownServer?: SpeechServerSettings | null };
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
 }
 
@@ -421,7 +421,34 @@ function skillApi(base: string): SkillApi {
   };
 }
 /** Step 86: the platform's speech model, one on the company's own server, or off. */
-export type TranscriptionMode = "xenaxio" | "custom" | "off";
+export type TranscriptionMode = "xenaxio" | "custom" | "own_server" | "off";
+
+/** Step 90, part F: the installation's models as the operator sees them (the deploy's values in fromConfig). */
+export interface InstallationModels {
+  platformKey: boolean;
+  chat: { model: string; models: string[]; fromConfig: { model: string; models: string[] } };
+  speech:
+    | { source: "mistral"; model: string; fromConfig: string }
+    | { source: "own"; baseUrl: string; profile: "openai" | "mistral"; model: string; hasKey: boolean; fromConfig: string };
+  updatedAt: string | null;
+}
+
+/** Step 90, part E: the company's own speech server (its own connection, not the chat model's). */
+export interface SpeechServerCheck {
+  ok: boolean;
+  error: "address_not_allowed" | "unreachable" | "timeout" | "unauthorized" | "model_not_found" | "bad_response" | null;
+  status: number | null;
+  ms: number | null;
+  text: string | null;
+}
+export interface SpeechServerSettings {
+  baseUrl: string;
+  profile: "openai" | "mistral";
+  model: string;
+  hasKey: boolean;
+  check: SpeechServerCheck | null;
+  checkedAt: string | null;
+}
 
 export const companySkills = skillApi("/api/admin/ai/skills");
 export const ownSkills = skillApi("/api/ai/skills");
@@ -532,6 +559,8 @@ export interface OperatorTenant {
   meetingsMaxHours?: number | null;
   /** Step 79: webinars (only on a media server of its own) and their viewers (null: the installation's default). */
   webinarsAllowed?: boolean;
+  /** Step 90: recording meetings allowed for the company. */
+  meetingsRecordingAllowed?: boolean;
   webinarsMaxViewers?: number | null;
   /** Step F1: Xenaxio Agent Flows switched on by the operator. */
   flowsEnabled?: boolean;
@@ -811,7 +840,7 @@ export interface FileTranscript {
 }
 
 /** Why this person cannot transcribe now. */
-export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "ai_limit_reached";
+export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "speech_server_missing" | "ai_limit_reached";
 
 export interface TranscriptLookup {
   available: boolean;
@@ -981,6 +1010,11 @@ export const xenaxio = {
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
   setTranscription: (change: { mode: TranscriptionMode; model?: string | null }) =>
     request<{ mode: TranscriptionMode; customModel: string | null }>("PUT", "/api/admin/ai/transcription", change),
+  // Step 90, part E: the own speech server; a key left out keeps the stored one.
+  saveSpeechServer: (input: { baseUrl: string; profile: "openai" | "mistral"; model: string; apiKey?: string | null }) =>
+    request<SpeechServerSettings>("PUT", "/api/admin/ai/speech-server", input),
+  testSpeechServer: () => request<{ result: SpeechServerCheck; settings: SpeechServerSettings }>("POST", "/api/admin/ai/speech-server/test"),
+  removeSpeechServer: () => request<{ ok: true }>("DELETE", "/api/admin/ai/speech-server"),
   saveCustomModel: (input: CustomModelInput) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom", input),
   testCustomModel: (model?: string) => request<{ check: CustomModelCheck; custom: CustomModel | null }>("POST", "/api/admin/ai/custom/test", model ? { model } : {}),
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
@@ -1055,11 +1089,21 @@ export const xenaxio = {
         meetingsMaxParticipants?: number | null;
         meetingsMaxHours?: number | null;
         webinarsAllowed?: boolean;
+        meetingsRecordingAllowed?: boolean;
         webinarsMaxViewers?: number | null;
         flowsEnabled?: boolean;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
+    // Step 90, part F: the installation's models.
+    models: () => request<InstallationModels>("GET", "/api/operator/models"),
+    availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),
+    saveModels: (change: {
+      chatModel?: string | null;
+      models?: string[] | null;
+      speech?: { source: "mistral"; model?: string | null } | { source: "own"; baseUrl: string; profile: "openai" | "mistral"; model: string; apiKey?: string | null };
+    }) => request<InstallationModels>("PUT", "/api/operator/models", change),
+    testModels: (kind: "chat" | "speech", model?: string) => request<{ ok: boolean; error: string | null; ms: number | null }>("POST", "/api/operator/models/test", { kind, ...(model ? { model } : {}) }),
     setTenantSlug: (id: string, slug: string) => request<{ id: string; slug: string }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/slug`, { slug }),
     revokeInvitation: (id: string) => request<{ id: string; revokedAt: string }>("POST", `/api/operator/invitations/${encodeURIComponent(id)}/revoke`, {}),
     createInvitation: (note: string, locale: "de" | "en") =>
