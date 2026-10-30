@@ -30,6 +30,61 @@ export interface MeetingInfo {
   finishedAt?: string | null;
   /** Step 92: the company's background, only for its own people. */
   background?: MeetBackground;
+  /** Step 90: the meeting is being recorded now (guests see it before they enter). */
+  recording?: boolean;
+}
+
+/** Step 90: an earlier recording of a meeting, as its organizer and the people in it see it. */
+export interface MeetingRecording {
+  id: string;
+  /** recording → processing (into the organizer's Files) → stored, or failed. */
+  status: "recording" | "processing" | "stored" | "failed";
+  startedAt: string;
+  stoppedAt: string | null;
+  /** In the organizer's Files, e.g. "Meetings/2026-10-30 14-42 Kick-off". */
+  folder: string | null;
+  speakers: string[];
+  error: string | null;
+  /** Step 90, part B: the transcript by speaker (off: no AI or transcription off; deleted: its file was deleted). */
+  transcript?: { status: TranscriptStatus; error: string | null };
+}
+
+export type TranscriptStatus = "none" | "pending" | "running" | "done" | "failed" | "off" | "deleted";
+
+/** Step 90, part B: a recording's transcript, one paragraph per turn. */
+export interface MeetingTranscript {
+  recordingId: string;
+  meeting: string;
+  startedAt: string;
+  stoppedAt: string | null;
+  timeZone: string;
+  language: string | null;
+  lines: { at: string; speaker: string; text: string }[];
+}
+
+/** Step 90, part D: a recording as the company's admin sees it. */
+export interface CompanyRecording {
+  id: string;
+  meeting: string;
+  organizer: string | null;
+  startedAt: string;
+  stoppedAt: string | null;
+  status: MeetingRecording["status"];
+  transcript: TranscriptStatus;
+  folder: string | null;
+  bytes: number;
+  speakers: string[];
+}
+
+/** Step 90: whether the meeting records now, and who may switch it. */
+export interface RecordingState {
+  recording: boolean;
+  since: string | null;
+  /** The company may record and the installation can. */
+  available: boolean;
+  /** This person started the meeting: they switch recording on and off. */
+  canControl: boolean;
+  recordings: MeetingRecording[];
 }
 
 export interface WebinarPage {
@@ -146,6 +201,12 @@ export interface MeetSettings {
   maxHours: number;
   /** Step 92: the company's background picture for meetings; null without one. */
   background: MeetBackground | null;
+  /** Step 90: the installation can record meetings' sound. */
+  recordingAvailable?: boolean;
+  /** Step 90: the operator has not forbidden recording for the company. */
+  recordingAllowed?: boolean;
+  /** Step 90: the admin's switch (on by default). */
+  recording?: boolean;
 }
 
 /** Step 92: the company's picture behind employees' cameras (for its own people only). */
@@ -257,6 +318,13 @@ export const meet = {
   remove: (code: string, identity: string) => call<{ ok: true }>("POST", `${at(code)}/participants/remove`, { identity }),
   mute: (code: string, identity: string) => call<{ ok: true }>("POST", `${at(code)}/participants/mute`, { identity }),
   end: (code: string) => call<{ ok: true }>("POST", `${at(code)}/end`),
+  // Step 90: recording the meeting's sound (only the one who started it switches it).
+  recording: (code: string) => call<RecordingState>("GET", `${at(code)}/recording`),
+  startRecording: (code: string) => call<RecordingState>("POST", `${at(code)}/recording`),
+  stopRecording: (code: string) => call<RecordingState>("DELETE", `${at(code)}/recording`),
+  // Step 90, part B: the transcript (the organizer and the people in it); the organizer asks again.
+  transcript: (recordingId: string) => call<MeetingTranscript>("GET", `${MEET}/recordings/${encodeURIComponent(recordingId)}/transcript`),
+  retryTranscript: (recordingId: string) => call<{ ok: true }>("POST", `${MEET}/recordings/${encodeURIComponent(recordingId)}/transcript`),
   // Step 79: webinars. Viewers raise a hand and react through the platform.
   hand: (code: string, raised: boolean, guest?: GuestKey | null) => call<{ ok: true }>("POST", `${at(code)}/hand`, { raised, ...(guest ?? {}) }),
   reaction: (code: string, emoji: string, guest?: GuestKey | null) => call<{ ok: true }>("POST", `${at(code)}/reaction`, { emoji, ...(guest ?? {}) }),
@@ -296,10 +364,13 @@ export const meet = {
   },
   // The company admin.
   settings: () => call<MeetSettings>("GET", ADMIN),
-  saveSettings: (change: { enabled?: boolean; guests?: boolean; backgroundDefault?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),
+  saveSettings: (change: { enabled?: boolean; guests?: boolean; backgroundDefault?: boolean; recording?: boolean }) => call<MeetSettings>("PUT", ADMIN, change),
   /** Step 92: the company's background, sent as the picture itself (the browser makes it a JPEG first). */
   uploadBackground: (picture: Blob) => upload<MeetSettings>("PUT", `${ADMIN}/background`, picture),
   removeBackground: () => call<MeetSettings>("DELETE", `${ADMIN}/background`),
+  // Step 90, part D: the company's recordings; deleting one (sound and transcript, in the organizer's Files too).
+  recordings: () => call<{ recordings: CompanyRecording[] }>("GET", `${ADMIN}/recordings`).then((r) => r.recordings),
+  deleteRecording: (id: string) => call<{ ok: true }>("DELETE", `${ADMIN}/recordings/${encodeURIComponent(id)}`),
 };
 
 /** The meeting's code from the address (/meet/<code>, also under a locale prefix). */

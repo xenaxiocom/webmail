@@ -9,6 +9,10 @@
 // Step 79: a webinar. Viewers see only the stage (hosts and presenters), send
 // no video or sound, and raise a hand or react through the platform; hosts see
 // the hands, bring viewers onto the stage and take them off, name co-hosts.
+//
+// Step 90, part C: recording. Only the one who started the meeting switches
+// it; everyone sees an alert when it starts (and on coming in while it runs)
+// and a red bar while it runs.
 import "@livekit/components-styles";
 import { type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -49,6 +53,7 @@ import {
   Mic,
   MicOff,
   PhoneOff,
+  Record,
   ScreenShare,
   Settings,
   Smile,
@@ -73,6 +78,8 @@ const HAND_TOPIC = "xen.hand";
 const REACTION_TOPIC = "xen.reaction";
 /** Step 79: the platform tells who went onto the stage or off it. */
 const STAGE_TOPIC = "xen.stage";
+/** Step 90: the platform tells everyone when recording starts and stops. */
+const RECORDING_TOPIC = "xen.recording";
 const REACTIONS = ["👍", "👏", "😂", "❤️", "🎉", "😮"];
 const encoder = new TextEncoder();
 const decoder = new TextDecoder();
@@ -600,6 +607,7 @@ function Meeting({
   role = "member",
   guest = null,
   companyBackground,
+  recordingAtStart = false,
 }: {
   code: string;
   member: boolean;
@@ -611,6 +619,7 @@ function Meeting({
   role?: MeetingRole;
   guest?: GuestKey | null;
   companyBackground?: MeetBackground | null;
+  recordingAtStart?: boolean;
 }) {
   const dock = variant === "dock";
   const webinar = kind === "webinar";
@@ -772,6 +781,76 @@ function Meeting({
     await meet.decide(code, id, admit).catch(() => undefined);
   };
 
+  // Step 90: recording. Coming in while it runs shows the alert at once.
+  const [recording, setRecording] = useState(recordingAtStart);
+  const [recordingAlert, setRecordingAlert] = useState<string | null>(recordingAtStart ? t("recording_alert") : null);
+  const [canRecord, setCanRecord] = useState(false);
+  const [recordingBusy, setRecordingBusy] = useState(false);
+  // The one who switched it has just confirmed it: no alert for them.
+  const switchedByMe = useRef(false);
+  useEffect(() => {
+    let stop = false;
+    // Guests ask the meeting's page data: recording may have started while they waited.
+    if (!member) {
+      meet
+        .info(code)
+        .then((i) => {
+          if (stop || !i.recording) return;
+          setRecording(true);
+          setRecordingAlert((a) => a ?? t("recording_alert"));
+        })
+        .catch(() => undefined);
+      return () => {
+        stop = true;
+      };
+    }
+    meet
+      .recording(code)
+      .then((s) => {
+        if (stop) return;
+        setCanRecord(s.canControl && s.available);
+        if (s.recording) {
+          setRecording(true);
+          setRecordingAlert((a) => a ?? t("recording_alert"));
+        }
+      })
+      .catch(() => undefined);
+    return () => {
+      stop = true;
+    };
+  }, [member, code, t]);
+  useDataChannel(RECORDING_TOPIC, (msg) => {
+    const data = JSON.parse(decoder.decode(msg.payload)) as { recording?: boolean; by?: string };
+    setRecording(!!data.recording);
+    const mine = switchedByMe.current;
+    switchedByMe.current = false;
+    if (data.recording) {
+      if (!mine) setRecordingAlert(data.by ? t("recording_alert_by", { name: data.by }) : t("recording_alert"));
+    } else {
+      setRecordingAlert(null);
+      setNotice(t("recording_stopped"));
+    }
+  });
+  const toggleRecording = async () => {
+    if (!recording && !window.confirm(t("recording_confirm"))) return;
+    setRecordingBusy(true);
+    switchedByMe.current = true;
+    try {
+      const s = recording ? await meet.stopRecording(code) : await meet.startRecording(code);
+      setRecording(s.recording);
+    } catch (err) {
+      switchedByMe.current = false;
+      setNotice(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+    } finally {
+      setRecordingBusy(false);
+    }
+  };
+  const recordButton = canRecord && (
+    <RoundButton label={recording ? t("recording_stop") : t("recording_start")} onClick={() => void toggleRecording()} off={recording} disabled={recordingBusy}>
+      <Record className="h-5 w-5" />
+    </RoundButton>
+  );
+
   useEffect(() => {
     if (!notice) return;
     const timer = setTimeout(() => setNotice(null), 5000);
@@ -830,6 +909,12 @@ function Meeting({
           </button>
         )}
       </header>
+      {recording && (
+        <div role="status" className="flex items-center justify-center gap-2 bg-red-700 px-4 py-1 text-sm">
+          <span className="h-2 w-2 animate-pulse rounded-full bg-white" aria-hidden />
+          {t("recording_on")}
+        </div>
+      )}
       {state === ConnectionState.Reconnecting && <div className="bg-amber-600 px-4 py-1 text-center text-sm">{t("reconnecting")}</div>}
       {!audio.canPlayAudio && (
         <button type="button" onClick={() => void room.startAudio()} className="bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-sm">
@@ -848,6 +933,20 @@ function Meeting({
             ))}
           </div>
           {notice && <div className="absolute left-1/2 top-3 -translate-x-1/2 rounded-lg bg-black/80 px-3 py-2 text-sm shadow-lg">{notice}</div>}
+          {recordingAlert && (
+            <div role="alertdialog" aria-modal="true" aria-labelledby="recording-alert-title" className="absolute inset-0 z-40 flex items-center justify-center bg-black/60 p-4">
+              <div className="max-w-sm rounded-xl bg-[#222] p-4 text-center shadow-xl">
+                <p id="recording-alert-title" className="mb-1 flex items-center justify-center gap-2 font-semibold">
+                  <span className="h-2.5 w-2.5 rounded-full bg-red-500" aria-hidden />
+                  {t("recording_title")}
+                </p>
+                <p className="mb-4 text-sm text-white/80">{recordingAlert}</p>
+                <button type="button" autoFocus onClick={() => setRecordingAlert(null)} className="rounded-lg bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-sm text-[var(--meet-accent-text,#fff)]">
+                  {t("recording_ok")}
+                </button>
+              </div>
+            </div>
+          )}
         </main>
         {panel && !dock && (
           <aside className="flex w-full max-w-sm flex-col border-l border-white/10 bg-[#1a1a1a] p-3 max-sm:absolute max-sm:inset-0 max-sm:z-20 max-sm:max-w-none">
@@ -901,6 +1000,7 @@ function Meeting({
           <MediaToggle source={Track.Source.Microphone} />
           <MediaToggle source={Track.Source.Camera} />
           {!mobile && <MediaToggle source={Track.Source.ScreenShare} />}
+          {recordButton}
           <RoundButton label={t("leave")} onClick={() => void room.disconnect()} danger>
             <PhoneOff className="h-5 w-5" />
           </RoundButton>
@@ -916,6 +1016,7 @@ function Meeting({
           </RoundButton>
         )}
         {sends && <MediaToggle source={Track.Source.ScreenShare} />}
+        {recordButton}
         <RoundButton label={myHand ? t("lower_hand") : t("raise_hand")} onClick={() => sendHand(!myHand)} active={myHand}>
           <Hand className="h-5 w-5" />
         </RoundButton>
@@ -980,6 +1081,7 @@ export function MeetingRoom({
   role = "member",
   guest = null,
   companyBackground,
+  recording = false,
 }: {
   code: string;
   token: string;
@@ -997,6 +1099,8 @@ export function MeetingRoom({
   guest?: GuestKey | null;
   /** Step 92: the company's background picture; undefined — people of the company ask for it. */
   companyBackground?: MeetBackground | null;
+  /** Step 90: recording ran when this person came in (from the page before entering). */
+  recording?: boolean;
 }) {
   const ended = useRef(false);
   // A webinar viewer has no right to send: camera and microphone stay off.
@@ -1041,7 +1145,7 @@ export function MeetingRoom({
       // A dock or full-screen call places itself; only the page takes the height.
       style={variant === "page" ? { height: "100dvh" } : { display: "contents" }}
     >
-      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} kind={kind} role={role} guest={guest} companyBackground={companyBackground} />
+      <Meeting code={code} member={member} title={title} onEnd={() => leave("ended")} variant={variant} {...(onResize ? { onResize } : {})} kind={kind} role={role} guest={guest} companyBackground={companyBackground} recordingAtStart={recording} />
       <RoomAudioRenderer />
     </LiveKitRoom>
   );

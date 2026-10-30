@@ -204,7 +204,12 @@
     "invalid_url": "Bitte eine gültige Adresse ohne Benutzer, Abfrage oder Anker angeben.",
     "invalid_connection_secret": "Bitte den Schlüssel vollständig angeben.",
     "auth_not_supported": "Diese Anmeldeart wird noch nicht unterstützt.",
-    "flow_connection": "Verbindung nicht gefunden."
+    "flow_connection": "Verbindung nicht gefunden.",
+    "file_not_found": "Diese Datei gibt es nicht mehr.",
+    "not_a_folder": "Das ist kein Ordner.",
+    "not_a_file": "Das ist ein Ordner, keine Datei.",
+    "file_too_large": "Die Datei ist zu groß, um sie hier zu öffnen.",
+    "file_not_deleted": "Die Datei konnte nicht gelöscht werden."
   },
   "login": {
     "title": "Anmelden",
@@ -282,7 +287,9 @@
     "flows": "Flows",
     "flows_desc": "Alle Flows der Firma und wie lange ihr Protokoll aufbewahrt wird",
     "permissions": "KI-Berechtigungen",
-    "permissions_desc": "Was der Assistent und verbundene KI-Chats ohne Rückfrage tun dürfen"
+    "permissions_desc": "Was der Assistent und verbundene KI-Chats ohne Rückfrage tun dürfen",
+    "files": "Dateien der Mitarbeitenden",
+    "files_desc": "Dateien der Mitarbeitenden ansehen, öffnen und löschen"
   },
   "domain": {
     "title": "Domains und DNS",
@@ -2070,7 +2077,21 @@
       "meet_background_missing": "Laden Sie zuerst ein Bild hoch.",
       "meet_background_invalid_type": "Diese Datei lässt sich nicht verwenden. Bitte ein Bild (JPEG, PNG, WebP), ein GIF oder ein Video (MP4, WebM) wählen.",
       "meet_background_too_large": "Die Datei ist zu groß (Bild höchstens 2 MB, Animation oder Panorama 10 MB).",
-      "meet_background_too_big_dimensions": "Das Bild ist zu groß (höchstens 4096 Pixel pro Seite, Panorama 8192)."
+      "meet_background_too_big_dimensions": "Das Bild ist zu groß (höchstens 4096 Pixel pro Seite, Panorama 8192).",
+      "recording_not_organizer": "Nur wer die Besprechung gestartet hat, kann die Aufnahme starten oder beenden.",
+      "recording_off": "Aufnahmen sind in Ihrer Firma nicht erlaubt.",
+      "recording_unavailable": "Diese Installation kann keine Besprechungen aufzeichnen.",
+      "recording_not_in_meeting": "Treten Sie zuerst der Besprechung bei und starten Sie dann die Aufnahme.",
+      "recording_not_found": "Diese Aufnahme gibt es nicht, oder Sie dürfen sie nicht sehen.",
+      "transcript_done": "Das Transkript ist schon da.",
+      "transcript_running": "Das Transkript wird erstellt.",
+      "transcript_pending": "Das Transkript wird erstellt.",
+      "transcript_none": "Die Aufnahme ist noch nicht gespeichert.",
+      "transcript_failed": "Das Transkript konnte nicht erstellt werden.",
+      "transcript_off": "Es gibt kein Transkript.",
+      "transcript_deleted": "Das Transkript wurde gelöscht.",
+      "recording_running": "Die Aufnahme läuft noch. Beenden Sie sie zuerst.",
+      "file_not_deleted": "Die Dateien der Aufnahme konnten nicht gelöscht werden."
     },
     "people_one": "1 Person",
     "event_create": "Xenaxio Meeting erstellen",
@@ -2233,11 +2254,35 @@
     "background_paused": "Animation pausiert, um Ihren Rechner zu entlasten.",
     "background_play_anyway": "Trotzdem abspielen",
     "background_more": "Alle {count} anzeigen",
-    "background_less": "Weniger anzeigen"
+    "background_less": "Weniger anzeigen",
+    "recording_title": "Aufnahme",
+    "recording_alert": "Diese Besprechung wird aufgezeichnet. Solange Sie teilnehmen, wird auch Ihre Stimme aufgenommen.",
+    "recording_alert_by": "{name} hat die Aufnahme dieser Besprechung gestartet. Solange Sie teilnehmen, wird auch Ihre Stimme aufgenommen.",
+    "recording_ok": "OK",
+    "recording_on": "Aufnahme läuft",
+    "recording_stopped": "Aufnahme beendet.",
+    "recording_confirm": "Aufnahme starten? Alle in der Besprechung werden informiert, auch wer später dazukommt. Das Mikrofon jeder Person wird in Ihren Dateien gespeichert.",
+    "recording_start": "Aufnahme starten",
+    "recording_stop": "Aufnahme beenden",
+    "recording_before": "Diese Besprechung wird aufgezeichnet. Wenn Sie teilnehmen, wird auch Ihre Stimme aufgenommen.",
+    "recording_saving": "Die Aufnahme wird gespeichert …",
+    "recording_saved": "In den Dateien gespeichert: {folder}",
+    "recording_saved_organizer": "In den Dateien der Person gespeichert, die die Besprechung gestartet hat.",
+    "recording_open": "In Dateien öffnen",
+    "recording_failed": "Die Aufnahme konnte nicht gespeichert werden.",
+    "transcript_running": "Das Transkript wird erstellt …",
+    "transcript_show": "Transkript anzeigen",
+    "transcript_empty": "In der Aufnahme wurde keine Sprache erkannt.",
+    "transcript_failed": "Das Transkript konnte nicht erstellt werden.",
+    "transcript_deleted": "Das Transkript wurde gelöscht.",
+    "transcript_off": "Es gibt kein Transkript.",
+    "transcript_off_ai": "Es gibt kein Transkript: Die KI ist für die Person, die die Besprechung gestartet hat, ausgeschaltet.",
+    "transcript_off_company": "Es gibt kein Transkript: Das Transkribieren ist in Ihrer Firma ausgeschaltet.",
+    "transcript_retry": "Transkript erneut erstellen"
   },
   "meetadmin": {
     "title": "Meetings",
-    "intro": "Videobesprechungen auf dem Server von Xenaxio in Deutschland. Kolleginnen und Kollegen kommen direkt herein; Gäste ohne Konto warten im Warteraum, bis jemand aus Ihrer Firma sie zulässt. Bild und Ton werden nicht gespeichert.",
+    "intro": "Videobesprechungen auf dem Server von Xenaxio in Deutschland. Kolleginnen und Kollegen kommen direkt herein; Gäste ohne Konto warten im Warteraum, bis jemand aus Ihrer Firma sie zulässt. Bild wird nie gespeichert, Ton nur, wenn die Person, die eine Besprechung gestartet hat, sie aufnimmt (alle werden informiert).",
     "on": "Meetings sind eingeschaltet.",
     "off": "Meetings sind ausgeschaltet.",
     "switch_on": "Meetings einschalten",
@@ -2259,7 +2304,21 @@
     "background_default_hint": "Gilt für alle, die noch keinen eigenen Hintergrund gewählt haben. Jede Person kann ihn vor oder während eines Meetings ändern.",
     "background_kind_animation": "Animation",
     "background_kind_panorama": "Panorama 360°",
-    "background_kind_image": "Bild"
+    "background_kind_image": "Bild",
+    "recording": "Aufnahme von Besprechungen erlauben",
+    "recording_hint": "Wer eine Besprechung gestartet hat, kann ihren Ton aufnehmen – jedes Mal neu; alle in der Besprechung werden informiert. Die Aufnahme landet in den Dateien dieser Person.",
+    "recording_forbidden": "Der Betreiber hat Aufnahmen für Ihre Firma gesperrt.",
+    "recordings_title": "Aufnahmen",
+    "recordings_intro": "Alle Aufnahmen von Besprechungen Ihrer Firma. Löschen entfernt Ton und Transkript, auch aus den Dateien der Person, die aufgenommen hat; sie erhält darüber eine E-Mail.",
+    "recordings_delete": "Aufnahme von {meeting} löschen",
+    "recordings_delete_confirm": "Die Aufnahme von „{meeting}“ ({organizer}) mit Transkript endgültig löschen?",
+    "recordings_transcript_done": "Transkript",
+    "recordings_transcript_pending": "Transkript wird erstellt",
+    "recordings_transcript_running": "Transkript wird erstellt",
+    "recordings_transcript_none": "wird gespeichert",
+    "recordings_transcript_failed": "Transkript fehlgeschlagen",
+    "recordings_transcript_off": "kein Transkript",
+    "recordings_transcript_deleted": "Transkript gelöscht"
   },
   "demo": {
     "title": "Live-Demo",
@@ -2579,5 +2638,19 @@
       "internal": "Das hat nicht geklappt. Bitte erneut versuchen."
     },
     "show_transcript": "Transkript von {name} anzeigen"
+  },
+  "adminfiles": {
+    "title": "Dateien der Mitarbeitenden",
+    "intro": "Als Administrator können Sie die Dateien aller Personen Ihrer Firma ansehen, öffnen und löschen – zum Beispiel, um Platz zu schaffen. Jedes Ansehen, Herunterladen und Löschen steht im Protokoll, und die Person erhält eine E-Mail, wenn Dateien gelöscht werden. Informieren Sie Ihre Mitarbeitenden darüber.",
+    "people": "Personen",
+    "path": "Ordner",
+    "used": "{size} belegt (E-Mail und Dateien)",
+    "total": "Dateien: {size} insgesamt",
+    "truncated": "Diese Person hat sehr viele Dateien; vielleicht werden nicht alle angezeigt.",
+    "empty": "Dieser Ordner ist leer.",
+    "select": "{name} auswählen",
+    "delete": "Ausgewählte löschen ({count})",
+    "delete_confirm": "{count} Einträge von {name} endgültig löschen? Ordner werden mit ihrem ganzen Inhalt gelöscht. {name} erhält darüber eine E-Mail.\n\n{names}",
+    "deleted": "{count} gelöscht."
   }
 }

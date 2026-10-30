@@ -204,7 +204,12 @@
     "invalid_url": "Please give a valid address without user, query or fragment.",
     "invalid_connection_secret": "Please give the complete key.",
     "auth_not_supported": "This kind of sign-in is not supported yet.",
-    "flow_connection": "Connection not found."
+    "flow_connection": "Connection not found.",
+    "file_not_found": "This file no longer exists.",
+    "not_a_folder": "This is not a folder.",
+    "not_a_file": "This is a folder, not a file.",
+    "file_too_large": "The file is too large to open here.",
+    "file_not_deleted": "The file could not be deleted."
   },
   "login": {
     "title": "Sign in",
@@ -282,7 +287,9 @@
     "flows": "Flows",
     "flows_desc": "All flows of the company and how long their journal is kept",
     "permissions": "AI permissions",
-    "permissions_desc": "What the assistant and connected AI chats may do without asking"
+    "permissions_desc": "What the assistant and connected AI chats may do without asking",
+    "files": "Employees' files",
+    "files_desc": "See, open and delete employees' files"
   },
   "domain": {
     "title": "Domains and DNS",
@@ -2070,7 +2077,21 @@
       "meet_background_missing": "Upload a picture first.",
       "meet_background_invalid_type": "This file cannot be used. Please choose a picture (JPEG, PNG, WebP), a GIF or a video (MP4, WebM).",
       "meet_background_too_large": "The file is too large (picture 2 MB at most, animation or panorama 10 MB).",
-      "meet_background_too_big_dimensions": "The picture is too large (4096 pixels per side at most, a panorama 8192)."
+      "meet_background_too_big_dimensions": "The picture is too large (4096 pixels per side at most, a panorama 8192).",
+      "recording_not_organizer": "Only the person who started the meeting can switch recording on or off.",
+      "recording_off": "Recording is not allowed in your company.",
+      "recording_unavailable": "This installation cannot record meetings.",
+      "recording_not_in_meeting": "Join the meeting first, then start recording.",
+      "recording_not_found": "This recording does not exist or you may not see it.",
+      "transcript_done": "The transcript is already there.",
+      "transcript_running": "The transcript is being made.",
+      "transcript_pending": "The transcript is being made.",
+      "transcript_none": "The recording is not saved yet.",
+      "transcript_failed": "The transcript could not be made.",
+      "transcript_off": "There is no transcript.",
+      "transcript_deleted": "The transcript was deleted.",
+      "recording_running": "The recording is still running. Stop it first.",
+      "file_not_deleted": "The recording's files could not be deleted."
     },
     "people_one": "1 person",
     "event_create": "Create Xenaxio Meeting",
@@ -2233,11 +2254,35 @@
     "background_paused": "Animation paused to spare your computer.",
     "background_play_anyway": "Play anyway",
     "background_more": "Show all {count}",
-    "background_less": "Show fewer"
+    "background_less": "Show fewer",
+    "recording_title": "Recording",
+    "recording_alert": "This meeting is being recorded. Your voice is recorded too while you are in it.",
+    "recording_alert_by": "{name} has started recording this meeting. Your voice is recorded too while you are in it.",
+    "recording_ok": "OK",
+    "recording_on": "Recording",
+    "recording_stopped": "Recording stopped.",
+    "recording_confirm": "Start recording? Everyone in the meeting is told, also those who join later. Each person's microphone is saved to your Files.",
+    "recording_start": "Start recording",
+    "recording_stop": "Stop recording",
+    "recording_before": "This meeting is being recorded. If you join, your voice will be recorded too.",
+    "recording_saving": "The recording is being saved …",
+    "recording_saved": "Saved in Files: {folder}",
+    "recording_saved_organizer": "Saved in the Files of the person who started the meeting.",
+    "recording_open": "Open in Files",
+    "recording_failed": "The recording could not be saved.",
+    "transcript_running": "The transcript is being made …",
+    "transcript_show": "Show the transcript",
+    "transcript_empty": "No speech was found in the recording.",
+    "transcript_failed": "The transcript could not be made.",
+    "transcript_deleted": "The transcript was deleted.",
+    "transcript_off": "There is no transcript.",
+    "transcript_off_ai": "There is no transcript: the AI is off for the person who started the meeting.",
+    "transcript_off_company": "There is no transcript: transcribing is turned off in your company.",
+    "transcript_retry": "Make the transcript again"
   },
   "meetadmin": {
     "title": "Meetings",
-    "intro": "Video meetings on Xenaxio's server in Germany. Colleagues come straight in; guests without an account wait in the lobby until someone from your company admits them. Video and sound are not saved.",
+    "intro": "Video meetings on Xenaxio's server in Germany. Colleagues come straight in; guests without an account wait in the lobby until someone from your company admits them. Video is never saved; sound only when the person who started a meeting records it (everyone is told).",
     "on": "Meetings are on.",
     "off": "Meetings are off.",
     "switch_on": "Turn meetings on",
@@ -2259,7 +2304,21 @@
     "background_default_hint": "Applies to everyone who has not chosen a background of their own. Each person can change it before or during a meeting.",
     "background_kind_animation": "Animation",
     "background_kind_panorama": "360° panorama",
-    "background_kind_image": "Picture"
+    "background_kind_image": "Picture",
+    "recording": "Allow recording meetings",
+    "recording_hint": "The person who started a meeting can record its sound, every time anew; everyone in the meeting is told. The recording goes to that person's Files.",
+    "recording_forbidden": "The operator has blocked recording for your company.",
+    "recordings_title": "Recordings",
+    "recordings_intro": "All recordings of meetings in your company. Deleting removes the sound and the transcript, also from the Files of the person who recorded; they get an e-mail about it.",
+    "recordings_delete": "Delete the recording of {meeting}",
+    "recordings_delete_confirm": "Delete the recording of \"{meeting}\" ({organizer}) with its transcript for good?",
+    "recordings_transcript_done": "transcript",
+    "recordings_transcript_pending": "transcript being made",
+    "recordings_transcript_running": "transcript being made",
+    "recordings_transcript_none": "being saved",
+    "recordings_transcript_failed": "transcript failed",
+    "recordings_transcript_off": "no transcript",
+    "recordings_transcript_deleted": "transcript deleted"
   },
   "demo": {
     "title": "Live demo",
@@ -2579,5 +2638,19 @@
       "internal": "That did not work. Please try again."
     },
     "show_transcript": "Show the transcript of {name}"
+  },
+  "adminfiles": {
+    "title": "Employees' files",
+    "intro": "As administrator you can see, open and delete the files of everyone in your company — for example to free up space. Every look, download and deletion is recorded in the audit log, and the person gets an e-mail when files are deleted. Let your employees know that administrators can do this.",
+    "people": "People",
+    "path": "Folder",
+    "used": "{size} used (mail and files)",
+    "total": "Files: {size} in total",
+    "truncated": "This person has very many files; not all may be shown.",
+    "empty": "This folder is empty.",
+    "select": "Select {name}",
+    "delete": "Delete selected ({count})",
+    "delete_confirm": "Delete {count} items of {name} for good? Folders are deleted with everything in them. {name} gets an e-mail about it.\n\n{names}",
+    "deleted": "{count} deleted."
   }
 }
