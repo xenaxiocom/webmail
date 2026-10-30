@@ -51,6 +51,7 @@ import { AssistantButton, useAssistantDevice, useAssistantPositions } from "./as
 import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
 import { toast } from "@/stores/toast-store";
 import { useToolLabel } from "./tool-permissions";
+import { isSettingProposal, SettingCard } from "./setting-card";
 
 type ProposalState = "pending" | "running" | "done" | "done_invited" | "invite_failed" | "rejected" | "expired" | "already" | "failed" | "memory_full" | "memory_off" | "schedule_limit";
 
@@ -927,6 +928,8 @@ export function AssistantPanel() {
                   {p.client !== undefined && <p className="text-xs text-muted-foreground">{p.client ? t("assistant.waiting.from", { client: p.client }) : t("assistant.waiting.from_unknown")}</p>}
                   {p.summary.tool && p.summary.input ? (
                     <GenericCard proposal={p} onDecide={decide} />
+                  ) : isSettingProposal(p.summary) ? (
+                    <SettingCard proposal={p} locale={locale} onDecide={(confirm) => decide(p, confirm)} />
                   ) : p.tool === "remember" || p.tool === "forget" ? (
                     <MemoryCard key={p.id} proposal={p} onDecide={decide} />
                   ) : p.tool === "schedule_task" || p.tool === "update_schedule" || p.tool === "delete_schedule" ? (

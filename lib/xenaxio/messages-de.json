@@ -681,7 +681,32 @@
       "empty": "Nichts wartet auf Sie.",
       "open": "{count} wartet auf Ihre Bestätigung",
       "done": "Ausgeführt."
-    }
+    },
+    "setting": {
+      "signature_title": "Signatur ändern",
+      "signature_remove": "Signatur entfernen",
+      "for": "Für {email}",
+      "before": "Bisher",
+      "empty": "(leer)",
+      "out_on": "Abwesenheitsnotiz einschalten",
+      "out_off": "Abwesenheitsnotiz ausschalten",
+      "period": "Zeitraum",
+      "from_until": "{from} – {until}",
+      "from_only": "ab {from}",
+      "until_only": "bis {until}",
+      "always": "ab sofort, bis Sie sie ausschalten",
+      "subject": "Betreff",
+      "text": "Text",
+      "running": "Wird gespeichert…",
+      "signature_done": "Signatur geändert.",
+      "out_on_done": "Abwesenheitsnotiz eingeschaltet.",
+      "out_off_done": "Abwesenheitsnotiz ausgeschaltet.",
+      "failed": "Konnte nicht gespeichert werden.",
+      "link": "In den Einstellungen ansehen"
+    },
+    "tool_find_setting": "Suche die Einstellung…",
+    "tool_set_signature": "Bereite eine neue Signatur vor…",
+    "tool_set_out_of_office": "Bereite die Abwesenheitsnotiz vor…"
   },
   "mcp": {
     "title": "KI-Chats verbinden",
@@ -2231,6 +2256,7 @@
       "meetings": "Meetings und Webinare",
       "memory": "Gedächtnis des Assistenten",
       "schedules": "Geplante Aufgaben",
+      "settings": "Einstellungen",
       "other": "Weitere"
     },
     "tool": {
@@ -2267,7 +2293,10 @@
       "schedule_task": "Geplante Aufgabe einrichten",
       "list_schedules": "Geplante Aufgaben ansehen",
       "update_schedule": "Geplante Aufgabe ändern",
-      "delete_schedule": "Geplante Aufgabe löschen"
+      "delete_schedule": "Geplante Aufgabe löschen",
+      "find_setting": "Einstellung finden",
+      "set_signature": "Signatur ändern",
+      "set_out_of_office": "Abwesenheitsnotiz ändern"
     },
     "admin_title": "KI-Berechtigungen der Firma",
     "admin_intro": "Obergrenze für alle in der Firma. Mitarbeitende können für sich nur strenger einstellen. Lesende Werkzeuge bleiben bei „Höchstens nachfragen“ erlaubt.",
