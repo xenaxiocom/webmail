@@ -226,18 +226,44 @@ export interface ChatContext {
   threadId?: string;
   /** Step 84: where the person is; the assistant opens that topic of tools first. */
   page?: UiPage;
+  /** Step 89: emails selected in the list (two or more). */
+  selectedEmailIds?: string[];
+  /** Step 89: what is open besides an email (ids only). */
+  open?: ScreenOpen;
+  /** Step 89: the calendar's view or Rooms' view (mentions, threads …). */
+  view?: string;
+  /** Step 89: the day the calendar shows (YYYY-MM-DD). */
+  day?: string;
+  /** Step 89: the folder open in Files. */
+  folder?: string;
+  /** Step 89: a settings or administration page (path after the language). */
+  path?: string;
 }
 
-export type UiPage = "mail" | "calendar" | "files" | "rooms" | "tasks";
+/** Step 89: something open on the screen, as the platform knows it. */
+export interface ScreenOpen {
+  kind: "event" | "task" | "file" | "room" | "thread" | "contact";
+  id: string;
+  room?: string;
+  day?: string;
+  /** An event's local start time (HH:MM). */
+  time?: string;
+}
 
-/** Step 84: the page of the app a path (without locale) belongs to. */
+export type UiPage = "mail" | "calendar" | "files" | "rooms" | "tasks" | "contacts" | "settings" | "workspace";
+
+/** Step 84: the page of the app a path (without locale) belongs to; step 89 adds contacts, settings and administration. */
 export function pageOf(pathname: string): UiPage | undefined {
   const path = pathname.replace(/\/+$/, "") || "/";
-  if (path === "/" || path === "/mail" || path.startsWith("/mail/")) return "mail";
-  if (path === "/calendar/tasks" || path.startsWith("/calendar/tasks/")) return "tasks";
-  if (path === "/calendar" || path.startsWith("/calendar/")) return "calendar";
-  if (path === "/files" || path.startsWith("/files/")) return "files";
-  if (path === "/chat" || path.startsWith("/chat/")) return "rooms";
+  const under = (base: string) => path === base || path.startsWith(`${base}/`);
+  if (path === "/" || under("/mail")) return "mail";
+  if (under("/calendar/tasks")) return "tasks";
+  if (under("/calendar")) return "calendar";
+  if (under("/files")) return "files";
+  if (under("/chat")) return "rooms";
+  if (under("/contacts")) return "contacts";
+  if (under("/settings")) return "settings";
+  if (under("/workspace")) return "workspace";
   return undefined;
 }
 

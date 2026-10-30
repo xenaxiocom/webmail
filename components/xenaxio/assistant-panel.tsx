@@ -6,7 +6,7 @@
 // has the assistant configured and enabled for the user. Step 33: files and
 // pictures go into the chat (paperclip, paste, drop) and are kept in Files.
 import { type ClipboardEvent, type DragEvent, Fragment, type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Brain, CalendarClock, CalendarDays, Check, File as FileIcon, FileText, FolderOpen, Image as ImageIcon, Loader2, MessageSquare, Paperclip, PenLine, Plus, RotateCcw, Send, Sparkles, Square, Trash2, Upload, X } from "@/components/icons";
@@ -24,7 +24,6 @@ import {
   type AssistantCommand,
   type AssistantEvent,
   assistantIds,
-  pageOf,
   type AttachedFile,
   ASSISTANT_OPEN_PARAM,
   ASSISTANT_WAITING,
@@ -52,6 +51,8 @@ import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
 import { toast } from "@/stores/toast-store";
 import { useToolLabel } from "./tool-permissions";
 import { isSettingProposal, SettingCard } from "./setting-card";
+import { useAssistantScreen } from "./use-assistant-screen";
+import { type Screen, screenSuggestions } from "@/lib/xenaxio/assistant-screen";
 
 type ProposalState = "pending" | "running" | "done" | "done_invited" | "invite_failed" | "rejected" | "expired" | "already" | "failed" | "memory_full" | "memory_off" | "schedule_limit";
 
@@ -413,12 +414,41 @@ function Formatted({ text, sources, onOpen }: { text: string; sources: SourceEma
   return <div className="space-y-2 break-words">{blocks}</div>;
 }
 
+/** Step 89: the screen in words for the panel, e.g. "Kalender · Jour fixe". */
+function useScreenLabel(screen: Screen): string | null {
+  const t = useXT();
+  const tSettings = useTranslations("settings");
+  if (!screen.page) return null;
+  const page = t(`assistant.screen.page_${screen.page}`);
+  const l = screen.label;
+  if (!l) return page;
+  let name = l.name;
+  if (l.kind === "emails") name = t("assistant.screen.emails", { count: l.name });
+  else if (l.kind === "view") name = t(`assistant.screen.view_${l.name}`);
+  else if (l.kind === "thread") name = name ? t("assistant.screen.thread_in", { room: name }) : t("assistant.screen.kind_thread");
+  else if (l.kind === "page") {
+    const [, area, tab, sub] = l.name.split("/");
+    if (area === "settings" && tab) name = tSettings.has(`tabs.${tab}`) ? tSettings(`tabs.${tab}`) : "";
+    else if (tab) {
+      const key = `workspace.${tab === "shared-mailboxes" ? "shared" : tab.replace(/-/g, "_")}`;
+      const label = t(key);
+      name = label === key ? "" : sub === "permissions" ? `${label} · ${t("workspace.permissions")}` : label;
+    }
+  } else if (!name && l.kind !== "folder") name = t(`assistant.screen.kind_${l.kind}`);
+  return name ? `${page} · ${name}` : page;
+}
+
 export function AssistantPanel() {
   const t = useXT();
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const selectedEmail = useEmailStore((s) => s.selectedEmail);
+  // Step 89: what is open on the screen; "×" asks the next question without it.
+  const screen = useAssistantScreen();
+  const [noScreen, setNoScreen] = useState(false);
+  const screenKey = JSON.stringify(screen.context);
+  useEffect(() => setNoScreen(false), [screenKey]);
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -574,9 +604,9 @@ export function AssistantPanel() {
   }, [t]);
 
   // Step 31: mail of a shared mailbox is named with its account.
-  // Step 84: and the page the person is on.
-  const page = pageOf(pathname);
-  const context = { ...(selectedEmail ? assistantIds(selectedEmail) : {}), ...(page ? { page } : {}) };
+  // Step 84: and the page the person is on; step 89: and what is open there.
+  const context = noScreen ? {} : screen.context;
+  const where = useScreenLabel(screen);
 
   // Step 33: files wait under the input until the message is sent.
   const ready = pending.filter((p) => p.file).map((p) => p.file as AttachedFile);
@@ -647,6 +677,7 @@ export function AssistantPanel() {
     for (const p of pending) if (p.preview) URL.revokeObjectURL(p.preview);
     setPending([]);
     void run((signal) => assistant.chat(text, conversationId, context, signal, files.map((f) => f.id)), text, undefined, files);
+    setNoScreen(false);
   };
 
   const summarize = useCallback(
@@ -680,6 +711,7 @@ export function AssistantPanel() {
   const ask = (text: string) => {
     setOpen(true);
     void run((signal) => assistant.chat(text, conversationId, context, signal, []), text);
+    setNoScreen(false);
   };
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -816,19 +848,38 @@ export function AssistantPanel() {
         </div>
       </header>
 
-      {selectedEmail && (
+      {/* Step 89: what the assistant looks at first; "×" asks the next question without it. */}
+      {where && (
         <div className="border-b border-border px-3 py-2 space-y-2">
-          <p className="truncate text-xs text-muted-foreground">{t("assistant.context", { subject: selectedEmail.subject || "—" })}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => summarize(selectedEmail.threadId, selectedEmail.subject ?? "")}>
-              <FileText className="mr-1.5 h-4 w-4" />
-              {t("assistant.summarize")}
-            </Button>
-            <Button variant="outline" size="sm" disabled={busy} onClick={draftReply}>
-              <PenLine className="mr-1.5 h-4 w-4" />
-              {t("assistant.reply")}
+          <div className="flex items-center gap-1">
+            <p className={cn("min-w-0 flex-1 truncate text-xs text-muted-foreground", noScreen && "line-through")} title={where}>
+              {t("assistant.screen.context", { where })}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 shrink-0 p-0"
+              onClick={() => setNoScreen((v) => !v)}
+              title={t("assistant.screen.context_off")}
+              aria-label={t("assistant.screen.context_off")}
+              aria-pressed={noScreen}
+            >
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
+          {noScreen && <p className="text-[11px] text-muted-foreground">{t("assistant.screen.context_dropped")}</p>}
+          {screen.label?.kind === "email" && selectedEmail && !noScreen && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => summarize(selectedEmail.threadId, selectedEmail.subject ?? "")}>
+                <FileText className="mr-1.5 h-4 w-4" />
+                {t("assistant.summarize")}
+              </Button>
+              <Button variant="outline" size="sm" disabled={busy} onClick={draftReply}>
+                <PenLine className="mr-1.5 h-4 w-4" />
+                {t("assistant.reply")}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 
@@ -882,6 +933,22 @@ export function AssistantPanel() {
           <div className="space-y-2 text-muted-foreground">
             <p>{t("assistant.empty")}</p>
             <p className="text-xs">{t("assistant.not_sent")}</p>
+            {/* Step 89: questions that fit the screen, one click each. */}
+            {!inDemo && !noScreen && screenSuggestions(screen).length > 0 && (
+              <div className="flex flex-col items-start gap-1.5 pt-2" aria-label={t("assistant.screen.suggestions")}>
+                {screenSuggestions(screen).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="rounded-full border border-border px-3 py-1 text-left text-xs text-foreground hover:bg-accent"
+                    onClick={() => askRef.current(t(`assistant.screen.ask_${key}`))}
+                    disabled={busy}
+                  >
+                    {t(`assistant.screen.ask_${key}`)}
+                  </button>
+                ))}
+              </div>
+            )}
             {inDemo && (
               <div className="flex flex-col items-start gap-1.5 pt-2" aria-label={t("demo.prompts_label")}>
                 {DEMO_PROMPTS.map((key) => (
