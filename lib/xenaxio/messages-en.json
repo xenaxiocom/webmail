@@ -2283,6 +2283,7 @@
       "save_file": "Save a file",
       "create_folder": "Create a folder",
       "save_attachment": "Save an attachment to Files",
+      "transcribe_audio": "Transcribe an audio file",
       "read_chat": "Read Rooms",
       "search_chat": "Search Rooms",
       "list_booking_links": "Look at booking links",
