@@ -127,8 +127,9 @@ export const LITE_API_STRING_ALLOWLIST = [
   // Step 78: video meetings (lib/xenaxio/meet.ts, workspace/meetings page).
   "/api/meet",
   "/api/admin/meetings",
-  // Step F1: Xenaxio Agent Flows (workspace/flows page).
+  // Step F1: Xenaxio Agent Flows (workspace/flows page); step F1.1: the Flows section.
   "/api/admin/flows",
+  "/api/flows",
   // Step 86: transcripts of audio files (lib/xenaxio/transcripts.ts).
   "/api/files/transcripts",
   // Path-independent generic prefix used by `apiFetch` docs/comments.
