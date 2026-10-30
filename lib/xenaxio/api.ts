@@ -423,6 +423,16 @@ function skillApi(base: string): SkillApi {
 /** Step 86: the platform's speech model, one on the company's own server, or off. */
 export type TranscriptionMode = "xenaxio" | "custom" | "own_server" | "off";
 
+/** Step 90, part F: the installation's models as the operator sees them (the deploy's values in fromConfig). */
+export interface InstallationModels {
+  platformKey: boolean;
+  chat: { model: string; models: string[]; fromConfig: { model: string; models: string[] } };
+  speech:
+    | { source: "mistral"; model: string; fromConfig: string }
+    | { source: "own"; baseUrl: string; profile: "openai" | "mistral"; model: string; hasKey: boolean; fromConfig: string };
+  updatedAt: string | null;
+}
+
 /** Step 90, part E: the company's own speech server (its own connection, not the chat model's). */
 export interface SpeechServerCheck {
   ok: boolean;
@@ -549,6 +559,8 @@ export interface OperatorTenant {
   meetingsMaxHours?: number | null;
   /** Step 79: webinars (only on a media server of its own) and their viewers (null: the installation's default). */
   webinarsAllowed?: boolean;
+  /** Step 90: recording meetings allowed for the company. */
+  meetingsRecordingAllowed?: boolean;
   webinarsMaxViewers?: number | null;
   /** Step F1: Xenaxio Agent Flows switched on by the operator. */
   flowsEnabled?: boolean;
@@ -1077,11 +1089,21 @@ export const xenaxio = {
         meetingsMaxParticipants?: number | null;
         meetingsMaxHours?: number | null;
         webinarsAllowed?: boolean;
+        meetingsRecordingAllowed?: boolean;
         webinarsMaxViewers?: number | null;
         flowsEnabled?: boolean;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
+    // Step 90, part F: the installation's models.
+    models: () => request<InstallationModels>("GET", "/api/operator/models"),
+    availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),
+    saveModels: (change: {
+      chatModel?: string | null;
+      models?: string[] | null;
+      speech?: { source: "mistral"; model?: string | null } | { source: "own"; baseUrl: string; profile: "openai" | "mistral"; model: string; apiKey?: string | null };
+    }) => request<InstallationModels>("PUT", "/api/operator/models", change),
+    testModels: (kind: "chat" | "speech", model?: string) => request<{ ok: boolean; error: string | null; ms: number | null }>("POST", "/api/operator/models/test", { kind, ...(model ? { model } : {}) }),
     setTenantSlug: (id: string, slug: string) => request<{ id: string; slug: string }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/slug`, { slug }),
     revokeInvitation: (id: string) => request<{ id: string; revokedAt: string }>("POST", `/api/operator/invitations/${encodeURIComponent(id)}/revoke`, {}),
     createInvitation: (note: string, locale: "de" | "en") =>
