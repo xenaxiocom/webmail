@@ -116,6 +116,16 @@ function switchOptions(source: BackgroundSource, placeholder: string): SwitchBac
 
 type MotionTransformer = import("./motion-transformer").MotionBackgroundTransformer;
 
+/** Whether the camera gives wider than high frames (unknown: yes, as most laptop cameras). */
+function isLandscape(track: LocalVideoTrack): boolean {
+  try {
+    const { width, height } = track.mediaStreamTrack.getSettings();
+    return !width || !height || width >= height;
+  } catch {
+    return true;
+  }
+}
+
 export interface BackgroundEffect {
   /** The browser could not do it: the camera shows the plain picture. */
   failed: boolean;
@@ -183,7 +193,8 @@ export function useBackgroundEffect(track: LocalVideoTrack | undefined, source: 
         const t = new MotionBackgroundTransformer({
           ...(options.mode === "background-blur" ? { blurRadius: options.blurRadius } : {}),
           ...(options.mode === "virtual-background" ? { imagePath: options.imagePath } : {}),
-          assetPaths: visionAssets(),
+          // Step 94: the model that fits the camera's shape.
+          assetPaths: visionAssets(isLandscape(track)),
         });
         t.onPausedChange = (p) => setPaused(p);
         t.setMotion(motion, view);

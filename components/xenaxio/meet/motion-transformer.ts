@@ -5,7 +5,11 @@
 // (step 93, part 0, docs/decisions.md). The package is pinned (0.8.2): this
 // uses its exported classes and the transformer's WebGL helper, and the tests
 // notice when an update changes them.
+//
+// Step 94: a steadier edge around the person — the model's confidence,
+// smoothed over frames (lib/xenaxio/meet-mask.ts), instead of its yes/no mask.
 import { BackgroundTransformer, type TrackTransformerDestroyOptions } from "@livekit/track-processors";
+import { MaskSmoother } from "@/lib/xenaxio/meet-mask";
 import type { FrameSource } from "@/lib/xenaxio/meet-motion";
 import { type PanoramaView, personCentre } from "@/lib/xenaxio/meet-panorama";
 
@@ -26,6 +30,15 @@ interface MaskLike {
   getAsUint8Array(): Uint8Array;
 }
 
+/** What the segmenter hands over each frame (MediaPipe's ImageSegmenterResult, the parts used here). */
+interface SegmentResult {
+  confidenceMasks?: { width: number; height: number; getAsFloat32Array(): Float32Array }[];
+}
+interface Segmenter {
+  setOptions(o: { outputConfidenceMasks: boolean }): Promise<void>;
+  segmentForVideo(frame: unknown, timestamp: number, callback: (result: SegmentResult) => void): void;
+}
+
 type BackgroundOptions = ConstructorParameters<typeof BackgroundTransformer>[0];
 
 export class MotionBackgroundTransformer extends BackgroundTransformer {
@@ -42,6 +55,12 @@ export class MotionBackgroundTransformer extends BackgroundTransformer {
   paused = false;
   /** Tells the picker when the motion stops to spare the computer, or goes on again. */
   onPausedChange: ((paused: boolean) => void) | null = null;
+  /** Step 94: the smoothed mask of this frame is in place, so the yes/no one is not used. */
+  private smoothedThisFrame = false;
+  private smoother = new MaskSmoother();
+  private maskTexture: WebGLTexture | null = null;
+  /** Step 94: off when this browser cannot give the model's confidence (the yes/no mask then serves). */
+  softMask = true;
 
   constructor(options: BackgroundOptions) {
     super(options);
@@ -59,8 +78,73 @@ export class MotionBackgroundTransformer extends BackgroundTransformer {
           // No reading this time.
         }
       }
+      if (this.smoothedThisFrame) return;
       return original(mask);
     };
+  }
+
+  /** Step 94: the model also gives its confidence, and each result goes through the smoother first. */
+  async init(options: Parameters<BackgroundTransformer["init"]>[0]) {
+    await super.init(options);
+    this.maskTexture = null;
+    this.smoother.reset();
+    const segmenter = this.imageSegmenter as unknown as Segmenter | undefined;
+    if (!segmenter || !this.softMask) return;
+    try {
+      await segmenter.setOptions({ outputConfidenceMasks: true });
+    } catch {
+      this.softMask = false;
+      return;
+    }
+    const segment = segmenter.segmentForVideo.bind(segmenter);
+    segmenter.segmentForVideo = (frame, timestamp, callback) =>
+      segment(frame, timestamp, (result) => {
+        this.smoothedThisFrame = this.showSmoothedMask(result);
+        try {
+          callback(result);
+        } finally {
+          this.smoothedThisFrame = false;
+        }
+      });
+  }
+
+  /** Puts the smoothed mask where the package's own would go; false when it cannot (the yes/no mask then serves). */
+  private showSmoothedMask(result: SegmentResult): boolean {
+    const confidence = result.confidenceMasks?.[0];
+    const canvas = this.canvas;
+    if (!this.softMask || !confidence || !canvas || !this.gl) return false;
+    try {
+      const mask = this.smoother.next(confidence.getAsFloat32Array());
+      const gl = canvas.getContext("webgl2") as WebGL2RenderingContext | null;
+      if (!gl) return false;
+      // The context is shared with MediaPipe and the package: what is changed here is put back.
+      const bound = gl.getParameter(gl.TEXTURE_BINDING_2D) as WebGLTexture | null;
+      const alignment = gl.getParameter(gl.UNPACK_ALIGNMENT) as number;
+      const flip = gl.getParameter(gl.UNPACK_FLIP_Y_WEBGL) as boolean;
+      if (!this.maskTexture) {
+        this.maskTexture = gl.createTexture();
+        gl.bindTexture(gl.TEXTURE_2D, this.maskTexture);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+        gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+      } else {
+        gl.bindTexture(gl.TEXTURE_2D, this.maskTexture);
+      }
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, 1);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, false);
+      gl.texImage2D(gl.TEXTURE_2D, 0, gl.R8, confidence.width, confidence.height, 0, gl.RED, gl.UNSIGNED_BYTE, mask);
+      gl.pixelStorei(gl.UNPACK_ALIGNMENT, alignment);
+      gl.pixelStorei(gl.UNPACK_FLIP_Y_WEBGL, flip);
+      gl.bindTexture(gl.TEXTURE_2D, bound);
+      if (!this.maskTexture) return false;
+      this.gl.updateMask(this.maskTexture);
+      return true;
+    } catch {
+      // Once is enough: from now on the yes/no mask.
+      this.softMask = false;
+      return false;
+    }
   }
 
   /** The moving background (null: none); the view of a panorama goes with it. */
