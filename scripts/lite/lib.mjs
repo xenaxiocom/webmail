@@ -129,6 +129,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/admin/meetings",
   // Step F1: Xenaxio Agent Flows (workspace/flows page).
   "/api/admin/flows",
+  // Step 86: transcripts of audio files (lib/xenaxio/transcripts.ts).
+  "/api/files/transcripts",
   // Path-independent generic prefix used by `apiFetch` docs/comments.
   "/api/",
   // stores/update-store.ts - startPolling() is a no-op in Lite.

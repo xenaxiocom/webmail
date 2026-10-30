@@ -25,6 +25,9 @@ import { ImagePreviewModal } from "@/components/files/image-preview-modal";
 import { FilePreviewModal } from "@/components/files/file-preview-modal";
 import { WopiEditor } from "@/components/files/wopi-editor";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { useAudioPlayer } from "@/lib/xenaxio/audio-player";
+import { isAudioResource } from "@/lib/xenaxio/transcripts";
+import { useTranscriptLookup } from "@/components/xenaxio/files-audio";
 import { useWopiStatus, canWopiOpen } from "@/hooks/use-wopi-status";
 import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { AlertTriangle, Loader2 } from "@/components/icons";
@@ -479,10 +482,14 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     addRecentFile(name, findResourceId(name));
   }, [addRecentFile, findResourceId]);
 
+  // Xenaxio step 86: an audio file plays in its row instead of the preview window.
+  useTranscriptLookup(resources);
   const handlePreviewFile = useCallback((name: string) => {
-    setPreviewFile(name);
+    const audioFile = XENAXIO_BFF ? resources.find((r) => r.name === name && isAudioResource(r)) : undefined;
+    if (audioFile) void useAudioPlayer.getState().toggle(audioFile.id, name, async () => (await getFileContent(name)).blob);
+    else setPreviewFile(name);
     addRecentFile(name, findResourceId(name));
-  }, [addRecentFile, findResourceId]);
+  }, [addRecentFile, findResourceId, resources, getFileContent]);
 
   const handleRenameNode = useCallback(async (id: string, newName: string) => {
     try {

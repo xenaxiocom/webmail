@@ -188,7 +188,9 @@
     "tool_not_found": "Dieses Werkzeug gibt es nicht.",
     "tool_denied": "Dieses Werkzeug ist inzwischen verboten. Die Aktion wurde nicht ausgeführt.",
     "scope_not_found": "Diese Gruppe oder dieses Werkzeug gibt es nicht.",
-    "invalid_scope": "Ungültige Auswahl."
+    "invalid_scope": "Ungültige Auswahl.",
+    "transcription_model_missing": "Tragen Sie zuerst den Namen des Sprachmodells auf Ihrem Server ein.",
+    "ai_not_configured": "Hier ist kein KI-Modell verfügbar."
   },
   "login": {
     "title": "Anmelden",
@@ -512,6 +514,7 @@
     "tool_save_file": "Speichere eine Datei…",
     "tool_create_folder": "Lege einen Ordner an…",
     "tool_save_attachment": "Speichere den Anhang in Dateien…",
+    "tool_transcribe_audio": "Transkribiere die Audiodatei…",
     "tool_list_booking_links": "Suche Ihre Buchungslinks…",
     "tool_list_booking_requests": "Sehe die Terminanfragen durch…",
     "tool_list_webinars": "Sehe Ihre Webinare durch…",
@@ -854,7 +857,19 @@
     "profile_vision_hint": "Scans, Fotos, Belege.",
     "profile_smart": "Gründlich",
     "profile_smart_hint": "Abgleich, Briefe, lange Aufgaben.",
-    "profile_default": "Modell des Unternehmens ({model})"
+    "profile_default": "Modell des Unternehmens ({model})",
+    "transcription_title": "Audio transkribieren",
+    "transcription_intro": "Sprachnachrichten und Aufnahmen in den Dateien lassen sich in Text umwandeln – per Knopf neben der Datei und durch den Assistenten. Der Text bleibt bei der Datei.",
+    "transcription_xenaxio": "Sprachmodell von Xenaxio",
+    "transcription_xenaxio_hint": "{model} von Mistral, gehostet in der EU. Zählt zum KI-Kontingent.",
+    "transcription_custom": "Sprachmodell auf dem eigenen Server",
+    "transcription_custom_hint": "Nutzt Adresse und Schlüssel Ihres eigenen Modells unten; die Aufnahme verlässt Ihren Server nicht.",
+    "transcription_custom_missing": "Richten Sie zuerst unten Ihr eigenes Modell ein; das Sprachmodell läuft auf demselben Server.",
+    "transcription_off": "Aus",
+    "transcription_off_hint": "Niemand in der Firma kann Audiodateien transkribieren.",
+    "transcription_model": "Sprachmodell auf Ihrem Server",
+    "transcription_model_hint": "Der Modellname, den Ihr Server für /audio/transcriptions kennt, z. B. ein Whisper oder Voxtral auf vLLM.",
+    "transcription_save": "Speichern"
   },
   "audit": {
     "title": "Protokoll",
@@ -2261,5 +2276,46 @@
     "admin_deny": "Verboten",
     "admin_tools": "Einzelne Werkzeuge",
     "admin_link": "KI-Berechtigungen der Firma: Obergrenzen für alle"
+  },
+  "files_audio": {
+    "title": "Audio",
+    "play": "{name} abspielen",
+    "pause": "{name} pausieren",
+    "position": "Position",
+    "cannot_play": "Dieser Browser kann die Datei nicht abspielen. Laden Sie sie stattdessen herunter.",
+    "transcript": "Transkript",
+    "transcribe": "Transkribieren",
+    "transcribing": "Wird transkribiert…",
+    "again": "Neu transkribieren",
+    "has_transcript": "Transkript vorhanden",
+    "no_speech": "Keine Sprache erkannt.",
+    "copy": "Text kopieren",
+    "copied": "Kopiert",
+    "language": "Sprache",
+    "language_auto": "Automatisch erkennen",
+    "language_detected": "Erkannte Sprache: {language}",
+    "language_chosen": "Gewählte Sprache: {language}",
+    "unavailable": {
+      "ai_disabled": "Transkribieren ist eine KI-Funktion, und die KI ist für Sie oder Ihre Firma ausgeschaltet.",
+      "transcription_off": "Der Admin Ihrer Firma hat das Transkribieren ausgeschaltet (Verwaltung → KI).",
+      "ai_not_configured": "Für Ihre Firma ist kein Sprachmodell eingerichtet.",
+      "transcription_model_missing": "Ihre Firma transkribiert auf dem eigenen Server, aber der Admin hat das Sprachmodell noch nicht eingetragen (Verwaltung → KI).",
+      "ai_limit_reached": "Ihr monatliches KI-Kontingent ist aufgebraucht."
+    },
+    "errors": {
+      "ai_disabled": "Die KI ist für Sie oder Ihre Firma ausgeschaltet.",
+      "transcription_off": "Der Admin Ihrer Firma hat das Transkribieren ausgeschaltet.",
+      "ai_not_configured": "Für Ihre Firma ist kein Sprachmodell eingerichtet.",
+      "transcription_model_missing": "Der Admin hat das Sprachmodell noch nicht eingetragen.",
+      "ai_limit_reached": "Ihr monatliches KI-Kontingent ist aufgebraucht.",
+      "audio_too_large": "Diese Datei ist zu groß zum Transkribieren.",
+      "audio_refused": "Das Sprachmodell konnte die Aufnahme nicht lesen (zu lang oder unbekanntes Format).",
+      "transcription_failed": "Das Sprachmodell hat nicht geantwortet. Bitte später erneut versuchen.",
+      "demo_ai_limit": "Die KI-Anfragen der Demo sind aufgebraucht.",
+      "rate_limited": "Zu viele Anfragen. Bitte eine Minute warten.",
+      "file_not_found": "Die Datei ist nicht mehr da.",
+      "network": "Keine Verbindung. Bitte erneut versuchen.",
+      "internal": "Das hat nicht geklappt. Bitte erneut versuchen."
+    }
   }
 }

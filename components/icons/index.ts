@@ -179,6 +179,7 @@ export {
   IconPinnedOff as PinOff,
   IconPlayerPlay as Play,
   IconPlayerPlay as PlayCircle,
+  IconPlayerPause as Pause,
   IconPlus as Plus,
   IconPower as Power,
   IconPower as PowerOff,
