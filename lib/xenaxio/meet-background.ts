@@ -43,7 +43,7 @@ export type BackgroundSource =
   | { type: "blur"; radius: number }
   | { type: "image"; url: string }
   | { type: "scene"; id: SceneId }
-  | { type: "panorama"; url: string; blob?: Blob }
+  | { type: "panorama"; url: string; blob?: Blob; yaw?: number }
   | { type: "animation"; url: string; mime: string; blob?: Blob };
 
 export const COMPANY_IMAGE = "company";
@@ -69,12 +69,16 @@ export const MEET_PICTURES = BACKGROUNDS.filter((b) => b.kind === "image").map((
 export const SCENES = ["clouds", "waves", "aurora", "colours"] as const;
 export type SceneId = (typeof SCENES)[number];
 
-/** Our panoramas: Poly Haven, CC0 (public/xenaxio/meet/panoramas/README.md), 3072 × 1536. */
+/**
+ * Our panoramas: Poly Haven, CC0 (public/xenaxio/meet/panoramas/README.md),
+ * 3072 × 1536. `yaw`: where the view starts (degrees from the middle of the
+ * picture), towards its best side; the thumbnail shows that view.
+ */
 export const PANORAMAS = [
-  { id: "pano-meadow", name: "meadow" },
-  { id: "pano-city", name: "city" },
-  { id: "pano-loft", name: "loft" },
-  { id: "pano-sunset", name: "sunset" },
+  { id: "pano-meadow", name: "meadow", yaw: 0 },
+  { id: "pano-city", name: "city", yaw: 160 },
+  { id: "pano-loft", name: "loft", yaw: 43 },
+  { id: "pano-sunset", name: "sunset", yaw: 36 },
 ].map((p) => ({ ...p, url: `/xenaxio/meet/panoramas/${p.id}.jpg`, thumb: `/xenaxio/meet/panoramas/${p.id}-thumb.jpg` }));
 
 /** Where MediaPipe's code (copied from node_modules at build time) and the model are served. */
@@ -162,7 +166,7 @@ export function backgroundSource(choice: BackgroundChoice, company: MeetBackgrou
       return (SCENES as readonly string[]).includes(choice.id) ? { type: "scene", id: choice.id } : null;
     case "panorama": {
       const p = PANORAMAS.find((x) => x.id === choice.id);
-      return p ? { type: "panorama", url: absolute(p.url) } : null;
+      return p ? { type: "panorama", url: absolute(p.url), yaw: p.yaw } : null;
     }
     case "image": {
       if (choice.id === COMPANY_IMAGE) return company ? fileSource(absolute(company.url), companyKind(company), company.contentType ?? "image/jpeg") : null;

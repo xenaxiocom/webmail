@@ -40,6 +40,8 @@ describe("panorama view", () => {
     view.setHead(-0.5, 0);
     for (let i = 0; i < 20; i++) now = view.step(0.1);
     expect(now.yaw).toBeCloseTo(-30);
+    // A panorama's view starts at its best side.
+    expect(new PanoramaView(160).step(0.1).yaw).toBeCloseTo(160);
   });
 
   it("finds the person's centre in the mask (0 = person)", () => {

@@ -61,6 +61,9 @@ export class PanoramaView {
   private firstAlpha: number | null = null;
   gyroscope = false;
 
+  /** `base`: where the view starts, in degrees from the middle of the picture. */
+  constructor(private readonly base = 0) {}
+
   /** The person's centre in the picture, -0.5..0.5 from the middle (x right, y down). */
   setHead(x: number, y: number): void {
     if (this.gyroscope) return;
@@ -82,7 +85,7 @@ export class PanoramaView {
     const k = 1 - Math.exp(-seconds * (this.gyroscope ? 12 : 3));
     this.yaw += angleDelta(this.yaw, this.targetYaw) * k;
     this.pitch += (this.targetPitch - this.pitch) * k;
-    return { yaw: this.yaw, pitch: this.pitch };
+    return { yaw: this.yaw + this.base, pitch: this.pitch };
   }
 }
 

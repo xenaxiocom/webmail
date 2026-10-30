@@ -57,7 +57,7 @@ describe("meeting background choice", () => {
     // One's own file goes along as the Blob itself (CSP connect-src 'self' would block fetching a blob: URL).
     const blob = new Blob(["pano"], { type: "image/jpeg" });
     expect(backgroundSource({ kind: "image", id: OWN_IMAGE }, null, { url: "blob:pano", kind: "panorama", type: "image/jpeg", blob })).toEqual({ type: "panorama", url: "blob:pano", blob });
-    expect(backgroundSource({ kind: "panorama", id: PANORAMAS[0]!.id }, null, null)).toEqual({ type: "panorama", url: `${location.origin}/xenaxio/meet/panoramas/${PANORAMAS[0]!.id}.jpg` });
+    expect(backgroundSource({ kind: "panorama", id: PANORAMAS[0]!.id }, null, null)).toEqual({ type: "panorama", url: `${location.origin}/xenaxio/meet/panoramas/${PANORAMAS[0]!.id}.jpg`, yaw: PANORAMAS[0]!.yaw });
     expect(backgroundSource({ kind: "scene", id: "waves" }, null, null)).toEqual({ type: "scene", id: "waves" });
     expect(backgroundSource({ kind: "blur", strength: "light" }, company, ownPicture)).toEqual({ type: "blur", radius: 6 });
     expect(moves({ type: "scene", id: "waves" })).toBe(true);

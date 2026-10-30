@@ -163,7 +163,7 @@ export function useBackgroundEffect(track: LocalVideoTrack | undefined, source: 
           import("./motion-transformer"),
           import("@/lib/xenaxio/meet-motion"),
         ]);
-        const view = wanted.type === "panorama" ? new PanoramaView() : null;
+        const view = wanted.type === "panorama" ? new PanoramaView(wanted.yaw ?? 0) : null;
         const motion = moves(wanted) ? await frameSource(wanted, view ?? new PanoramaView()) : null;
         if (!current) {
           motion?.close();
