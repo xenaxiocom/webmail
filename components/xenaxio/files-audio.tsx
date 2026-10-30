@@ -19,7 +19,7 @@ const LANGUAGES = ["de", "en", "ru", "uk", "fr", "es", "it", "pl", "tr", "nl", "
 
 /** Errors with their own message; others read "did not work". */
 const KNOWN_ERRORS = new Set([
-  "ai_disabled", "transcription_off", "ai_not_configured", "transcription_model_missing", "ai_limit_reached",
+  "ai_disabled", "transcription_off", "ai_not_configured", "transcription_model_missing", "speech_server_missing", "ai_limit_reached",
   "audio_too_large", "audio_refused", "transcription_failed", "demo_ai_limit", "rate_limited", "file_not_found", "network",
 ]);
 

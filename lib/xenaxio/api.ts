@@ -366,7 +366,7 @@ export interface AiAdmin {
   /** Step 84: which model each profile uses (missing: the company's model). */
   profiles?: { map: Partial<Record<ModelProfile, string>>; options: string[]; names: ModelProfile[] };
   /** Step 86: how audio files are transcribed (absent: not on this installation). */
-  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null };
+  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null; ownServer?: SpeechServerSettings | null };
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
 }
 
@@ -421,7 +421,24 @@ function skillApi(base: string): SkillApi {
   };
 }
 /** Step 86: the platform's speech model, one on the company's own server, or off. */
-export type TranscriptionMode = "xenaxio" | "custom" | "off";
+export type TranscriptionMode = "xenaxio" | "custom" | "own_server" | "off";
+
+/** Step 90, part E: the company's own speech server (its own connection, not the chat model's). */
+export interface SpeechServerCheck {
+  ok: boolean;
+  error: "address_not_allowed" | "unreachable" | "timeout" | "unauthorized" | "model_not_found" | "bad_response" | null;
+  status: number | null;
+  ms: number | null;
+  text: string | null;
+}
+export interface SpeechServerSettings {
+  baseUrl: string;
+  profile: "openai" | "mistral";
+  model: string;
+  hasKey: boolean;
+  check: SpeechServerCheck | null;
+  checkedAt: string | null;
+}
 
 export const companySkills = skillApi("/api/admin/ai/skills");
 export const ownSkills = skillApi("/api/ai/skills");
@@ -811,7 +828,7 @@ export interface FileTranscript {
 }
 
 /** Why this person cannot transcribe now. */
-export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "ai_limit_reached";
+export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "speech_server_missing" | "ai_limit_reached";
 
 export interface TranscriptLookup {
   available: boolean;
@@ -981,6 +998,11 @@ export const xenaxio = {
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
   setTranscription: (change: { mode: TranscriptionMode; model?: string | null }) =>
     request<{ mode: TranscriptionMode; customModel: string | null }>("PUT", "/api/admin/ai/transcription", change),
+  // Step 90, part E: the own speech server; a key left out keeps the stored one.
+  saveSpeechServer: (input: { baseUrl: string; profile: "openai" | "mistral"; model: string; apiKey?: string | null }) =>
+    request<SpeechServerSettings>("PUT", "/api/admin/ai/speech-server", input),
+  testSpeechServer: () => request<{ result: SpeechServerCheck; settings: SpeechServerSettings }>("POST", "/api/admin/ai/speech-server/test"),
+  removeSpeechServer: () => request<{ ok: true }>("DELETE", "/api/admin/ai/speech-server"),
   saveCustomModel: (input: CustomModelInput) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom", input),
   testCustomModel: (model?: string) => request<{ check: CustomModelCheck; custom: CustomModel | null }>("POST", "/api/admin/ai/custom/test", model ? { model } : {}),
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
