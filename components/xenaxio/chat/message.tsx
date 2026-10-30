@@ -3,9 +3,10 @@
 // Step 43, part B: one message as Slack shows it — avatar and name on the
 // first of a group, text with mentions, files, reactions, the thread line and
 // a toolbar on hover.
-import { IconBookmark, IconBookmarkFilled, IconDots, IconMessageCircle, IconMoodPlus, IconPin } from "@tabler/icons-react";
+import { IconBookmark, IconBookmarkFilled, IconDots, IconDownload, IconMessageCircle, IconMoodPlus, IconPin, IconX } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
-import { useCallback, useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { createPortal } from "react-dom";
 import { mediaUrl } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
 import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -51,8 +52,54 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
   );
 }
 
+/**
+ * A picture over the whole window. Opening the file in a new tab left the
+ * installed app (standalone window) without a way back, so it stays in the app:
+ * the cross, Escape or a click beside the picture closes it.
+ */
+export function ImageViewer({ src, name, download, onClose }: { src: string; name: string; download: string | null; onClose: () => void }) {
+  const t = useXT();
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      // Before the chat's own Escape (mark as read), which skips open dialogs.
+      e.stopPropagation();
+      onClose();
+    };
+    document.addEventListener("keydown", onKey, true);
+    return () => document.removeEventListener("keydown", onKey, true);
+  }, [onClose]);
+  return createPortal(
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label={name}
+      className="fixed inset-0 z-[100] flex flex-col bg-black/90"
+      onClick={(e) => e.target === e.currentTarget && onClose()}
+    >
+      <div className="flex items-center gap-2 px-4 py-3 text-white" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+        <span className="min-w-0 flex-1 truncate text-sm">{name}</span>
+        {download && (
+          <a href={download} download={name} aria-label={t("chat.download")} title={t("chat.download")} className="rounded-full p-2 hover:bg-white/15">
+            <IconDownload size={22} />
+          </a>
+        )}
+        <button type="button" onClick={onClose} aria-label={t("chat.close")} title={t("chat.close")} className="rounded-full p-2 hover:bg-white/15">
+          <IconX size={22} />
+        </button>
+      </div>
+      <div className="flex min-h-0 flex-1 items-center justify-center p-4" onClick={(e) => e.target === e.currentTarget && onClose()}>
+        <img src={src} alt={name} className="max-h-full max-w-full object-contain" />
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
 function Attachment({ content }: { content: Record<string, unknown> }) {
   const t = useXT();
+  const [viewing, setViewing] = useState(false);
+  const closeViewer = useCallback(() => setViewing(false), []);
   const info = (content.info ?? {}) as { w?: number; h?: number; size?: number; mimetype?: string };
   const name = String(content.filename ?? content.body ?? t("chat.file"));
   const url = typeof content.url === "string" ? content.url : null;
@@ -62,17 +109,29 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
     const h = info.h ?? 240;
     const scale = Math.min(1, 360 / w, 300 / h);
     return (
-      <a href={download ?? "#"} target="_blank" rel="noopener noreferrer" className="block mt-1 w-fit">
-        {/* Thumbnails come from the chat server through the platform (cookie). */}
-        <img
-          src={mediaUrl(url, { thumbnail: { width: 720, height: 600 } }) ?? ""}
-          alt={name}
-          width={Math.round(w * scale)}
-          height={Math.round(h * scale)}
-          loading="lazy"
-          className="rounded-md border border-border object-cover bg-muted max-w-full"
-        />
-      </a>
+      <>
+        <a
+          href={download ?? "#"}
+          className="block mt-1 w-fit"
+          onClick={(e) => {
+            // A plain click opens the viewer; Ctrl/Cmd-click still opens a tab.
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            setViewing(true);
+          }}
+        >
+          {/* Thumbnails come from the chat server through the platform (cookie). */}
+          <img
+            src={mediaUrl(url, { thumbnail: { width: 720, height: 600 } }) ?? ""}
+            alt={name}
+            width={Math.round(w * scale)}
+            height={Math.round(h * scale)}
+            loading="lazy"
+            className="rounded-md border border-border object-cover bg-muted max-w-full"
+          />
+        </a>
+        {viewing && download && <ImageViewer src={download} name={name} download={download} onClose={closeViewer} />}
+      </>
     );
   }
   if (content.msgtype === "m.video" && download) {
