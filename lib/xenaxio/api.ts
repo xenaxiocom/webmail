@@ -99,7 +99,7 @@ export interface Me {
     name: string;
     status: "onboarding" | "active" | "blocked";
     product?: "workspace" | "rooms";
-    /** Step 102: XenRooms Free or paid (null for Xenaxio). */
+    /** Step 103: XenRooms Free or paid (null for Xenaxio). */
     plan?: "free" | "paid" | null;
   };
   edition: "cloud" | "onprem";
@@ -181,7 +181,7 @@ export interface PortalInfo {
 }
 
 /** Step 17: whose address this page was opened on. */
-/** Step 102: the Umami website this address counts its visits in (none on-prem). */
+/** Step 103: the Umami website this address counts its visits in (none on-prem). */
 export interface PortalStats {
   stats?: { websiteId: string; product: "xenaxio" | "xenrooms" };
 }

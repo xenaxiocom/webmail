@@ -77,7 +77,7 @@ export default async function LocaleLayout({
                   {/* xenaxio: the call this browser is in and a ringing call, on every page. */}
                   <CallHost />
                   <PortalBrand />
-                  {/* xenaxio step 102: visitor statistics of the app (cloud only). */}
+                  {/* xenaxio step 103: visitor statistics of the app (cloud only). */}
                   <AppStats />
                   <WorkspaceBackground />
                 </ProtocolLaunchHandlerProvider>

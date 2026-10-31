@@ -1,6 +1,6 @@
 "use client";
 
-// Step 102: visitor statistics of the apps (lib/xenaxio/stats.ts). Loads
+// Step 103: visitor statistics of the apps (lib/xenaxio/stats.ts). Loads
 // Umami's script when this address has statistics and tells it, once known,
 // what the visit is counted under: the company and product, never the person.
 import { useEffect } from "react";

@@ -454,7 +454,7 @@ export function AssistantPanel() {
   useEffect(() => setNoScreen(false), [screenKey]);
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
-  // Step 102: opening the panel is counted (not its restore after a page change).
+  // Step 103: opening the panel is counted (not its restore after a page change).
   const openRef = useRef(open);
   openRef.current = open;
   const openPanel = useCallback(() => {

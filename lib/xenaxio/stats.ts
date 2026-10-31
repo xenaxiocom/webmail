@@ -1,4 +1,4 @@
-// Step 102: visitor statistics of the apps (Xenaxio and XenRooms) in our own
+// Step 103: visitor statistics of the apps (Xenaxio and XenRooms) in our own
 // Umami, like xenaxio.com and xenrooms.com. The platform says per address which
 // Umami website counts it (/api/portal → stats); on-prem there is none, and
 // nothing is loaded. The script comes from the app's own address

@@ -15,7 +15,7 @@ function me(overrides: Partial<Me> = {}): Me {
   } as Me;
 }
 
-describe('step 102: the screen as a template', () => {
+describe('step 103: the screen as a template', () => {
   it('drops the locale, ids, folder and mailbox names', () => {
     expect(cleanPath('/de/mail/inbox/Mxyz123')).toBe('/mail');
     expect(cleanPath('/en/mail/Kunde%20M%C3%BCller')).toBe('/mail');
@@ -50,7 +50,7 @@ describe('step 102: the screen as a template', () => {
   });
 });
 
-describe('step 102: what is sent', () => {
+describe('step 103: what is sent', () => {
   it('a referrer on this address becomes its template, an outside one only its origin', () => {
     expect(cleanReferrer('/de/mail/inbox/abc', ORIGIN)).toBe('/mail');
     expect(cleanReferrer(`${ORIGIN}/de/files/Privat?x=1`, ORIGIN)).toBe('/files');
@@ -99,7 +99,7 @@ describe('step 102: what is sent', () => {
   });
 });
 
-describe('step 102: the tracker', () => {
+describe('step 103: the tracker', () => {
   afterEach(() => {
     resetStatsForTests();
     document.head.querySelectorAll('script[src="/_stats/script.js"]').forEach((s) => s.remove());
