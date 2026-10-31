@@ -30,6 +30,8 @@ import { PollCard } from "./poll";
 import { isPollStart } from "@/lib/xenaxio/chat/poll";
 import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { SnippetDialog } from "./snippet-dialog";
+import { PostDialog } from "./post-dialog";
+import { postOf } from "@/lib/xenaxio/chat/extras";
 import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
 import { ImageViewer } from "./image-viewer";
 import { CallCard } from "@/components/xenaxio/meet/call";
@@ -437,6 +439,8 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
   const [reminding, setReminding] = useState(false);
   const remind = useChatLater((s) => s.remind);
   const snippet = snippetOf(message.content);
+  // Step 105: a forum post is edited in the dialog it was written in (title and text apart).
+  const post = postOf(message.content);
   const editSnippet = useCallback(() => setSnippetEdit(true), []);
   const saved = client.saved.some((s) => s.eventId === message.id);
   const openProfile = useCallback((userId: string) => setPanel({ kind: "profile", userId }), [setPanel]);
@@ -511,7 +515,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
         )}
         {isPollStart(message.type) ? (
           <PollCard client={client} message={message} />
-        ) : editing ? (
+        ) : editing && !post ? (
           <Editor message={message} client={client} onDone={() => setEditing(false)} />
         ) : (
           <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} onHistory={() => setHistory(true)} />
@@ -587,6 +591,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
           </span>
         </div>
       )}
+      {editing && post && <PostDialog client={client} room={room} message={message} onClose={() => setEditing(false)} />}
       {snippetEdit && snippet && (
         <SnippetDialog
           editing

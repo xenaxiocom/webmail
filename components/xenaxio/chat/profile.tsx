@@ -112,7 +112,22 @@ export function ProfileFrame({ profile, children }: { profile: UserProfile | und
 }
 
 /** A person's picture, large: moving on the card (unless motion is reduced), initials without one. */
-export function LargeAvatar({ colleague, name, email, presence, className }: { colleague: Colleague | undefined; name: string; email?: string; presence?: "online" | "unavailable" | "offline"; className?: string }) {
+export function LargeAvatar({
+  colleague,
+  name,
+  email,
+  presence,
+  framed = false,
+  className,
+}: {
+  colleague: Colleague | undefined;
+  name: string;
+  email?: string;
+  presence?: "online" | "unavailable" | "offline";
+  /** Inside a frame: the frame touches the photo, without the edge of background that sets it off the banner. */
+  framed?: boolean;
+  className?: string;
+}) {
   const reduced = useReducedMotion();
   const animation = colleague?.avatarAnimation;
   const still = colleague?.avatarUrl;
@@ -120,7 +135,7 @@ export function LargeAvatar({ colleague, name, email, presence, className }: { c
   return (
     <span className={cn("relative inline-flex", className)}>
       <span
-        className="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-4 border-background text-3xl font-semibold text-white"
+        className={cn("flex h-24 w-24 items-center justify-center overflow-hidden rounded-full text-3xl font-semibold text-white", !framed && "border-4 border-background")}
         style={{ backgroundColor: src ? "var(--muted)" : generateAvatarColor(email ?? name) }}
         data-testid="profile-avatar"
       >
