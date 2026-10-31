@@ -38,6 +38,8 @@ describe("slash commands (step 99, part F)", () => {
       setTyping: vi.fn(async () => undefined),
       drafts: {},
       setDraft: vi.fn(),
+      channelRefs: () => [],
+      loadChannelDirectory: async () => undefined,
       send,
       setTopic,
       openDirect,

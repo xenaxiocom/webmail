@@ -1615,6 +1615,7 @@
     "browse_title": "Channels",
     "browse_search": "Search channels",
     "browse_join": "Join",
+    "channel_unavailable": "This channel is not available to you.",
     "browse_open": "Open",
     "browse_empty": "No open channels found.",
     "dm_title": "New message",

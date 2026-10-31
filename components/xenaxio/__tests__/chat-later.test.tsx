@@ -48,7 +48,8 @@ describe("Later in Rooms (step 99, part E2)", () => {
   it("the composer schedules the text for later and empties the box", async () => {
     const schedule = vi.fn(async () => undefined);
     useChatLater.setState({ schedule });
-    const client = { userId: "@a:x", rooms: new Map(), can: () => true, roomName: () => "dev", setTyping: vi.fn(async () => undefined), drafts: {}, setDraft: vi.fn(), send: vi.fn() } as unknown as ChatClient;
+    const client = { userId: "@a:x", rooms: new Map(), can: () => true, roomName: () => "dev", setTyping: vi.fn(async () => undefined), drafts: {}, setDraft: vi.fn(),
+      channelRefs: () => [], loadChannelDirectory: async () => undefined, send: vi.fn() } as unknown as ChatClient;
     useChatStore.setState({ colleagues: new Map() });
     render(
       <ChatDialogsProvider>

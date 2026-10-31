@@ -110,6 +110,7 @@ export const paths = {
   search: "/_matrix/client/v3/search",
   userDirectory: "/_matrix/client/v3/user_directory/search",
   join: (room: string) => `/_matrix/client/v3/join/${enc(room)}`,
+  alias: (alias: string) => `/_matrix/client/v3/directory/room/${enc(alias)}`,
   leave: (room: string) => `/_matrix/client/v3/rooms/${enc(room)}/leave`,
   invite: (room: string) => `/_matrix/client/v3/rooms/${enc(room)}/invite`,
   send: (room: string, type: string, txn: string) => `/_matrix/client/v3/rooms/${enc(room)}/send/${enc(type)}/${enc(txn)}`,

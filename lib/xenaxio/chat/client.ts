@@ -6,6 +6,7 @@
 import { ChatError, mx, newTxnId, paths } from "./api";
 import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
 import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, VOICE_TYPE } from "./extras";
+import type { ChannelRef } from "./format";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
 /** A stable rule id per keyword (ids allow only a few characters). */
@@ -14,6 +15,9 @@ function keywordRuleId(word: string): string {
   for (const b of new TextEncoder().encode(word.toLowerCase())) hex += b.toString(16).padStart(2, "0");
   return KEYWORD_PREFIX + hex.slice(0, 120);
 }
+
+/** How long the list of open channels is kept for "#name" links. */
+const CHANNEL_DIRECTORY_MS = 5 * 60_000;
 
 export interface RawEvent {
   event_id?: string;
@@ -1417,6 +1421,59 @@ export class ChatClient {
   async publicChannels(): Promise<{ roomId: string; name: string; topic: string | null; members: number }[]> {
     const res = await mx<{ chunk?: { room_id: string; name?: string; topic?: string; num_joined_members?: number }[] }>("POST", paths.publicRooms, { limit: 500 });
     return (res.chunk ?? []).map((r) => ({ roomId: r.room_id, name: r.name ?? r.room_id, topic: r.topic ?? null, members: r.num_joined_members ?? 0 }));
+  }
+
+  /** The company's open channels, for "#name" links; kept a few minutes. */
+  private directory: { at: number; list: ChannelRef[] } | null = null;
+
+  async loadChannelDirectory(maxAgeMs = CHANNEL_DIRECTORY_MS): Promise<void> {
+    if (this.directory && Date.now() - this.directory.at < maxAgeMs) return;
+    const previous = this.directory;
+    // One request at a time.
+    this.directory = { at: Date.now(), list: previous?.list ?? [] };
+    try {
+      const list = await this.publicChannels();
+      this.directory = { at: Date.now(), list: list.filter((c) => c.name && c.name !== c.roomId).map((c) => ({ roomId: c.roomId, name: c.name })) };
+    } catch {
+      this.directory = previous;
+    }
+  }
+
+  /**
+   * Channels "#name" in a message links to, like in Slack: mine and the
+   * company's open ones. One name, one channel: the one I am in wins.
+   */
+  channelRefs(): ChannelRef[] {
+    const byName = new Map<string, ChannelRef>();
+    for (const c of this.directory?.list ?? []) if (!byName.has(c.name)) byName.set(c.name, c);
+    for (const r of this.rooms.values()) {
+      if (r.kind !== "channel" || !r.name || (r.membership !== "join" && r.membership !== "invite")) continue;
+      const known = byName.get(r.name);
+      if (!known || r.membership === "join") byName.set(r.name, { roomId: r.id, name: r.name });
+    }
+    return [...byName.values()];
+  }
+
+  /**
+   * A channel link was clicked (a room id, or a Matrix address "#name:server"
+   * from other clients). Joined: its id. Invited or open in the company's
+   * directory: joins first. Otherwise null (closed channel, not for me).
+   */
+  async openChannel(target: string): Promise<string | null> {
+    let roomId = target;
+    if (target.startsWith("#")) {
+      const res = await mx<{ room_id?: string }>("GET", paths.alias(target)).catch(() => null);
+      if (!res?.room_id) return null;
+      roomId = res.room_id;
+    }
+    const room = this.rooms.get(roomId);
+    if (room?.membership === "join") return roomId;
+    if (room?.membership !== "invite") {
+      await this.loadChannelDirectory(0);
+      if (!this.directory?.list.some((c) => c.roomId === roomId)) return null;
+    }
+    await this.join(roomId);
+    return roomId;
   }
 
   async search(term: string, filter: { rooms?: string[]; senders?: string[] } = {}): Promise<SearchHit[]> {

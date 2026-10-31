@@ -199,6 +199,9 @@ export function Composer({
     return [...byId.values()];
   }, [colleagues, room.members, client.userId]);
 
+  // "#name" of an open channel I am not in links too (step 99).
+  useEffect(() => void client.loadChannelDirectory(), [client]);
+
   const suggestion = suggestionAt(text, cursor);
   const options = useMemo<Suggestion[]>(() => {
     // Step 99, part F: "/" at the start suggests the commands.
@@ -220,10 +223,14 @@ export function Composer({
       const own: Suggestion[] = companyEmoji.filter((e) => e.name.includes(q)).slice(0, 5).map((e) => ({ key: `c:${e.name}`, label: `:${e.name}:`, insert: `:${e.name}: `, emoji: `:${e.name}:` }));
       return [...own, ...searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }))];
     }
-    return [...client.rooms.values()]
-      .filter((r) => r.kind === "channel" && r.membership === "join" && client.roomName(r).toLowerCase().includes(q))
+    // Mine first, then the company's open channels.
+    const joined = (id: string) => client.rooms.get(id)?.membership === "join";
+    return client
+      .channelRefs()
+      .filter((c) => c.name.toLowerCase().includes(q))
+      .sort((a, b) => Number(joined(b.roomId)) - Number(joined(a.roomId)) || a.name.localeCompare(b.name))
       .slice(0, 8)
-      .map((r) => ({ key: r.id, label: `#${client.roomName(r)}`, insert: `#${client.roomName(r)} ` }));
+      .map((c) => ({ key: c.roomId, label: `#${c.name}`, insert: `#${c.name} ` }));
   }, [suggestion, people, colleagues, client, room, text, t, groups, companyEmoji]);
 
   useEffect(() => setSelected(0), [suggestion?.query, suggestion?.trigger]);
@@ -438,7 +445,7 @@ export function Composer({
       }
     }
     if (!body) return;
-    const content = withGroupMentions(textContent(body, people), body, groups, client.userId);
+    const content = withGroupMentions(textContent(body, people, client.channelRefs()), body, groups, client.userId);
     try {
       await client.send(room.id, content, threadRoot ? { threadRoot } : {});
       // Step 99, part E2b: replying follows the thread, as in Slack.
