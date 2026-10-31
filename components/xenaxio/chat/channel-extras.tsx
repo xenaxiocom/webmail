@@ -19,6 +19,7 @@ import { RichHtml } from "./code";
 import { useChatDialogs } from "./dialogs";
 import { PanelFrame } from "./side-panels";
 import { PostDialog } from "./post-dialog";
+import { SidebarExpandButton } from "./sidebar-toggle";
 
 /** Links under the channel's name; whoever may edit adds and removes them. */
 export function BookmarksBar({ client, room }: { client: ChatClient; room: Room }) {
@@ -223,7 +224,8 @@ export function CatchUpView({ client }: { client: ChatClient }) {
   const room = queue[0];
   if (!room)
     return (
-      <div className="flex flex-1 flex-col items-center justify-center p-6 text-center">
+      <div className="relative flex flex-1 flex-col items-center justify-center p-6 text-center">
+        <SidebarExpandButton className="absolute left-3 top-3" />
         <p className="text-lg font-semibold">{t("chat.catchup_done")}</p>
         <p className="mt-1 text-sm text-muted-foreground">{t("chat.catchup_done_text")}</p>
       </div>
@@ -233,6 +235,7 @@ export function CatchUpView({ client }: { client: ChatClient }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5">
+        <SidebarExpandButton className="-ml-2" />
         <span className="text-base font-bold">{t("chat.catchup")}</span>
         <span className="text-sm text-muted-foreground">{t("chat.catchup_left", { count: queue.length })}</span>
       </header>
