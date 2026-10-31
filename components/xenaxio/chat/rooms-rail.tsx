@@ -5,7 +5,7 @@
 // direct messages (a dot for anything else unread). A click switches without a
 // password; "+" adds a company. Our own design: rounded tiles with the
 // company's logo or initials on its colour.
-import { IconLogout, IconPlus, IconSettings } from "@tabler/icons-react";
+import { IconLogout, IconPlus, IconSettings, IconSparkles } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useState } from "react";
 import { withBasePath } from "@/lib/browser-navigation";
@@ -89,6 +89,8 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
   const roomsOnly = me?.tenant.product === "rooms";
   const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/rooms/people/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
   const adminTarget = roomsOnly ? {} : { target: "_blank", rel: "noopener" };
+  // Step 96: someone without a mailbox connects AI chats (Claude …) here too; others in Xenaxio.
+  const aiUrl = me?.user.kind === "chat" ? withBasePath(`/${locale}/workspace/mcp/`) : null;
 
   const tiles = accounts.map((account) => {
     const counts = unread[account.userId];
@@ -131,6 +133,11 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
         {tiles}
         {addButton}
         <div className="ml-auto flex items-center gap-1">
+          {aiUrl && (
+            <a href={aiUrl} title={t("workspace.mcp")} aria-label={t("workspace.mcp")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+              <IconSparkles size={18} />
+            </a>
+          )}
           {adminUrl && (
             <a href={adminUrl} {...adminTarget} title={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} aria-label={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
               <IconSettings size={18} />
@@ -152,6 +159,11 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
         {tiles}
         {addButton}
       </div>
+      {aiUrl && (
+        <a href={aiUrl} title={t("workspace.mcp")} aria-label={t("workspace.mcp")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+          <IconSparkles size={20} />
+        </a>
+      )}
       {adminUrl && (
         <a href={adminUrl} {...adminTarget} title={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} aria-label={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
           <IconSettings size={20} />

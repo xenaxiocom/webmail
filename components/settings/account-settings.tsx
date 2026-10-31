@@ -23,6 +23,8 @@ import { EmailAddressesSection } from './identity-settings';
 import { MultipleAccountsSection } from './layout-settings';
 import { useAccountSecurityStore } from '@/stores/account-security-store';
 import { ProfilePictureSetting } from '@/components/xenaxio/profile-picture-setting';
+import { XenaxioNameSetting } from '@/components/xenaxio/name-setting';
+import { XENAXIO_BFF } from '@/lib/xenaxio/bff';
 
 function hostnameOf(serverUrl: string): string {
   try { return toUnicodeDomain(new URL(serverUrl).hostname); } catch { return serverUrl; }
@@ -146,7 +148,10 @@ export function AccountSettings() {
     <div className="space-y-8">
       <SettingsSection id="profile" title={t('title')} description={t('description')}>
         {/* Display Name: editable where the server lets us, read-only otherwise. */}
-        {canEditDisplayName ? (
+        {/* xenaxio (step 101): the name is the platform's; it changes it everywhere. */}
+        {XENAXIO_BFF ? (
+          <XenaxioNameSetting />
+        ) : canEditDisplayName ? (
           <DisplayNameSection />
         ) : (
           <SettingItem label={t('name_label')}>

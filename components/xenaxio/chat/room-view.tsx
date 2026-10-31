@@ -4,7 +4,7 @@
 // members, pinned messages and settings; the timeline; who is typing; the
 // composer. Files can be dropped anywhere on it. Step 99: the channel's name
 // opens its details (name, topic, members, settings), as in Slack.
-import { IconBell, IconChevronDown, IconHash, IconLock, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
+import { IconBell, IconChevronDown, IconHash, IconLock, IconNotes, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
@@ -19,7 +19,9 @@ import { composerKey } from "@/lib/xenaxio/chat/pending-files";
 import { PeoplePicker } from "./dialogs";
 import { IntegrationsDialog } from "./integrations";
 import { MessageList } from "./message-list";
-import { CallButton } from "@/components/xenaxio/meet/call";
+import { CallButton, useJoinRoomCall } from "@/components/xenaxio/meet/call";
+import { BookmarksBar, ForumView, VoiceBar } from "./channel-extras";
+import { useChatExtras } from "@/lib/xenaxio/chat/extras";
 import { ChannelDetails, type DetailsTab } from "./channel-details";
 
 export function TypingLine({ room }: { room: Room }) {
@@ -102,6 +104,19 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const partners = room.kind === "dm" ? client.dmPartners(room) : [];
   const joined = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).length;
   const starred = !!room.tags["m.favourite"];
+  const inCall = useChatExtras((s) => s.calls.get(room.id) ?? 0);
+  const joinCall = useJoinRoomCall(client);
+  // Step 99, part H: Ctrl+Shift+H starts the call or joins it (Slack's huddle shortcut).
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyH") {
+        e.preventDefault();
+        void joinCall(room).catch(() => toast.error(t("chat.error")));
+      }
+    };
+    document.addEventListener("keydown", onKey);
+    return () => document.removeEventListener("keydown", onKey);
+  }, [joinCall, room, t]);
 
   useEffect(() => {
     if (room.kind === "channel") void client.loadMembers(room.id).catch(() => undefined);
@@ -187,7 +202,13 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
         )}
         <span className="flex-1" />
         {/* Step 78, part D: a call in this channel or direct message. */}
-        <CallButton client={client} room={room} />
+        <CallButton client={client} room={room} participants={inCall} />
+        {/* Step 99, part H: the channel's canvas (Slack). */}
+        {room.kind === "channel" && (
+          <button type="button" onClick={() => setPanel({ kind: "canvas", roomId: room.id })} className={cn("rounded p-1.5 text-muted-foreground hover:bg-accent", room.canvas && "text-primary")} title={t("chat.canvas")} aria-label={t("chat.canvas")}>
+            <IconNotes size={16} />
+          </button>
+        )}
         {room.kind === "channel" && (
           <button type="button" onClick={() => setPanel({ kind: "members", roomId: room.id })} className="flex items-center gap-1 rounded px-2 py-1 text-sm text-muted-foreground hover:bg-accent" title={t("chat.members")}>
             <IconUsers size={16} />
@@ -209,15 +230,24 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
         </span>
       </header>
 
-      <MessageList room={room} client={client} messages={room.kind === "dm" ? room.timeline.filter((m) => m.type !== "m.room.member") : room.timeline} focusId={focusId} header={beginning} />
-      <TypingLine room={room} />
-      <Composer
-        room={room}
-        client={client}
-        locale={locale}
-        placeholder={t("chat.composer_placeholder", { name: room.kind === "dm" ? roomName : `#${roomName}` })}
-        onEditLast={editLast}
-      />
+      {room.kind === "channel" && <BookmarksBar client={client} room={room} />}
+      {room.voice && <VoiceBar client={client} room={room} />}
+      {room.forum ? (
+        // Step 99, part H: a forum lists its posts; replies go in each post's thread.
+        <ForumView client={client} room={room} />
+      ) : (
+        <>
+          <MessageList room={room} client={client} messages={room.kind === "dm" ? room.timeline.filter((m) => m.type !== "m.room.member") : room.timeline} focusId={focusId} header={beginning} />
+          <TypingLine room={room} />
+          <Composer
+            room={room}
+            client={client}
+            locale={locale}
+            placeholder={t("chat.composer_placeholder", { name: room.kind === "dm" ? roomName : `#${roomName}` })}
+            onEditLast={editLast}
+          />
+        </>
+      )}
 
       {dragging && (
         <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 text-sm font-medium text-primary">

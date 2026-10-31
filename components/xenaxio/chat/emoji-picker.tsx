@@ -6,6 +6,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { EMOJI_CATEGORIES as CATEGORIES } from "@/lib/xenaxio/chat/emoji";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { cn } from "@/lib/utils";
+import { useChatExtras } from "@/lib/xenaxio/chat/extras";
+import { companyEmojiUrl } from "@/lib/xenaxio/chat/format";
 
 const RECENT_KEY = "xenaxio.chat.recent-emoji";
 
@@ -56,17 +58,21 @@ export function EmojiPicker({ onPick, onClose, className }: { onPick: (emoji: st
     };
   }, [onClose]);
 
+  // Step 99, part H: the company's own emoji, as ":name:".
+  const company = useChatExtras((s) => s.emoji);
   const sections = useMemo(() => {
     const q = query.trim().toLowerCase();
+    const own = company.map((e) => `:${e.name}:`);
     if (q) {
       const hits = CATEGORIES.flatMap((c) => c.items).filter(([, words]) => words.includes(q)).map(([e]) => e);
-      return [{ key: "search", label: t("chat.emoji_search"), items: hits }];
+      return [{ key: "search", label: t("chat.emoji_search"), items: [...own.filter((e) => e.includes(q)), ...hits] }];
     }
     return [
       { key: "recent", label: t("chat.emoji_recent"), items: recentEmoji() },
+      ...(own.length ? [{ key: "company", label: t("chat.emoji_company"), items: own }] : []),
       ...CATEGORIES.map((c) => ({ key: c.key, label: t(`chat.emoji_${c.key}`), items: c.items.map(([e]) => e) })),
     ];
-  }, [query, t]);
+  }, [query, t, company]);
 
   const pick = (emoji: string) => {
     remember(emoji);
@@ -97,8 +103,8 @@ export function EmojiPicker({ onPick, onClose, className }: { onPick: (emoji: st
               <div className="text-[11px] font-medium text-muted-foreground px-1 mb-1">{s.label}</div>
               <div className="grid grid-cols-8 gap-0.5">
                 {s.items.map((e) => (
-                  <button key={`${s.key}-${e}`} type="button" onClick={() => pick(e)} className="h-8 w-8 rounded hover:bg-accent text-lg leading-none" aria-label={e}>
-                    {e}
+                  <button key={`${s.key}-${e}`} type="button" onClick={() => pick(e)} className="flex h-8 w-8 items-center justify-center rounded hover:bg-accent text-lg leading-none" aria-label={e} title={companyEmojiUrl(e) ? e : undefined}>
+                    <EmojiGlyph emoji={e} />
                   </button>
                 ))}
               </div>
@@ -108,4 +114,10 @@ export function EmojiPicker({ onPick, onClose, className }: { onPick: (emoji: st
       </div>
     </div>
   );
+}
+
+/** A Unicode emoji, or the company's own (":name:") as its picture. */
+export function EmojiGlyph({ emoji, size = 20 }: { emoji: string; size?: number }) {
+  const url = companyEmojiUrl(emoji);
+  return url ? <img src={url} alt={emoji} width={size} height={size} className="inline-block object-contain" /> : <>{emoji}</>;
 }

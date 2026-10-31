@@ -126,11 +126,13 @@ function Consent() {
   if (leaving) return <Spinner label={t("connect.redirecting")} />;
   if (!me || !request) return error ? <AuthCard title={t("connect.title")}><Notice kind="error">{error}</Notice></AuthCard> : <Spinner label={t("common.loading")} />;
 
-  const can = ["connect.can_1", "connect.can_2", "connect.can_3", "connect.can_4", "connect.can_5"];
+  // Step 96: a person without a mailbox (XenRooms) connects the team chat only.
+  const rooms = me.user.kind === "chat";
+  const can = rooms ? ["connect.can_rooms"] : ["connect.can_1", "connect.can_2", "connect.can_3", "connect.can_4", "connect.can_5"];
   return (
     <AuthCard title={t("connect.title")}>
       <div className="space-y-5">
-        <p className="text-base">{t("connect.wants", { client: request.clientName })}</p>
+        <p className="text-base">{t(rooms ? "connect.wants_rooms" : "connect.wants", { client: request.clientName })}</p>
 
         <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 px-4 py-3">
           <p className="text-xs text-muted-foreground">{t("connect.account_title")}</p>
@@ -166,7 +168,7 @@ function Consent() {
           </ul>
           <p className="flex gap-2 text-muted-foreground">
             <AlertCircle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
-            <span>{t("connect.cannot")}</span>
+            <span>{t(rooms ? "connect.cannot_rooms" : "connect.cannot")}</span>
           </p>
         </div>
 

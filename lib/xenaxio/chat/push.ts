@@ -32,6 +32,8 @@ export interface ChatNotifySettings {
   emailFrequency?: "never" | "15m" | "hourly" | "daily";
   /** The person's time zone for quiet hours (this browser's, saved with the settings). */
   timeZone?: string | null;
+  /** Step 99, part E2b: replies in threads — all, or only threads the person follows. */
+  threadNotify?: "all" | "following";
 }
 
 /** Step 99: a phone or tablet notifies as the person chose for phones. */

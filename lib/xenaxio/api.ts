@@ -1036,7 +1036,7 @@ export const xenaxio = {
     if (q.slug !== undefined) params.set("slug", q.slug);
     return request<{ domain: string; suggestion: string | null; slug?: string; problem?: SlugProblem | null }>("GET", `/api/rooms/onboarding/slug?${params}`);
   },
-  roomsOnboard: (input: { token: string; companyName: string; slug: string; adminName: string; email: string; password: string; locale: "de" | "en" }) =>
+  roomsOnboard: (input: { token: string; companyName: string; slug: string; adminName: string; email: string; password: string; locale: "de" | "en"; chatDomain?: string }) =>
     request<Me>("POST", "/api/rooms/onboarding", input),
   roomsLink: (kind: "invite" | "reset", token: string) => request<RoomsLinkInfo>("GET", `/api/rooms/link?kind=${kind}&token=${encodeURIComponent(token)}`),
   roomsUseLink: (kind: "invite" | "reset", token: string, password: string, locale?: string) =>
@@ -1081,6 +1081,10 @@ export const xenaxio = {
   setIconBackground: (color: string | null) => request<AdminPortal>("POST", "/api/admin/portal/icon-background", { color }),
   /** Step 42: the company's default background for everyone who has not picked their own. */
   setCompanyBackground: (background: string | null) => request<AdminPortal>("POST", "/api/admin/portal/background", { background }),
+  /** Step 101: the person's own name (portal, colleagues, Rooms, sender name). */
+  setMyName: (displayName: string) => request<{ displayName: string }>("POST", "/api/me/name", { displayName }),
+  /** Step 101: the company's admin changes an employee's (or a XenRooms person's) name. */
+  setUserName: (userId: string, displayName: string) => request<{ id: string; displayName: string }>("POST", `/api/admin/users/${encodeURIComponent(userId)}/name`, { displayName }),
   /** Step 42: the person's own background; null follows the company's. */
   setMyBackground: (background: string | null) => request<{ background: string | null }>("POST", "/api/me/background", { background }),
   addHostname: (hostname: string) => request<AdminPortal>("POST", "/api/admin/portal/hostname", { hostname }),
