@@ -7,7 +7,7 @@
 // writes, who may @channel, archive. Channel managers change everything; the
 // company's admin does it through the platform (step 63), also in channels
 // they manage nothing in.
-import { IconCopy, IconCrown, IconPin, IconSearch } from "@tabler/icons-react";
+import { IconCopy, IconCrown, IconPin, IconSearch, IconStar, IconStarFilled } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useState } from "react";
 import { type ChatChannelChange, errorText, xenaxio, XenaxioApiError } from "@/lib/xenaxio/api";
@@ -143,6 +143,14 @@ function InfoTab({ client, room, onClose }: { client: ChatClient; room: Room; on
         </p>
       )}
       <div className="flex flex-wrap gap-2 pt-2">
+        <button
+          type="button"
+          className="flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm hover:bg-accent"
+          onClick={() => void client.setFavourite(room.id, !room.tags["m.favourite"]).catch(() => toast.error(t("chat.error")))}
+        >
+          {room.tags["m.favourite"] ? <IconStarFilled size={15} className="text-amber-500" /> : <IconStar size={15} />}
+          {room.tags["m.favourite"] ? t("chat.unstar") : t("chat.star")}
+        </button>
         <button
           type="button"
           className="flex h-9 items-center gap-1.5 rounded-md border border-border px-3 text-sm hover:bg-accent"

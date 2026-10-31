@@ -39,6 +39,7 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     powerLevels: power(opts.levels),
     creator: ANNA,
     createdTs: Date.UTC(2026, 9, 1),
+    tags: {},
     archived: false,
     external: false,
   } as unknown as Room;

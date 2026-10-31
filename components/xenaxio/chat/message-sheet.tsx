@@ -27,6 +27,8 @@ export function useLongPress(onLongPress: () => void, enabled = true) {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const start = useRef<{ x: number; y: number } | null>(null);
   const touch = useRef(false);
+  /** When the long press fired: the click the browser sends on lifting the finger is not a click. */
+  const firedAt = useRef(0);
   const cancel = () => {
     if (timer.current) clearTimeout(timer.current);
     timer.current = null;
@@ -34,6 +36,7 @@ export function useLongPress(onLongPress: () => void, enabled = true) {
   };
   const fire = () => {
     cancel();
+    firedAt.current = Date.now();
     navigator.vibrate?.(10);
     onLongPress();
   };
@@ -52,6 +55,14 @@ export function useLongPress(onLongPress: () => void, enabled = true) {
     },
     onPointerUp: cancel,
     onPointerCancel: cancel,
+    onClickCapture: (e: React.MouseEvent) => {
+      // Not inside what the long press opened (the sheet, a menu): those taps are meant.
+      if ((e.target as Element).closest?.('[role="dialog"], [role="menu"]')) return;
+      if (Date.now() - firedAt.current < 800) {
+        e.preventDefault();
+        e.stopPropagation();
+      }
+    },
     onContextMenu: (e: React.MouseEvent) => {
       if (!touch.current) return;
       e.preventDefault();

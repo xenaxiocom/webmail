@@ -147,6 +147,50 @@ const SYNC_TIMEOUT_MS = 30_000;
 export const SERVICE_LOCALPART = "xenaxio";
 /** Our own account data: messages saved for later. */
 export const SAVED_TYPE = "com.xenaxio.saved";
+/** Step 99, part C: the sidebar's own sections, order and filters (account data: the same on every device). */
+export const SIDEBAR_TYPE = "com.xenaxio.sidebar";
+export type SectionSort = "manual" | "alpha" | "activity";
+export interface SidebarSection {
+  id: string;
+  name: string;
+  /** Rooms in the order the person put them. */
+  rooms: string[];
+}
+export interface SidebarLayout {
+  sections: SidebarSection[];
+  /** Folded sections: "starred", "channels", "direct" or an own section's id. */
+  collapsed: string[];
+  /** Order per section; unset: own sections as put, channels by name, direct messages by activity. */
+  sort: Record<string, SectionSort>;
+  unreadOnly: boolean;
+}
+export const EMPTY_LAYOUT: SidebarLayout = { sections: [], collapsed: [], sort: {}, unreadOnly: false };
+
+/** The layout from account data; anything odd is dropped (another client may have written it). */
+export function parseLayout(content: Record<string, unknown> | undefined): SidebarLayout {
+  const c = content ?? {};
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
+  const sections = (Array.isArray(c.sections) ? c.sections : [])
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .map((x) => ({ id: str(x.id, 40), name: str(x.name, 80).trim(), rooms: (Array.isArray(x.rooms) ? x.rooms : []).filter((r): r is string => typeof r === "string" && r.startsWith("!")).slice(0, 500) }))
+    .filter((x) => /^s[a-z0-9]{1,30}$/.test(x.id) && x.name)
+    .slice(0, 30);
+  const collapsed = (Array.isArray(c.collapsed) ? c.collapsed : []).filter((x): x is string => typeof x === "string").slice(0, 40);
+  const sort: Record<string, SectionSort> = {};
+  if (c.sort && typeof c.sort === "object")
+    for (const [k, v] of Object.entries(c.sort as Record<string, unknown>)) if (v === "manual" || v === "alpha" || v === "activity") sort[k.slice(0, 40)] = v;
+  return { sections, collapsed, sort, unreadOnly: c.unreadOnly === true };
+}
+
+/** Channels muted or set to mentions only, from the push rules (our rules, see setNotifications). */
+export function roomLevelsOf(content: Record<string, unknown> | undefined): Map<string, "mentions" | "none"> {
+  const global = (content?.global ?? {}) as { override?: { rule_id?: string; enabled?: boolean }[]; room?: { rule_id?: string; enabled?: boolean }[] };
+  const levels = new Map<string, "mentions" | "none">();
+  for (const r of global.room ?? []) if (r.rule_id?.startsWith("!") && r.enabled !== false) levels.set(r.rule_id, "mentions");
+  for (const r of global.override ?? []) if (r.rule_id?.startsWith("xenaxio-mute-") && r.enabled !== false) levels.set(r.rule_id.slice("xenaxio-mute-".length), "none");
+  return levels;
+}
+
 /** Our own room state: an archived channel (read-only, out of the directory). */
 export const ARCHIVED_TYPE = "com.xenaxio.archived";
 /** Step 63: on a change the platform made in a channel, the admin who asked for it. */
@@ -265,6 +309,10 @@ export class ChatClient {
   /** m.direct: partner → their DM rooms. */
   direct: Record<string, string[]> = {};
   saved: SavedItem[] = [];
+  /** Step 99, part C: own sections, folded sections, order and filter of the sidebar. */
+  sidebar: SidebarLayout = EMPTY_LAYOUT;
+  /** Channels with fewer notifications than "all" (from the push rules on the server). */
+  roomLevels = new Map<string, "mentions" | "none">();
   /** People I blocked (Matrix ignore list). */
   ignored: Record<string, object> = {};
   ready = false;
@@ -434,6 +482,10 @@ export class ChatClient {
       this.ignored = ((ev.content ?? {}).ignored_users ?? {}) as Record<string, object>;
     } else if (ev.type === SAVED_TYPE) {
       this.saved = Array.isArray(ev.content.items) ? (ev.content.items as SavedItem[]) : [];
+    } else if (ev.type === SIDEBAR_TYPE) {
+      this.sidebar = parseLayout(ev.content);
+    } else if (ev.type === "m.push_rules") {
+      this.roomLevels = roomLevelsOf(ev.content);
     }
   }
 
@@ -1044,6 +1096,31 @@ export class ChatClient {
     await mx("DELETE", paths.pushRule("room", roomId)).catch(() => undefined);
     if (level === "mentions") await mx("PUT", paths.pushRule("room", roomId), { actions: [] });
     if (level === "none") await mx("PUT", paths.pushRule("override", muteId), { actions: [], conditions: [{ kind: "event_match", key: "room_id", pattern: roomId }] });
+    const levels = new Map(this.roomLevels);
+    if (level === "all") levels.delete(roomId);
+    else levels.set(roomId, level);
+    this.roomLevels = levels;
+    this.changed();
+  }
+
+  /** Step 99, part C: the sidebar's layout, kept on the server for every device. */
+  async setSidebar(next: SidebarLayout): Promise<void> {
+    const previous = this.sidebar;
+    this.sidebar = next;
+    this.changed();
+    try {
+      await mx("PUT", paths.accountData(this.userId, SIDEBAR_TYPE), next);
+    } catch (err) {
+      this.sidebar = previous;
+      this.changed();
+      throw err;
+    }
+  }
+
+  /** Marks every channel and direct message as read (Slack: Shift+Esc). */
+  async markAllRead(): Promise<void> {
+    const unread = [...this.rooms.values()].filter((r) => r.membership === "join" && (r.notifications > 0 || r.highlights > 0));
+    await Promise.all(unread.map((r) => this.markRead(r.id)));
   }
 
   /** Own keywords: a message containing one notifies like a mention (Slack's "My keywords"). */

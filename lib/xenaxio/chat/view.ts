@@ -1,7 +1,7 @@
 // Step 43, part B: how the chat lays out messages, independent of React:
 // grouping by author, day dividers, the "new" line, sidebar order, search
 // filters. Kept pure so it is tested without a browser.
-import type { Message, Room } from "./client";
+import type { Message, Room, SectionSort, SidebarLayout } from "./client";
 
 /** Messages of one author within five minutes form a group (Slack shows the name once). */
 const GROUP_GAP_MS = 5 * 60_000;
@@ -56,6 +56,64 @@ export function sidebarSections(rooms: Room[], roomName: (r: Room) => string): {
     channels: rest.filter((r) => r.kind === "channel" && !r.archived).sort((a, b) => roomName(a).localeCompare(roomName(b), undefined, { sensitivity: "base" })),
     direct: rest.filter((r) => r.kind === "dm").sort((a, b) => b.lastTs - a.lastTs),
   };
+}
+
+/** Step 99, part C: the sidebar with own sections, as in Slack. */
+export interface SidebarGroups {
+  invites: Room[];
+  starred: Room[];
+  custom: { id: string; name: string; rooms: Room[] }[];
+  channels: Room[];
+  direct: Room[];
+}
+
+function sorted(rooms: Room[], sort: SectionSort, roomName: (r: Room) => string): Room[] {
+  if (sort === "alpha") return [...rooms].sort((a, b) => roomName(a).localeCompare(roomName(b), undefined, { sensitivity: "base" }));
+  if (sort === "activity") return [...rooms].sort((a, b) => b.lastTs - a.lastTs);
+  return rooms;
+}
+
+/**
+ * Favourites first, then the person's own sections, then channels and direct
+ * messages. A room is in one place only: a favourite stays in favourites, a
+ * room put into an own section leaves "Kanäle" / "Direktnachrichten".
+ * "Unread only" keeps the open room.
+ */
+export function sidebarGroups(rooms: Room[], roomName: (r: Room) => string, layout: SidebarLayout, activeId: string | null = null): SidebarGroups {
+  const base = sidebarSections(rooms, roomName);
+  const keep = (r: Room) => !layout.unreadOnly || r.id === activeId || r.notifications > 0 || r.highlights > 0 || [...r.threadUnread.values()].some((c) => c.notifications > 0);
+  const starredIds = new Set(base.starred.map((r) => r.id));
+  const byId = new Map([...base.channels, ...base.direct].map((r) => [r.id, r]));
+  const placed = new Set<string>();
+  const custom = layout.sections.map((s) => {
+    const list = s.rooms.filter((id) => !starredIds.has(id) && !placed.has(id)).map((id) => byId.get(id)).filter((r): r is Room => !!r);
+    for (const r of list) placed.add(r.id);
+    return { id: s.id, name: s.name, rooms: sorted(list, layout.sort[s.id] ?? "manual", roomName).filter(keep) };
+  });
+  return {
+    invites: base.invites,
+    starred: sorted(base.starred, layout.sort.starred ?? "alpha", roomName).filter(keep),
+    custom,
+    channels: sorted(base.channels.filter((r) => !placed.has(r.id)), layout.sort.channels ?? "alpha", roomName).filter(keep),
+    direct: sorted(base.direct.filter((r) => !placed.has(r.id)), layout.sort.direct ?? "activity", roomName).filter(keep),
+  };
+}
+
+/** Moves a room into an own section (before `before`, else at the end), or out of all of them (`to` null). */
+export function moveRoom(layout: SidebarLayout, roomId: string, to: string | null, before?: string): SidebarLayout {
+  const sections = layout.sections.map((s) => ({ ...s, rooms: s.rooms.filter((id) => id !== roomId) }));
+  const target = to ? sections.find((s) => s.id === to) : undefined;
+  if (target) {
+    const at = before ? target.rooms.indexOf(before) : -1;
+    if (at >= 0) target.rooms.splice(at, 0, roomId);
+    else target.rooms.push(roomId);
+  }
+  return { ...layout, sections };
+}
+
+/** A new own section's id. */
+export function newSectionId(): string {
+  return `s${Date.now().toString(36)}${Math.random().toString(36).slice(2, 6)}`;
 }
 
 /** "Angebot in:#vertrieb from:@anna" → words and filters (Slack's search syntax). */
