@@ -1428,6 +1428,7 @@
     "invite": "Personen hinzufügen",
     "invite_title": "Personen zu {name} hinzufügen",
     "message_person": "Nachricht",
+    "message_actions": "Aktionen zur Nachricht",
     "notifications": "Benachrichtigungen",
     "notify_all": "Alle Nachrichten",
     "notify_mentions": "Nur Erwähnungen",

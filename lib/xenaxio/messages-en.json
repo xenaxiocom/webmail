@@ -1428,6 +1428,7 @@
     "invite": "Add people",
     "invite_title": "Add people to {name}",
     "message_person": "Message",
+    "message_actions": "Message actions",
     "notifications": "Notifications",
     "notify_all": "All messages",
     "notify_mentions": "Mentions only",
