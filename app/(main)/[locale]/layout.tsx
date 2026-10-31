@@ -20,6 +20,7 @@ import { PushNotificationPrompt } from "@/components/push-notification-prompt";
 import { AssistantPanel } from "@/components/xenaxio/assistant-panel";
 import { CallHost } from "@/components/xenaxio/meet/call";
 import { PortalBrand } from "@/components/xenaxio/portal-brand";
+import { AppStats } from "@/components/xenaxio/stats";
 import { WorkspaceBackground } from "@/components/xenaxio/workspace-background";
 import { setRequestLocale } from "next-intl/server";
 import { locales } from "@/i18n/routing";
@@ -76,6 +77,8 @@ export default async function LocaleLayout({
                   {/* xenaxio: the call this browser is in and a ringing call, on every page. */}
                   <CallHost />
                   <PortalBrand />
+                  {/* xenaxio step 103: visitor statistics of the app (cloud only). */}
+                  <AppStats />
                   <WorkspaceBackground />
                 </ProtocolLaunchHandlerProvider>
               </TourProvider>

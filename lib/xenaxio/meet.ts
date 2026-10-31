@@ -4,6 +4,7 @@
 // media server. Guests (no account) knock and wait in the lobby.
 import { apiFetch, withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
+import { tapStats } from "@/lib/xenaxio/stats";
 
 export type MeetingState = "open" | "ended" | "expired" | "unavailable";
 /** Step 79: a webinar is a meeting with a stage and viewers who only watch. */
@@ -307,7 +308,7 @@ export const meet = {
     call<MeetingView & { created: boolean }>("POST", `/api/chat/rooms/${encodeURIComponent(roomId)}/call`, { kind }),
   // Everyone (guests too).
   info: (code: string) => call<MeetingInfo>("GET", at(code)),
-  join: (code: string) => call<JoinGrant>("POST", `${at(code)}/join`),
+  join: (code: string) => call<JoinGrant>("POST", `${at(code)}/join`).then(tapStats("meeting-join")),
   knock: (code: string, name: string) => call<{ guestId: string; key: string; state: "waiting" | "admitted" }>("POST", `${at(code)}/guests`, { name }),
   guestStatus: (code: string, guestId: string, key: string) =>
     call<{ state: GuestState } & Partial<JoinGrant>>("POST", `${at(code)}/guests/${encodeURIComponent(guestId)}/status`, { key }),
@@ -345,10 +346,12 @@ export const meet = {
   liveSettings: (code: string, change: { chatMode?: ChatMode; anonymousQuestions?: boolean }) =>
     call<{ chatMode: ChatMode; anonymousQuestions: boolean }>("PUT", `${at(code)}/webinar/live`, change),
   // Step 79, part B: registration (public) and, for hosts, the webinar and who registered.
-  register: (code: string, input: { name: string; email: string; locale: "de" | "en" }) => call<{ ok: true }>("POST", `${at(code)}/register`, { ...input, consent: true }),
+  register: (code: string, input: { name: string; email: string; locale: "de" | "en" }) =>
+    call<{ ok: true }>("POST", `${at(code)}/register`, { ...input, consent: true }).then(tapStats("webinar-registered")),
   registration: (code: string, id: string, key: string) =>
     call<{ name: string; cancelled: boolean }>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/status`, { key }),
-  joinRegistered: (code: string, id: string, key: string) => call<JoinGrant>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/join`, { key }),
+  joinRegistered: (code: string, id: string, key: string) =>
+    call<JoinGrant>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/join`, { key }).then(tapStats("meeting-join")),
   cancelRegistration: (code: string, id: string, key: string) => call<{ ok: true }>("POST", `${at(code)}/registrations/${encodeURIComponent(id)}/cancel`, { key }),
   updateWebinar: (code: string, change: Partial<WebinarFields> & { title?: string }) =>
     call<MeetingView>("PUT", `${at(code)}/webinar`, { ...change, ...(change.startsAt ? { startsAt: change.startsAt.toISOString() } : {}) }),
