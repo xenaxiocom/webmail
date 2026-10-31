@@ -10,6 +10,7 @@ import { create } from "zustand";
 import type { ChatClient } from "@/lib/xenaxio/chat/client";
 import {
   chatPushState,
+  chatPushTarget,
   disableChatPush,
   enableChatPush,
   isPaused,
@@ -143,6 +144,12 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
   const [days, setDays] = useState<number[]>(settings?.dndDays.length ? settings.dndDays : [1, 2, 3, 4, 5, 6, 7]);
   const [scheduled, setScheduled] = useState(settings?.dndFrom != null && settings?.dndTo != null);
   const [keywords, setKeywords] = useState<string | null>(null);
+  // Step 98: where the chat notifies now (XenRooms when installed, unless chosen otherwise).
+  const [target, setTarget] = useState<"workspace" | "rooms" | null>(null);
+
+  useEffect(() => {
+    void chatPushTarget().then(setTarget);
+  }, [settings?.chatApp, push]);
 
   useEffect(() => {
     void client
@@ -201,6 +208,27 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
               <span>{t("chat.notify_device_on")}</span>
             </label>
           )}
+        </section>
+
+        <section>
+          <label htmlFor="chat-notify-app" className="font-semibold">
+            {t("chat.notify_app")}
+          </label>
+          <select
+            id="chat-notify-app"
+            value={base.chatApp ?? "auto"}
+            disabled={busy}
+            onChange={(e) => run(() => save({ ...base, chatApp: e.target.value as "auto" | "workspace" | "rooms" }))}
+            className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-2"
+          >
+            <option value="auto">{t("chat.notify_app_auto")}</option>
+            <option value="workspace">Xenaxio</option>
+            <option value="rooms">XenRooms</option>
+          </select>
+          <p className="mt-1 text-xs text-muted-foreground">
+            {t("chat.notify_app_hint")}
+            {target && <> {t("chat.notify_app_now", { app: target === "rooms" ? "XenRooms" : "Xenaxio" })}</>}
+          </p>
         </section>
 
         <section>

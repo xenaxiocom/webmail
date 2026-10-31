@@ -7,6 +7,7 @@ import { useConfig } from "@/hooks/use-config";
 import { withBasePath } from "@/lib/browser-navigation";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useXenaxioHint } from "@/lib/xenaxio/me-store";
+import { ROOMS_NAME, usePortal } from "@/lib/xenaxio/portal";
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>;
@@ -29,7 +30,9 @@ export function PWAInstallPrompt() {
   const [deferredPrompt, setDeferredPrompt] =
     useState<BeforeInstallPromptEvent | null>(null);
   const [showPrompt, setShowPrompt] = useState(false);
-  const { appName, faviconUrl, appLogoLightUrl, appLogoDarkUrl } = useConfig();
+  const { appName: configName, faviconUrl, appLogoLightUrl, appLogoDarkUrl } = useConfig();
+  // xenaxio step 98: on xenrooms.app the installed app is XenRooms.
+  const appName = usePortal()?.kind === "rooms" ? ROOMS_NAME : configName;
   const t = useTranslations("pwa_install");
   // xenaxio (step 64): "Don't remind me again" is kept for the user on the
   // platform (every browser and company address); the card waits for /api/me.
