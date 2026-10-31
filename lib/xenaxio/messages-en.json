@@ -2039,7 +2039,9 @@
     "admin_remove_banner": "Remove banner",
     "admin_remove_confirm": "Remove this from {name}'s profile? They can set a new one. It is noted in the audit log.",
     "admin_remove": "Remove",
-    "admin_removed": "Removed"
+    "admin_removed": "Removed",
+    "sidebar_hide": "Hide sidebar",
+    "sidebar_show": "Show sidebar"
   },
   "chatadmin": {
     "title": "Rooms",
@@ -3234,6 +3236,10 @@
     "own_domain_label": "Your domain",
     "own_domain_hint": "Chat addresses then end with it, e.g. @anna:mueller.de. Your email stays where it is. The chat starts at once; other companies reach it once you put a small file on your website or a DNS record – shown under Administration → Rooms. It cannot be changed later.",
     "moved_title": "Welcome to Xenaxio",
-    "moved_subtitle": "{company} now uses Xenaxio. Set the password for your new address."
+    "moved_subtitle": "{company} now uses Xenaxio. Set the password for your new address.",
+    "hide_companies": "Hide companies",
+    "show_companies": "Show companies on the left",
+    "order_hint": "Drag to reorder",
+    "move_company": "Move {company} (position {n})"
   }
 }

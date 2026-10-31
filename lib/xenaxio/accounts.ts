@@ -25,8 +25,9 @@ export function startPath(): string {
 
 /**
  * Brings the account menu in line with the platform's list. The active
- * account is already registered (as `activeId`); it stays first and is the
- * default, the others follow without a mail connection.
+ * account is already registered (as `activeId`) and is the default; new
+ * ones are added after the others, without a mail connection. Step 106: the
+ * menu keeps the order of the list, switching does not move an account.
  */
 export function applyBrowserAccounts(list: BrowserAccount[], activeId: string): void {
   const store = useAccountStore.getState();

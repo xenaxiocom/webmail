@@ -12,6 +12,7 @@ import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 import { useChatTime } from "./common";
 import { Modal } from "./dialogs";
+import { SidebarExpandButton } from "./sidebar-toggle";
 
 /** Quick times and an own one; returns the chosen moment. */
 export function TimePicker({ title, choices, confirm, onPick, onClose }: { title: string; choices: LaterChoice[]; confirm: string; onPick: (at: Date) => Promise<void>; onClose: () => void }) {
@@ -94,7 +95,10 @@ export function LaterView({ client }: { client: ChatClient }) {
   const action = "rounded px-2 py-1 text-xs hover:bg-accent";
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center border-b border-border px-5 text-base font-bold">{t("chat.later")}</header>
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5 text-base font-bold">
+        <SidebarExpandButton className="-ml-2" />
+        {t("chat.later")}
+      </header>
       <div className="flex-1 overflow-y-auto">
         {loaded && reminders.length === 0 && scheduled.length === 0 && <p className="p-5 text-sm text-muted-foreground">{t("chat.later_empty")}</p>}
         {[

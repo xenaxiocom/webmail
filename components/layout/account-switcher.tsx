@@ -9,7 +9,8 @@ import { useAccountStore, type AccountEntry } from "@/stores/account-store";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEmailStore } from "@/stores/email-store";
 import { useSettingsStore } from "@/stores/settings-store";
-import { getMaxAccounts, sortDefaultFirst, reorderNonDefaultIds } from "@/lib/account-utils";
+import { getMaxAccounts, sortDefaultFirst, reorderNonDefaultIds, reorderAllIds } from "@/lib/account-utils";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { inboxUnread, totalInboxUnread } from "@/lib/account-inbox-unread";
 import { isDocumentRTL } from "@/i18n/direction";
 import { cn, formatFileSize } from "@/lib/utils";
@@ -212,7 +213,9 @@ export function AccountSwitcher({
   };
 
   // Display order: default account pinned to the top, the rest reorderable.
-  const displayAccounts = useMemo(() => sortDefaultFirst(accounts), [accounts]);
+  // Xenaxio (step 106): the active account is the default, so nothing is
+  // pinned — switching keeps the order, every account can be moved.
+  const displayAccounts = useMemo(() => (XENAXIO_BFF ? accounts : sortDefaultFirst(accounts)), [accounts]);
 
   // Drag-to-rearrange (non-default accounts only; the default stays pinned).
   const [dragId, setDragId] = useState<string | null>(null);
@@ -231,7 +234,7 @@ export function AccountSwitcher({
   const handleDrop = (e: React.DragEvent, overId: string) => {
     e.preventDefault();
     if (dragId) {
-      const next = reorderNonDefaultIds(accounts, dragId, overId);
+      const next = XENAXIO_BFF ? reorderAllIds(accounts, dragId, overId) : reorderNonDefaultIds(accounts, dragId, overId);
       if (next) reorderAccounts(next);
     }
     resetDrag();
@@ -380,7 +383,7 @@ export function AccountSwitcher({
           >
             {listedAccounts.map((account) => {
               const isActive = account.id === activeAccountId;
-              const isDraggable = !account.isDefault && accounts.length > 2;
+              const isDraggable = XENAXIO_BFF ? accounts.length > 1 : !account.isDefault && accounts.length > 2;
               return (
                 <div
                   key={account.id}
@@ -421,7 +424,7 @@ export function AccountSwitcher({
                       <span className="text-sm font-medium truncate">
                         {toUnicodeEmail(account.displayName || account.label)}
                       </span>
-                      {account.isDefault && (
+                      {account.isDefault && !XENAXIO_BFF && (
                         <Star className="w-3 h-3 text-amber-500 flex-shrink-0 fill-amber-500" />
                       )}
                       <UnreadBadge count={unreadFor(account)} />
