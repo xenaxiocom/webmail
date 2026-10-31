@@ -717,12 +717,62 @@ export interface OperatorPeopleFilter {
   page?: number;
 }
 
-/** Query string of a people filter (empty values left out). */
-export function peopleQuery(f: OperatorPeopleFilter): string {
+/** Query string of a filter of the operator console (empty values left out). */
+export function peopleQuery(f: OperatorPeopleFilter | GalleryFilter): string {
   const params = new URLSearchParams();
-  for (const [key, value] of Object.entries(f)) if (value !== undefined && value !== "" && value !== null) params.set(key, String(value));
+  for (const [key, value] of Object.entries(f as Record<string, unknown>)) if (value !== undefined && value !== "" && value !== null) params.set(key, String(value));
   const q = params.toString();
   return q ? `?${q}` : "";
+}
+
+/** Step 106, part C: a picture people upload that others see. */
+export type GalleryKind = "avatar" | "banner" | "logo" | "meeting_background" | "emoji";
+
+export interface GalleryImage {
+  kind: GalleryKind;
+  ref: string;
+  tenantId: string;
+  company: string;
+  slug: string | null;
+  product: "workspace" | "rooms";
+  plan: "free" | "paid" | null;
+  owner: { userId: string | null; email: string | null; name: string | null; kind: "person" | "shared_mailbox" | "resource" | "company" };
+  contentType: string;
+  animated: boolean;
+  version: string;
+  reviewed: boolean;
+}
+
+export interface HiddenImage {
+  id: string;
+  kind: GalleryKind;
+  ref: string;
+  tenantId: string;
+  company: string;
+  ownerEmail: string | null;
+  contentType: string;
+  reason: string;
+  hiddenAt: string;
+  hiddenBy: string | null;
+  deletesAt: string;
+}
+
+export interface GalleryFilter {
+  status?: "new" | "all";
+  kind?: GalleryKind;
+  plan?: "free" | "paid";
+  product?: "workspace" | "rooms";
+  q?: string;
+  page?: number;
+}
+
+/** The picture for the operator's eyes (the platform answers only to the operator). */
+export function galleryImageUrl(kind: GalleryKind, ref: string, animated = false): string {
+  return `/api/operator/images/${kind}/content?ref=${encodeURIComponent(ref)}${animated ? "&animated=1" : ""}`;
+}
+
+export function hiddenImageUrl(id: string, animated = false): string {
+  return `/api/operator/images/hidden/${encodeURIComponent(id)}/content${animated ? "?animated=1" : ""}`;
 }
 
 /** Step 96: a person of a company without email (XenRooms). */
@@ -1389,6 +1439,14 @@ export const xenaxio = {
       request<{ blocked: BlockedSignup[] }>("POST", "/api/operator/blocked-signups", { kind, value, ...(reason ? { reason } : {}) }).then((r) => r.blocked),
     removeBlockedSignup: (id: string) => request<{ blocked: BlockedSignup[] }>("DELETE", `/api/operator/blocked-signups/${encodeURIComponent(id)}`).then((r) => r.blocked),
     actions: (email?: string) => request<{ actions: OperatorAction[] }>("GET", `/api/operator/actions${email ? `?email=${encodeURIComponent(email)}` : ""}`).then((r) => r.actions),
+    // Step 106, part C: the pictures people upload that others see.
+    images: (f: GalleryFilter) =>
+      request<{ images: GalleryImage[]; total: number; newCount: number; page: number; pageSize: number }>("GET", `/api/operator/images${peopleQuery(f)}`),
+    reviewImages: (items: { kind: GalleryKind; ref: string; version: string }[]) => request<{ ok: true }>("POST", "/api/operator/images/review", { items }),
+    removeImage: (kind: GalleryKind, ref: string, reason: string, mode: "hide" | "delete") => request<{ ok: true }>("POST", "/api/operator/images/remove", { kind, ref, reason, mode }),
+    hiddenImages: () => request<{ hidden: HiddenImage[] }>("GET", "/api/operator/images/hidden").then((r) => r.hidden),
+    restoreImage: (id: string) => request<{ hidden: HiddenImage[] }>("POST", `/api/operator/images/hidden/${encodeURIComponent(id)}/restore`, {}).then((r) => r.hidden),
+    purgeImage: (id: string) => request<{ hidden: HiddenImage[] }>("DELETE", `/api/operator/images/hidden/${encodeURIComponent(id)}`).then((r) => r.hidden),
     // Step 90, part F: the installation's models.
     models: () => request<InstallationModels>("GET", "/api/operator/models"),
     availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),

@@ -13,6 +13,7 @@ import {
 } from "@/components/xenaxio/operator-tenants";
 import { OperatorModels } from "@/components/xenaxio/operator-models";
 import { OperatorPeople } from "@/components/xenaxio/operator-people";
+import { OperatorImages } from "@/components/xenaxio/operator-images";
 import {
   AuthCard,
   Field,
@@ -90,7 +91,7 @@ function Console({
   const [product, setProduct] = useState<"workspace" | "rooms">("workspace");
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"tenants" | "people" | "report" | "invitations" | "models">(
+  const [tab, setTab] = useState<"tenants" | "people" | "images" | "report" | "invitations" | "models">(
     "tenants",
   );
 
@@ -161,7 +162,7 @@ function Console({
           className="flex gap-1 overflow-x-auto border-b border-border"
           aria-label={t("operator.title")}
         >
-          {(["tenants", "people", "report", "invitations", "models"] as const).map((k) => (
+          {(["tenants", "people", "images", "report", "invitations", "models"] as const).map((k) => (
             <button
               key={k}
               type="button"
@@ -176,6 +177,8 @@ function Console({
         {tab === "tenants" && <OperatorTenants />}
         {/* Step 106: every person, which companies they are in, their activity. */}
         {tab === "people" && <OperatorPeople />}
+        {/* Step 106, part C: pictures people upload that others see. */}
+        {tab === "images" && <OperatorImages />}
         {tab === "report" && <OperatorReportView />}
         {tab === "models" && <OperatorModels />}
         {tab === "invitations" && (
