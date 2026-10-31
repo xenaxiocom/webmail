@@ -1,4 +1,4 @@
-// Step 105: the company's people with their profile, for the card outside the
+// Step 107: the company's people with their profile, for the card outside the
 // chat (mail, contacts, calendar). One request, kept five minutes; the own
 // profile updates it at once. Only the Xenaxio build asks the platform.
 import { useEffect } from "react";

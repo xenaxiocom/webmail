@@ -41,7 +41,7 @@ export function RecipientCard({ name, email, onViewContact, onClose, children, a
   const t = useTranslations("email_viewer.contact_sidebar");
   const contacts = useContactStore((s) => s.contacts);
   const shownEmail = useOwnDomainAddress()(email);
-  // xenaxio (step 105): a colleague of the own company shows their profile card (null elsewhere).
+  // xenaxio (step 107): a colleague of the own company shows their profile card (null elsewhere).
   const colleague = useColleague(email);
 
   // Find matching contact by email
@@ -217,7 +217,7 @@ export function RecipientCardPopover({ anchor, onClose, ignoreRef, ...card }: Re
 
   useLayoutEffect(() => {
     setPosition(placeCard(anchor, popoverRef.current?.offsetHeight ?? 250));
-    // xenaxio (step 105): a colleague's card grows once the profile is there: stay on screen.
+    // xenaxio (step 107): a colleague's card grows once the profile is there: stay on screen.
     const el = popoverRef.current;
     if (!el || typeof ResizeObserver === "undefined") return;
     const observer = new ResizeObserver(() => setPosition(placeCard(anchor, el.offsetHeight)));

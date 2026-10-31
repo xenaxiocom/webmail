@@ -439,7 +439,7 @@ let rowIds = 0;
 export type ProfilePerson = Pick<Colleague, "displayName" | "email" | "avatarUrl" | "avatarAnimation">;
 
 /**
- * Step 105: the own profile as a form — picture, name, details, contacts in
+ * Step 107: the own profile as a form — picture, name, details, contacts in
  * any order, banner (also one's own), frame; a wrong field is marked where it
  * is. The same form in the chat's "Edit profile" and in Settings → Account
  * (Xenaxio and XenRooms): one profile for both.

@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 105: the same settings on XenRooms — the companies' column instead of
+// Step 107: the same settings on XenRooms — the companies' column instead of
 // the mail navigation, no calendar/contacts/files pages; mail is set up here.
 // A person without a mailbox: Account, General, Appearance without a mail session.
 const scope = vi.hoisted(() => ({ portal: { kind: "rooms" } as { kind: string } | null }));
@@ -62,7 +62,7 @@ beforeEach(() => {
   useThemeStore.setState({ syncServerThemes: vi.fn().mockResolvedValue(undefined) } as never);
 });
 
-describe("step 105: settings on XenRooms", () => {
+describe("step 107: settings on XenRooms", () => {
   it("someone with a mailbox: the mail pages too, no calendar, contacts or files; the companies' column", () => {
     signIn("mailbox");
     render(<SettingsApp linkSegments={["account"]} />);

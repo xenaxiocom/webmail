@@ -17,7 +17,7 @@ interface DirectoryEntryDetailProps {
 /** Read-only view of one directory entry. */
 export function DirectoryEntryDetail({ entry, onCompose, onAddToContacts }: DirectoryEntryDetailProps) {
   const t = useTranslations("contacts.directory");
-  // xenaxio (step 105): a colleague's profile card (banner, job title, contacts) as in Rooms.
+  // xenaxio (step 107): a colleague's profile card (banner, job title, contacts) as in Rooms.
   const colleague = useColleague(entry?.email);
 
   if (!entry) {

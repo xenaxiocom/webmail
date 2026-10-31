@@ -257,7 +257,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   const tSidebar = useTranslations('sidebar');
   useDocumentTitle(tSidebar('settings'));
   const { client, isAuthenticated, logout, checkAuth, isLoading: authLoading } = useAuthStore();
-  // xenaxio (step 105): the same settings on XenRooms; a person without a mailbox has no mail session.
+  // xenaxio (step 107): the same settings on XenRooms; a person without a mailbox has no mail session.
   const xenScope = useXenaxioSettingsScope();
   const tx = useXT();
   const { showAppsModal, inlineApp, loadedApps, handleManageApps, handleInlineApp, closeInlineApp, closeAppsModal } = useSidebarApps();

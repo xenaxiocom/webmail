@@ -109,7 +109,7 @@ export function contactLink(c: { kind: ContactKind; value: string }): string | n
   }
 }
 
-/** Step 105: the own profile (Settings → Account; the chat has it from the colleagues' list). */
+/** Step 107: the own profile (Settings → Account; the chat has it from the colleagues' list). */
 export async function loadProfile(): Promise<UserProfile> {
   let res: Response;
   try {

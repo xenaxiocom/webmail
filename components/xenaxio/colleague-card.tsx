@@ -1,6 +1,6 @@
 "use client";
 
-// Step 105: a colleague's card outside the chat — in mail (sender and
+// Step 107: a colleague's card outside the chat — in mail (sender and
 // recipients, mentions, invitations), in the contacts' directory and among a
 // meeting's participants. The same look as the profile in Rooms: banner,
 // picture in its frame, name, pronouns, job title · department, "about me",

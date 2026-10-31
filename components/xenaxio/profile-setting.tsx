@@ -1,6 +1,6 @@
 "use client";
 
-// Step 105: one profile for Xenaxio and XenRooms. Settings → Account shows
+// Step 107: one profile for Xenaxio and XenRooms. Settings → Account shows
 // the same form as the chat's "Edit profile" (job title, contacts, banner,
 // frame) and the way to the own password; saving updates the chat and the
 // colleagues' cards at once.

@@ -1034,7 +1034,7 @@ async function restoreBffSession(set: AuthSet, get: AuthGet): Promise<void> {
     goToPage('workspace/password');
     return;
   }
-  // Step 105: a person without a mailbox (XenRooms) has no mail session; the
+  // Step 107: a person without a mailbox (XenRooms) has no mail session; the
   // pages that need none (chat, settings) go on with the platform's session.
   if (me.user.kind === 'chat') {
     useXenaxioMeStore.setState({ me, loadedAt: Date.now() });

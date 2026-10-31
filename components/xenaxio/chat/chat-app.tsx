@@ -121,7 +121,7 @@ function ChatInside() {
       void openAs(as, room, q.get("event") ?? undefined);
       return;
     }
-    // Step 105: "Message in Rooms" on a colleague's card (mail, contacts, calendar) opens the direct conversation.
+    // Step 107: "Message in Rooms" on a colleague's card (mail, contacts, calendar) opens the direct conversation.
     const dm = q.get("dm");
     if (!room && dm?.startsWith("@") && dm !== client.userId) {
       window.history.replaceState(null, "", window.location.pathname);

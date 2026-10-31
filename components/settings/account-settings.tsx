@@ -162,7 +162,7 @@ export function AccountSettings() {
 
         {/* xenaxio (step 41): the profile picture colleagues see. */}
         <ProfilePictureSetting />
-        {/* xenaxio (step 105): the own password, also from XenRooms. */}
+        {/* xenaxio (step 107): the own password, also from XenRooms. */}
         <XenaxioPasswordSetting />
 
         {/* Email Address */}
@@ -227,7 +227,7 @@ export function AccountSettings() {
         )}
       </SettingsSection>
 
-      {/* xenaxio (step 105): one profile for Xenaxio and XenRooms (the chat's form). */}
+      {/* xenaxio (step 107): one profile for Xenaxio and XenRooms (the chat's form). */}
       <XenaxioProfileSetting />
 
       <EmailAddressesSection />

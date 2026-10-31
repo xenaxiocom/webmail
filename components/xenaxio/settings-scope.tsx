@@ -1,6 +1,6 @@
 "use client";
 
-// Step 105: the same settings in Xenaxio and XenRooms. On XenRooms
+// Step 107: the same settings in Xenaxio and XenRooms. On XenRooms
 // (xenrooms.app) the page has the companies' column instead of the mail
 // navigation and no calendar, contacts or files pages (XenRooms has none);
 // mail is set up right here. A person without a mailbox (XenRooms company)

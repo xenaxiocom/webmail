@@ -89,7 +89,7 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
   const roomsOnly = me?.tenant.product === "rooms";
   const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/rooms/people/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
   const adminTarget = roomsOnly ? {} : { target: "_blank", rel: "noopener" };
-  // Step 105: everyone's own settings — the same pages as in Xenaxio, here on XenRooms.
+  // Step 107: everyone's own settings — the same pages as in Xenaxio, here on XenRooms.
   const settingsUrl = withBasePath(`/${locale}/settings/account/`);
   // Step 96: someone without a mailbox connects AI chats (Claude …) here too; others in Xenaxio.
   const aiUrl = me?.user.kind === "chat" ? withBasePath(`/${locale}/workspace/mcp/`) : null;

@@ -2,7 +2,7 @@ import React from "react";
 import { render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 105: a colleague's card outside the chat — mail, contacts' directory — with the same profile as in Rooms.
+// Step 107: a colleague's card outside the chat — mail, contacts' directory — with the same profile as in Rooms.
 const api = vi.hoisted(() => ({ calls: 0 }));
 vi.mock("next-intl", () => ({
   useTranslations: (ns?: string) => (key: string) => (ns ? `${ns}.${key}` : key),
@@ -38,7 +38,7 @@ const { DirectoryEntryDetail } = await import("@/components/contacts/directory-e
 const { resetPeopleForTests } = await import("@/lib/xenaxio/people");
 const { useXenaxioMeStore } = await import("@/lib/xenaxio/me-store");
 
-describe("step 105: a colleague's card outside the chat", () => {
+describe("step 107: a colleague's card outside the chat", () => {
   beforeEach(() => {
     api.calls = 0;
     resetPeopleForTests();

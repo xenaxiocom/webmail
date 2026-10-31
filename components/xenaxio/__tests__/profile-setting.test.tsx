@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 105: one profile for Xenaxio and XenRooms — Settings → Account shows the chat's form.
+// Step 107: one profile for Xenaxio and XenRooms — Settings → Account shows the chat's form.
 const api = vi.hoisted(() => ({ calls: [] as { url: string; method: string; body?: unknown }[], stored: null as unknown }));
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/lib/xenaxio/bff", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/bff")>()), XENAXIO_BFF: true }));
@@ -25,7 +25,7 @@ const { XenaxioPasswordSetting, XenaxioProfileSetting } = await import("../profi
 
 const empty = { title: null, department: null, phone: null, about: null, pronouns: null, contacts: [], banner: "none", frame: "none", bannerImage: null };
 
-describe("step 105: the profile in Settings → Account", () => {
+describe("step 107: the profile in Settings → Account", () => {
   beforeEach(() => {
     api.calls = [];
     api.stored = { ...empty, title: "Vertrieb", contacts: [{ kind: "telegram", value: "@anna_s" }] };
