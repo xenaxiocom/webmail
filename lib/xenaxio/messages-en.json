@@ -1976,6 +1976,7 @@
     "call_running_count": "Call going on: {count}",
     "forum_all": "All",
     "forum_new": "New post",
+    "forum_edit": "Edit post",
     "forum_empty": "No posts yet.",
     "forum_replies": "{count} replies",
     "forum_title": "Title",

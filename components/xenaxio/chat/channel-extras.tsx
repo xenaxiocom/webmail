@@ -6,9 +6,9 @@
 // "Catch up" (unread channels one after another).
 import { IconBookmark, IconHeadphones, IconNotes, IconPlus, IconX } from "@tabler/icons-react";
 import { useState } from "react";
-import { BOOKMARKS_TYPE, CANVAS_TYPE, POST_FIELD, postOf, useChatExtras } from "@/lib/xenaxio/chat/extras";
+import { BOOKMARKS_TYPE, CANVAS_TYPE, POST_FIELD, postOf, postText, useChatExtras } from "@/lib/xenaxio/chat/extras";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
-import { messageHtml, plainPreview, textContent, toHtml } from "@/lib/xenaxio/chat/format";
+import { messageHtml, plainPreview, toHtml } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
@@ -16,8 +16,9 @@ import { cn } from "@/lib/utils";
 import { useJoinRoomCall } from "@/components/xenaxio/meet/call";
 import { useChatTime, useDisplayName } from "./common";
 import { RichHtml } from "./code";
-import { Modal, useChatDialogs } from "./dialogs";
+import { useChatDialogs } from "./dialogs";
 import { PanelFrame } from "./side-panels";
+import { PostDialog } from "./post-dialog";
 
 /** Links under the channel's name; whoever may edit adds and removes them. */
 export function BookmarksBar({ client, room }: { client: ChatClient; room: Room }) {
@@ -192,7 +193,7 @@ export function ForumView({ client, room }: { client: ChatClient; room: Room }) 
           <li key={m.id}>
             <button type="button" onClick={() => setPanel({ kind: "thread", roomId: room.id, rootId: m.id })} className="block w-full border-b border-border px-5 py-3 text-left hover:bg-muted/40">
               <span className="block font-semibold">{post.title}</span>
-              <span className="mt-0.5 line-clamp-2 block text-sm text-muted-foreground">{plainPreview({ ...m.content, [POST_FIELD]: undefined }, 200)}</span>
+              <span className="mt-0.5 line-clamp-2 block text-sm text-muted-foreground">{plainPreview({ ...m.content, body: postText(m.content), [POST_FIELD]: undefined }, 200)}</span>
               <span className="mt-1 flex flex-wrap items-center gap-1.5 text-xs text-muted-foreground">
                 {post.tags.map((x) => (
                   <span key={x} className="rounded-full bg-muted px-2 py-0.5">
@@ -207,66 +208,8 @@ export function ForumView({ client, room }: { client: ChatClient; room: Room }) 
           </li>
         ))}
       </ul>
-      {writing && <NewPostDialog client={client} room={room} onClose={() => setWriting(false)} />}
+      {writing && <PostDialog client={client} room={room} onClose={() => setWriting(false)} />}
     </div>
-  );
-}
-
-function NewPostDialog({ client, room, onClose }: { client: ChatClient; room: Room; onClose: () => void }) {
-  const t = useXT();
-  const colleagues = useChatStore((s) => s.colleagues);
-  const [title, setTitle] = useState("");
-  const [text, setText] = useState("");
-  const [tags, setTags] = useState<string[]>([]);
-  const [busy, setBusy] = useState(false);
-  const send = async () => {
-    if (!title.trim() || busy) return;
-    setBusy(true);
-    try {
-      const people = [...colleagues.values()].map((c) => ({ userId: c.address, displayName: c.displayName }));
-      const content = textContent(`**${title.trim()}**${text.trim() ? `\n${text.trim()}` : ""}`, people);
-      await client.send(room.id, { ...content, [POST_FIELD]: { title: title.trim().slice(0, 200), tags } });
-      onClose();
-    } catch {
-      toast.error(t("chat.error"));
-    } finally {
-      setBusy(false);
-    }
-  };
-  return (
-    <Modal title={t("chat.forum_new")} onClose={onClose} wide>
-      <label className="block text-sm font-medium">
-        {t("chat.forum_title")}
-        <input autoFocus value={title} maxLength={200} onChange={(e) => setTitle(e.target.value)} className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-ring" />
-      </label>
-      <label className="mt-3 block text-sm font-medium">
-        {t("chat.forum_text")}
-        <textarea value={text} rows={6} onChange={(e) => setText(e.target.value)} className="mt-1 w-full resize-y rounded-md border border-input bg-transparent p-2 text-sm font-normal focus:outline-none focus:ring-2 focus:ring-ring" />
-      </label>
-      {(room.forum?.tags.length ?? 0) > 0 && (
-        <div className="mt-3 flex flex-wrap gap-1.5" role="group" aria-label={t("chat.forum_tags")}>
-          {room.forum!.tags.map((x) => (
-            <button
-              key={x}
-              type="button"
-              aria-pressed={tags.includes(x)}
-              onClick={() => setTags(tags.includes(x) ? tags.filter((y) => y !== x) : [...tags, x].slice(0, 5))}
-              className={cn("rounded-full px-2.5 py-0.5 text-xs", tags.includes(x) ? "bg-primary text-primary-foreground" : "bg-muted hover:bg-accent")}
-            >
-              {x}
-            </button>
-          ))}
-        </div>
-      )}
-      <div className="mt-4 flex justify-end gap-2">
-        <button type="button" onClick={onClose} className="h-9 rounded-md px-3 text-sm hover:bg-accent">
-          {t("chat.cancel")}
-        </button>
-        <button type="button" disabled={!title.trim() || busy} onClick={() => void send()} className="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
-          {t("chat.forum_post")}
-        </button>
-      </div>
-    </Modal>
   );
 }
 

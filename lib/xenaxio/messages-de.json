@@ -1976,6 +1976,7 @@
     "call_running_count": "Gespräch läuft: {count}",
     "forum_all": "Alle",
     "forum_new": "Neuer Beitrag",
+    "forum_edit": "Beitrag bearbeiten",
     "forum_empty": "Noch keine Beiträge.",
     "forum_replies": "{count} Antworten",
     "forum_title": "Titel",

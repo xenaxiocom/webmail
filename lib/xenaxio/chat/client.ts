@@ -5,7 +5,7 @@
 // so no crypto code is needed.
 import { ChatError, mx, newTxnId, paths } from "./api";
 import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
-import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, VOICE_TYPE } from "./extras";
+import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, keepPost, VOICE_TYPE } from "./extras";
 import type { ChannelRef } from "./format";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
@@ -798,7 +798,7 @@ export class ChatClient {
     if (message.sender !== ev.sender || message.redacted) return;
     const next = ev.content["m.new_content"] as Record<string, unknown> | undefined;
     if (!next) return;
-    message.content = { ...next, ...(message.content["m.relates_to"] ? { "m.relates_to": message.content["m.relates_to"] } : {}) };
+    message.content = { ...keepPost(next, message.content), ...(message.content["m.relates_to"] ? { "m.relates_to": message.content["m.relates_to"] } : {}) };
     message.edited = true;
   }
 
@@ -977,6 +977,7 @@ export class ChatClient {
     const message = room?.byId.get(messageId);
     if (!room || !message || message.sender !== this.userId) return;
     const previous = message.content;
+    content = keepPost(content, previous);
     message.content = { ...content, ...(previous["m.relates_to"] ? { "m.relates_to": previous["m.relates_to"] } : {}) };
     message.edited = true;
     this.changed();
