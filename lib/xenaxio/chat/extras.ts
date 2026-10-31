@@ -4,7 +4,7 @@
 import { useEffect } from "react";
 import { create } from "zustand";
 import { apiFetch, withBasePath } from "@/lib/browser-navigation";
-import { setCompanyEmoji } from "./format";
+import { type ChannelRef, escapeHtml, type Mention, setCompanyEmoji, textContent, toHtml } from "./format";
 
 /** Our room state: a voice channel (Discord), a forum (Discord), a canvas and bookmarks (Slack). */
 export const VOICE_TYPE = "com.xenaxio.voice";
@@ -37,15 +37,36 @@ export function postOf(content: Record<string, unknown>): ForumPost | null {
   return { title: p.title.trim().slice(0, 200), tags: (Array.isArray(p.tags) ? p.tags : []).filter((t): t is string => typeof t === "string").map((t) => t.slice(0, 40)).slice(0, 5) };
 }
 
-/** The body of a post: the title in bold on the first line, then the text (readable in any Matrix client). */
-export function postBody(title: string, text: string): string {
-  return `**${title.trim()}**${text.trim() ? `\n${text.trim()}` : ""}`;
+/**
+ * Step 105: the content of a post. The title goes in as typed — no markdown
+ * around it, so `**`, `_` or backticks in it stay plain text: the body has
+ * the title on its first line (previews, notifications, search), the HTML
+ * shows it in bold (here and in other Matrix apps); the text below keeps
+ * the chat's formatting, mentions and links.
+ */
+export function postContent(title: string, text: string, tags: string[], mentions: Mention[] = [], channels: ChannelRef[] = []): Record<string, unknown> {
+  const clean = title.replace(/\s+/g, " ").trim().slice(0, 200);
+  const rest = textContent(text, mentions, channels);
+  const body = String(rest.body ?? "");
+  const html = body ? (toHtml(body, mentions, channels) ?? escapeHtml(body).replace(/\n/g, "<br>")) : "";
+  return {
+    ...rest,
+    body: body ? `${clean}\n${body}` : clean,
+    format: "org.matrix.custom.html",
+    formatted_body: `<strong>${escapeHtml(clean)}</strong>${html ? `<br>${html}` : ""}`,
+    [POST_FIELD]: { title: clean, tags },
+  };
 }
 
-/** Step 105: the text of a post without its bold title line, for the forum list and the edit dialog. */
+/**
+ * The text of a post without its title line, for the forum list and the edit
+ * dialog. Posts before step 105 have the title as `**title**` on that line.
+ */
 export function postText(content: Record<string, unknown>): string {
   const body = typeof content.body === "string" ? content.body : "";
-  return /^\*\*[^\n]*\*\*(\n|$)/.test(body) ? body.replace(/^\*\*[^\n]*\*\*\n?/, "") : body;
+  const title = postOf(content)?.title;
+  const [first = "", ...rest] = body.split("\n");
+  return first.trim() === title || /^\*\*.*\*\*$/.test(first.trim()) ? rest.join("\n") : body;
 }
 
 /**

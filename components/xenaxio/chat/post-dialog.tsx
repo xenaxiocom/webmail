@@ -3,8 +3,7 @@
 // Step 99, part H: a forum post (title, text, tags); step 105: the same dialog edits a post.
 import { useState } from "react";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
-import { POST_FIELD, postBody, postOf, postText } from "@/lib/xenaxio/chat/extras";
-import { textContent } from "@/lib/xenaxio/chat/format";
+import { postContent, postOf, postText } from "@/lib/xenaxio/chat/extras";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
@@ -13,8 +12,8 @@ import { Modal } from "./dialogs";
 
 /**
  * A new forum post, or (step 105) an edit of one: the title and the text in
- * separate fields, the tags as chips. The body keeps the title in bold on the
- * first line so other Matrix apps show it.
+ * separate fields, the tags as chips. The title is plain text, never markdown
+ * (`postContent`).
  */
 export function PostDialog({ client, room, message, onClose }: { client: ChatClient; room: Room; message?: Message; onClose: () => void }) {
   const t = useXT();
@@ -29,7 +28,7 @@ export function PostDialog({ client, room, message, onClose }: { client: ChatCli
     setBusy(true);
     try {
       const people = [...colleagues.values()].map((c) => ({ userId: c.address, displayName: c.displayName }));
-      const content = { ...textContent(postBody(title, text), people, client.channelRefs()), [POST_FIELD]: { title: title.trim().slice(0, 200), tags } };
+      const content = postContent(title, text, tags, people, client.channelRefs());
       if (message) await client.edit(room.id, message.id, content);
       else await client.send(room.id, content);
       onClose();

@@ -11,7 +11,7 @@ vi.mock("@/lib/xenaxio/chat/api", async (orig) => ({
 }));
 
 const { ChatClient } = await import("@/lib/xenaxio/chat/client");
-const { bookmarksOf, POST_FIELD, postOf } = await import("@/lib/xenaxio/chat/extras");
+const { bookmarksOf, POST_FIELD, postContent, postOf, postText } = await import("@/lib/xenaxio/chat/extras");
 const { messageHtml, setCompanyEmoji, withGroupMentions } = await import("@/lib/xenaxio/chat/format");
 const { useChatStore } = await import("@/lib/xenaxio/chat/store");
 const { ChatDialogsProvider } = await import("../chat/dialogs");
@@ -93,7 +93,7 @@ describe("from Slack and Discord (step 99, part H)", () => {
     await act(async () => {
       fireEvent.click(screen.getByRole("button", { name: "Post" }));
     });
-    expect(send).toHaveBeenCalledWith(R, expect.objectContaining({ body: "**Wie geht X?**", [POST_FIELD]: { title: "Wie geht X?", tags: ["Frage"] } }));
+    expect(send).toHaveBeenCalledWith(R, expect.objectContaining({ body: "Wie geht X?", formatted_body: "<strong>Wie geht X?</strong>", [POST_FIELD]: { title: "Wie geht X?", tags: ["Frage"] } }));
   });
 
   it("bookmarks show as links; catch up goes through unread channels", async () => {
@@ -158,8 +158,21 @@ describe("forum posts after an edit (step 105)", () => {
       fireEvent.click(screen.getByRole("button", { name: "Save" }));
     });
     const sent = calls.find((x) => x.method === "PUT")!.body as Record<string, Record<string, unknown>>;
-    expect(sent["m.new_content"]).toMatchObject({ body: "**Neuer Titel**\nText", [POST_FIELD]: { title: "Neuer Titel", tags: ["Idee"] } });
+    expect(sent["m.new_content"]).toMatchObject({ body: "Neuer Titel\nText", formatted_body: "<strong>Neuer Titel</strong><br>Text", [POST_FIELD]: { title: "Neuer Titel", tags: ["Idee"] } });
     expect(postOf(room.byId.get("$p3")!.content)?.title).toBe("Neuer Titel");
     expect(useChatStore.getState().editing).toBeNull();
+  });
+
+  it("the title is plain text: ** _ ` < in it are not formatting; the text below keeps it", () => {
+    for (const title of ["a**b", "**x**", "Wichtig*", "Test _1_ `c`", "<b>x</b>"]) {
+      const c = postContent(title, "Mit **fett**", []);
+      expect(c.body).toBe(`${title}\nMit **fett**`);
+      expect(c.formatted_body).toBe(`<strong>${title.replace(/</g, "&lt;").replace(/>/g, "&gt;")}</strong><br>Mit <strong>fett</strong>`);
+      expect(postOf(c)?.title).toBe(title);
+      expect(postText(c)).toBe("Mit **fett**");
+    }
+    expect(postContent("  Nur   Titel ", "", ["Idee"])).toMatchObject({ body: "Nur Titel", formatted_body: "<strong>Nur Titel</strong>", [POST_FIELD]: { title: "Nur Titel", tags: ["Idee"] } });
+    // Posts before step 105: "**title**" on the first line.
+    expect(postText({ body: "**Alt**\nText", [POST_FIELD]: { title: "Alt", tags: [] } })).toBe("Text");
   });
 });
