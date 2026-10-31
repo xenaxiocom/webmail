@@ -58,6 +58,7 @@ import {
 } from "@/lib/xenaxio/chat/profile";
 import { type Colleague, useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
+import { usePeopleStore } from "@/lib/xenaxio/people";
 import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 import { Modal } from "./dialogs";
@@ -419,29 +420,44 @@ function ContactRow({ row, index, error, onChange, onRemove, onBlur }: { row: Ro
 
 let rowIds = 0;
 
-/** Edit one's own profile: picture, banner, name, details, contacts, frame; the status in its own tab. */
-export function ProfileDialog({
-  address,
+/** What the form needs to know about the person: the own picture (the name comes in `nameField`). */
+export type ProfilePerson = Pick<Colleague, "displayName" | "email" | "avatarUrl" | "avatarAnimation">;
+
+/**
+ * Step 105: the own profile as a form — picture, name, details, contacts in
+ * any order, banner (also one's own), frame; a wrong field is marked where it
+ * is. The same form in the chat's "Edit profile" and in Settings → Account
+ * (Xenaxio and XenRooms): one profile for both.
+ */
+export function ProfileForm({
   initial,
-  colleague,
-  onClose,
+  person,
   nameField,
-  statusTab,
+  showPicture = true,
+  onChange,
+  onPicture,
+  onSaved,
+  onCancel,
+  scroll,
 }: {
-  address: string;
   initial: UserProfile | undefined;
-  colleague?: Colleague;
-  onClose: () => void;
+  person?: ProfilePerson;
   /** The own name (saved on its own, step 101). */
   nameField?: ReactNode;
-  /** The status (saved on its own). */
-  statusTab?: ReactNode;
+  /** The picture section (Settings → Account has its own picture row). */
+  showPicture?: boolean;
+  /** The profile changed on the platform (saved, or the own banner picture sent or removed). */
+  onChange?: (p: UserProfile) => void;
+  /** The own picture changed. */
+  onPicture?: (change: Pick<Colleague, "avatarUrl" | "avatarAnimation">) => void;
+  /** After "Save" went through (the dialog closes). */
+  onSaved?: (p: UserProfile) => void;
+  onCancel?: () => void;
+  /** The fields scroll inside a dialog. */
+  scroll?: boolean;
 }) {
   const t = useXT();
-  const setProfile = useChatStore((s) => s.setProfile);
-  const setColleague = useChatStore((s) => s.setColleague);
   const refreshAvatars = useXenaxioAvatarStore((s) => s.load);
-  const [tab, setTab] = useState<"profile" | "status">("profile");
   const [p, setP] = useState<UserProfile>({ ...EMPTY_PROFILE, ...initial });
   const [rows, setRows] = useState<Row[]>(() => (initial?.contacts ?? []).map((c) => ({ id: ++rowIds, ...c })));
   const [busy, setBusy] = useState(false);
@@ -449,12 +465,17 @@ export function ProfileDialog({
   const [submitted, setSubmitted] = useState(false);
   const [serverIssues, setServerIssues] = useState<Record<string, string>>({});
   const [picking, setPicking] = useState<{ what: "avatar" | "banner"; file: File } | null>(null);
+  // The last state the platform has (for the banner picture before "Save").
+  const stored = useRef<UserProfile>({ ...EMPTY_PROFILE, ...initial });
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 4 } }), useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }));
   const field = "mt-1 h-9 w-full rounded-md border bg-transparent px-2 text-sm font-normal focus:outline-none focus:ring-2";
   const set = <K extends keyof UserProfile>(k: K, v: UserProfile[K]) => setP((x) => ({ ...x, [k]: v }));
   const touch = (path: string) => setTouched((s) => (s.has(path) ? s : new Set(s).add(path)));
   const clearIssue = (prefix: string) => setServerIssues((s) => Object.fromEntries(Object.entries(s).filter(([k]) => !k.startsWith(prefix))));
-
+  const changed = (next: UserProfile) => {
+    stored.current = next;
+    onChange?.(next);
+  };
   // The form's own check (the platform's rules); shown once a field was left or "Save" pressed.
   const localErrors = useMemo(() => {
     const out: Record<string, string> = {};
@@ -482,9 +503,12 @@ export function ProfileDialog({
     setBusy(true);
     try {
       const saved = await saveProfile({ ...p, contacts: kept.map(({ kind, value }) => ({ kind, value: value.trim() })) });
-      setProfile(address, { ...saved, bannerImage: saved.bannerImage ?? p.bannerImage ?? null });
+      const next = { ...saved, bannerImage: saved.bannerImage ?? p.bannerImage ?? null };
+      changed(next);
+      setSubmitted(false);
+      setTouched(new Set());
       toast.success(t("chat.profile_saved"));
-      onClose();
+      onSaved?.(next);
     } catch (err) {
       const issues = err instanceof XenaxioApiError ? err.issues : undefined;
       if (issues?.length) {
@@ -522,13 +546,13 @@ export function ProfileDialog({
   const picture = p.bannerImage;
   const sendOwnAvatar = async (file: File, focus: Focus) => {
     const { avatarUrl, animation } = await sendAvatar(null, file, focus);
-    setColleague(address, { avatarUrl, avatarAnimation: animation });
+    onPicture?.({ avatarUrl, avatarAnimation: animation });
     void refreshAvatars(true);
   };
   const removeOwnAvatar = async () => {
     try {
       await xenaxio.removeAvatar(null);
-      setColleague(address, { avatarUrl: null, avatarAnimation: null });
+      onPicture?.({ avatarUrl: null, avatarAnimation: null });
       void refreshAvatars(true);
     } catch (err) {
       toast.error(errorText(t, err));
@@ -537,19 +561,211 @@ export function ProfileDialog({
   const sendOwnBanner = async (file: File, focus: Focus) => {
     const bannerImage = await sendBanner(file, focus);
     setP((x) => ({ ...x, banner: "custom", bannerImage }));
-    if (initial) setProfile(address, { ...{ ...EMPTY_PROFILE, ...initial }, banner: "custom", bannerImage });
+    changed({ ...stored.current, banner: "custom", bannerImage });
   };
   const removeOwnBanner = async () => {
     try {
       await xenaxio.removeBanner();
       setP((x) => ({ ...x, banner: x.banner === "custom" ? "none" : x.banner, bannerImage: null }));
-      if (initial) setProfile(address, { ...{ ...EMPTY_PROFILE, ...initial }, banner: initial.banner === "custom" ? "none" : initial.banner, bannerImage: null });
+      changed({ ...stored.current, banner: stored.current.banner === "custom" ? "none" : stored.current.banner, bannerImage: null });
     } catch (err) {
       toast.error(errorText(t, err));
     }
   };
 
   const phoneError = errorFor("phone");
+  return (
+    <>
+      <div className={cn("space-y-5", scroll && "max-h-[70vh] overflow-y-auto pr-1")}>
+        {showPicture && (
+          <section>
+            <h3 className="text-sm font-medium">{t("chat.profile_picture")}</h3>
+            <div className="mt-1.5 flex flex-wrap items-center gap-3">
+              <LargeAvatar colleague={person as Colleague | undefined} name={person?.displayName ?? ""} email={person?.email} className="scale-75 -m-3" />
+              <ChooseFile label={person?.avatarUrl ? t("chat.profile_picture_replace") : t("chat.profile_picture_choose")} onFile={(file) => setPicking({ what: "avatar", file })} />
+              {person?.avatarUrl && (
+                <button type="button" onClick={() => void removeOwnAvatar()} className="flex h-8 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent">
+                  <IconTrash size={15} />
+                  {t("chat.profile_picture_remove")}
+                </button>
+              )}
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground">{t("chat.profile_picture_hint")}</p>
+            {picking?.what === "avatar" && <PickedPicture file={picking.file} aspect={1} round label={t("chat.profile_picture")} send={sendOwnAvatar} onDone={() => setPicking(null)} />}
+          </section>
+        )}
+
+        {nameField}
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="text-sm font-medium">
+            {t("chat.profile_title")}
+            <input value={p.title ?? ""} maxLength={100} onChange={(e) => set("title", e.target.value)} className={cn(field, "border-input focus:ring-ring")} />
+          </label>
+          <label className="text-sm font-medium">
+            {t("chat.profile_department")}
+            <input value={p.department ?? ""} maxLength={100} onChange={(e) => set("department", e.target.value)} className={cn(field, "border-input focus:ring-ring")} />
+          </label>
+          <div className="text-sm font-medium">
+            <label htmlFor="profile-phone">{t("chat.profile_phone")}</label>
+            <input
+              id="profile-phone"
+              value={p.phone ?? ""}
+              maxLength={40}
+              inputMode="tel"
+              aria-invalid={!!phoneError}
+              aria-describedby={phoneError ? "profile-phone-error" : undefined}
+              onChange={(e) => (set("phone", e.target.value), clearIssue("phone"))}
+              onBlur={() => touch("phone")}
+              className={cn(field, phoneError ? "border-destructive ring-1 ring-destructive/60 focus:ring-destructive/60" : "border-input focus:ring-ring")}
+            />
+            {phoneError && (
+              <p id="profile-phone-error" className="mt-1 text-xs font-normal text-destructive">
+                {phoneError}
+              </p>
+            )}
+          </div>
+          <label className="text-sm font-medium">
+            {t("chat.profile_pronouns")}
+            <input value={p.pronouns ?? ""} maxLength={40} onChange={(e) => set("pronouns", e.target.value)} className={cn(field, "border-input focus:ring-ring")} />
+          </label>
+        </div>
+        <label className="block text-sm font-medium">
+          {t("chat.profile_about")}
+          <textarea value={p.about ?? ""} maxLength={300} rows={3} onChange={(e) => set("about", e.target.value)} className={cn(field, "h-auto border-input py-1.5 focus:ring-ring")} />
+        </label>
+
+        <section>
+          <h3 className="text-sm font-medium">{t("chat.profile_contacts")}</h3>
+          {rows.length > 1 && <p className="text-xs text-muted-foreground">{t("chat.profile_contact_order_hint")}</p>}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
+            <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
+              <ul className="mt-1.5 space-y-1.5">
+                {rows.map((r, i) => (
+                  <ContactRow
+                    key={r.id}
+                    row={r}
+                    index={i}
+                    error={errorFor(`contacts.${i}.value`)}
+                    onChange={(next) => {
+                      setRows((all) => all.map((x) => (x.id === r.id ? next : x)));
+                      clearIssue(`contacts.${i}.`);
+                    }}
+                    onBlur={() => touch(`contacts.${i}.value`)}
+                    onRemove={() => {
+                      setRows((all) => all.filter((x) => x.id !== r.id));
+                      clearIssue("contacts.");
+                    }}
+                  />
+                ))}
+              </ul>
+            </SortableContext>
+          </DndContext>
+          {rows.length < 10 && (
+            <button type="button" onClick={() => setRows((all) => [...all, { id: ++rowIds, kind: "telegram", value: "" }])} className="mt-1.5 flex items-center gap-1 rounded px-2 py-1 text-sm text-primary hover:bg-accent">
+              <IconPlus size={14} />
+              {t("chat.profile_contact_add")}
+            </button>
+          )}
+        </section>
+
+        <section>
+          <h3 className="text-sm font-medium">{t("chat.profile_banner")}</h3>
+          <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label={t("chat.profile_banner")}>
+            {BANNERS.map((b) => (
+              <button
+                key={b}
+                type="button"
+                role="radio"
+                aria-checked={p.banner === b}
+                aria-label={t(`chat.banner_${b}`)}
+                title={t(`chat.banner_${b}`)}
+                onClick={() => set("banner", b)}
+                className={cn("h-8 w-14 rounded-md border", p.banner === b ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "border-border")}
+                style={BANNER_STYLE[b] ? { backgroundImage: BANNER_STYLE[b] } : undefined}
+              />
+            ))}
+            {picture && (
+              <button
+                type="button"
+                role="radio"
+                aria-checked={p.banner === "custom"}
+                aria-label={t("chat.banner_custom")}
+                title={t("chat.banner_custom")}
+                onClick={() => set("banner", "custom")}
+                className={cn("h-8 w-14 overflow-hidden rounded-md border", p.banner === "custom" ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "border-border")}
+              >
+                <img src={withBasePath(picture.url)} alt="" className="h-full w-full object-cover" />
+              </button>
+            )}
+          </div>
+          <div className="mt-2 flex flex-wrap items-center gap-2">
+            <ChooseFile label={picture ? t("chat.banner_custom_replace") : t("chat.banner_custom_choose")} onFile={(file) => setPicking({ what: "banner", file })} icon={<IconPlus size={15} />} />
+            {picture && (
+              <button type="button" onClick={() => void removeOwnBanner()} className="flex h-8 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent">
+                <IconTrash size={15} />
+                {t("chat.banner_custom_remove")}
+              </button>
+            )}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{t("chat.banner_custom_hint")}</p>
+          {picking?.what === "banner" && <PickedPicture file={picking.file} aspect={BANNER_ASPECT} label={t("chat.profile_banner")} send={sendOwnBanner} onDone={() => setPicking(null)} />}
+        </section>
+
+        <section>
+          <h3 className="text-sm font-medium">{t("chat.profile_frame")}</h3>
+          <div className="mt-1 flex flex-wrap gap-3" role="radiogroup" aria-label={t("chat.profile_frame")}>
+            {FRAMES.map((f) => (
+              <button key={f} type="button" role="radio" aria-checked={p.frame === f} aria-label={t(`chat.frame_${f}`)} title={t(`chat.frame_${f}`)} onClick={() => set("frame", f)} className={cn("rounded-full p-1", p.frame === f && "bg-accent")}>
+                <span className={cn("inline-flex rounded-full", FRAME_STYLE[f])}>
+                  <span className="block h-8 w-8 rounded-full bg-muted" />
+                </span>
+              </button>
+            ))}
+          </div>
+        </section>
+      </div>
+      <div className="mt-4 flex items-center justify-end gap-2">
+        {submitted && Object.keys({ ...localErrors, ...serverIssues }).length > 0 && (
+          <span className="mr-auto text-xs text-destructive" role="alert">
+            {t("chat.profile_fix_marked")}
+          </span>
+        )}
+        {onCancel && (
+          <button type="button" onClick={onCancel} className="h-9 rounded-md px-3 text-sm hover:bg-accent">
+            {t("chat.cancel")}
+          </button>
+        )}
+        <button type="button" disabled={busy} onClick={() => void save()} className="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
+          {t("chat.save_edit")}
+        </button>
+      </div>
+    </>
+  );
+}
+
+/** Edit one's own profile in the chat: the same form as in Settings → Account; the status in its own tab. */
+export function ProfileDialog({
+  address,
+  initial,
+  colleague,
+  onClose,
+  nameField,
+  statusTab,
+}: {
+  address: string;
+  initial: UserProfile | undefined;
+  colleague?: Colleague;
+  onClose: () => void;
+  /** The own name (saved on its own, step 101). */
+  nameField?: ReactNode;
+  /** The status (saved on its own). */
+  statusTab?: ReactNode;
+}) {
+  const t = useXT();
+  const setProfile = useChatStore((s) => s.setProfile);
+  const setColleague = useChatStore((s) => s.setColleague);
+  const [tab, setTab] = useState<"profile" | "status">("profile");
   return (
     <Modal title={t("chat.profile_edit")} onClose={onClose} wide>
       {statusTab && (
@@ -571,168 +787,22 @@ export function ProfileDialog({
       {tab === "status" && statusTab ? (
         <div className="max-h-[70vh] overflow-y-auto pr-1">{statusTab}</div>
       ) : (
-        <>
-          <div className="max-h-[70vh] space-y-5 overflow-y-auto pr-1">
-            <section>
-              <h3 className="text-sm font-medium">{t("chat.profile_picture")}</h3>
-              <div className="mt-1.5 flex flex-wrap items-center gap-3">
-                <LargeAvatar colleague={colleague} name={colleague?.displayName ?? ""} email={colleague?.email} className="scale-75 -m-3" />
-                <ChooseFile label={colleague?.avatarUrl ? t("chat.profile_picture_replace") : t("chat.profile_picture_choose")} onFile={(file) => setPicking({ what: "avatar", file })} />
-                {colleague?.avatarUrl && (
-                  <button type="button" onClick={() => void removeOwnAvatar()} className="flex h-8 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent">
-                    <IconTrash size={15} />
-                    {t("chat.profile_picture_remove")}
-                  </button>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("chat.profile_picture_hint")}</p>
-              {picking?.what === "avatar" && <PickedPicture file={picking.file} aspect={1} round label={t("chat.profile_picture")} send={sendOwnAvatar} onDone={() => setPicking(null)} />}
-            </section>
-
-            {nameField}
-
-            <div className="grid gap-3 sm:grid-cols-2">
-              <label className="text-sm font-medium">
-                {t("chat.profile_title")}
-                <input value={p.title ?? ""} maxLength={100} onChange={(e) => set("title", e.target.value)} className={cn(field, "border-input focus:ring-ring")} />
-              </label>
-              <label className="text-sm font-medium">
-                {t("chat.profile_department")}
-                <input value={p.department ?? ""} maxLength={100} onChange={(e) => set("department", e.target.value)} className={cn(field, "border-input focus:ring-ring")} />
-              </label>
-              <div className="text-sm font-medium">
-                <label htmlFor="profile-phone">{t("chat.profile_phone")}</label>
-                <input
-                  id="profile-phone"
-                  value={p.phone ?? ""}
-                  maxLength={40}
-                  inputMode="tel"
-                  aria-invalid={!!phoneError}
-                  aria-describedby={phoneError ? "profile-phone-error" : undefined}
-                  onChange={(e) => (set("phone", e.target.value), clearIssue("phone"))}
-                  onBlur={() => touch("phone")}
-                  className={cn(field, phoneError ? "border-destructive ring-1 ring-destructive/60 focus:ring-destructive/60" : "border-input focus:ring-ring")}
-                />
-                {phoneError && (
-                  <p id="profile-phone-error" className="mt-1 text-xs font-normal text-destructive">
-                    {phoneError}
-                  </p>
-                )}
-              </div>
-              <label className="text-sm font-medium">
-                {t("chat.profile_pronouns")}
-                <input value={p.pronouns ?? ""} maxLength={40} onChange={(e) => set("pronouns", e.target.value)} className={cn(field, "border-input focus:ring-ring")} />
-              </label>
-            </div>
-            <label className="block text-sm font-medium">
-              {t("chat.profile_about")}
-              <textarea value={p.about ?? ""} maxLength={300} rows={3} onChange={(e) => set("about", e.target.value)} className={cn(field, "h-auto border-input py-1.5 focus:ring-ring")} />
-            </label>
-
-            <section>
-              <h3 className="text-sm font-medium">{t("chat.profile_contacts")}</h3>
-              {rows.length > 1 && <p className="text-xs text-muted-foreground">{t("chat.profile_contact_order_hint")}</p>}
-              <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={onDragEnd}>
-                <SortableContext items={rows.map((r) => r.id)} strategy={verticalListSortingStrategy}>
-                  <ul className="mt-1.5 space-y-1.5">
-                    {rows.map((r, i) => (
-                      <ContactRow
-                        key={r.id}
-                        row={r}
-                        index={i}
-                        error={errorFor(`contacts.${i}.value`)}
-                        onChange={(next) => {
-                          setRows((all) => all.map((x) => (x.id === r.id ? next : x)));
-                          clearIssue(`contacts.${i}.`);
-                        }}
-                        onBlur={() => touch(`contacts.${i}.value`)}
-                        onRemove={() => {
-                          setRows((all) => all.filter((x) => x.id !== r.id));
-                          clearIssue("contacts.");
-                        }}
-                      />
-                    ))}
-                  </ul>
-                </SortableContext>
-              </DndContext>
-              {rows.length < 10 && (
-                <button type="button" onClick={() => setRows((all) => [...all, { id: ++rowIds, kind: "telegram", value: "" }])} className="mt-1.5 flex items-center gap-1 rounded px-2 py-1 text-sm text-primary hover:bg-accent">
-                  <IconPlus size={14} />
-                  {t("chat.profile_contact_add")}
-                </button>
-              )}
-            </section>
-
-            <section>
-              <h3 className="text-sm font-medium">{t("chat.profile_banner")}</h3>
-              <div className="mt-1 flex flex-wrap gap-2" role="radiogroup" aria-label={t("chat.profile_banner")}>
-                {BANNERS.map((b) => (
-                  <button
-                    key={b}
-                    type="button"
-                    role="radio"
-                    aria-checked={p.banner === b}
-                    aria-label={t(`chat.banner_${b}`)}
-                    title={t(`chat.banner_${b}`)}
-                    onClick={() => set("banner", b)}
-                    className={cn("h-8 w-14 rounded-md border", p.banner === b ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "border-border")}
-                    style={BANNER_STYLE[b] ? { backgroundImage: BANNER_STYLE[b] } : undefined}
-                  />
-                ))}
-                {picture && (
-                  <button
-                    type="button"
-                    role="radio"
-                    aria-checked={p.banner === "custom"}
-                    aria-label={t("chat.banner_custom")}
-                    title={t("chat.banner_custom")}
-                    onClick={() => set("banner", "custom")}
-                    className={cn("h-8 w-14 overflow-hidden rounded-md border", p.banner === "custom" ? "ring-2 ring-primary ring-offset-1 ring-offset-background" : "border-border")}
-                  >
-                    <img src={withBasePath(picture.url)} alt="" className="h-full w-full object-cover" />
-                  </button>
-                )}
-              </div>
-              <div className="mt-2 flex flex-wrap items-center gap-2">
-                <ChooseFile label={picture ? t("chat.banner_custom_replace") : t("chat.banner_custom_choose")} onFile={(file) => setPicking({ what: "banner", file })} icon={<IconPlus size={15} />} />
-                {picture && (
-                  <button type="button" onClick={() => void removeOwnBanner()} className="flex h-8 items-center gap-1.5 rounded-md px-3 text-sm text-muted-foreground hover:bg-accent">
-                    <IconTrash size={15} />
-                    {t("chat.banner_custom_remove")}
-                  </button>
-                )}
-              </div>
-              <p className="mt-1 text-xs text-muted-foreground">{t("chat.banner_custom_hint")}</p>
-              {picking?.what === "banner" && <PickedPicture file={picking.file} aspect={BANNER_ASPECT} label={t("chat.profile_banner")} send={sendOwnBanner} onDone={() => setPicking(null)} />}
-            </section>
-
-            <section>
-              <h3 className="text-sm font-medium">{t("chat.profile_frame")}</h3>
-              <div className="mt-1 flex flex-wrap gap-3" role="radiogroup" aria-label={t("chat.profile_frame")}>
-                {FRAMES.map((f) => (
-                  <button key={f} type="button" role="radio" aria-checked={p.frame === f} aria-label={t(`chat.frame_${f}`)} title={t(`chat.frame_${f}`)} onClick={() => set("frame", f)} className={cn("rounded-full p-1", p.frame === f && "bg-accent")}>
-                    <span className={cn("inline-flex rounded-full", FRAME_STYLE[f])}>
-                      <span className="block h-8 w-8 rounded-full bg-muted" />
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </section>
-          </div>
-          <div className="mt-4 flex items-center justify-end gap-2">
-            {submitted && Object.keys({ ...localErrors, ...serverIssues }).length > 0 && (
-              <span className="mr-auto text-xs text-destructive" role="alert">
-                {t("chat.profile_fix_marked")}
-              </span>
-            )}
-            <button type="button" onClick={onClose} className="h-9 rounded-md px-3 text-sm hover:bg-accent">
-              {t("chat.cancel")}
-            </button>
-            <button type="button" disabled={busy} onClick={() => void save()} className="h-9 rounded-md bg-primary px-4 text-sm text-primary-foreground disabled:opacity-50">
-              {t("chat.save_edit")}
-            </button>
-          </div>
-        </>
+        <ProfileForm
+          initial={initial}
+          person={colleague}
+          nameField={nameField}
+          scroll
+          onChange={(p) => {
+            setProfile(address, p);
+            usePeopleStore.getState().changed(colleague?.email, { profile: p });
+          }}
+          onPicture={(change) => {
+            setColleague(address, change);
+            usePeopleStore.getState().changed(colleague?.email, change);
+          }}
+          onSaved={onClose}
+          onCancel={onClose}
+        />
       )}
     </Modal>
   );

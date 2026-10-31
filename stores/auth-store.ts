@@ -49,6 +49,7 @@ import { xenaxio as xenaxioApi } from '@/lib/xenaxio/api';
 import { clearAssistantState } from '@/lib/xenaxio/assistant';
 import * as browserAccounts from '@/lib/xenaxio/accounts';
 import { reloadSettingsOnReturn } from '@/lib/xenaxio/settings-sync';
+import { useXenaxioMeStore } from '@/lib/xenaxio/me-store';
 
 /** Logins restored at once after the one on screen: enough to overlap round trips, few enough not to crowd the server. */
 const RESTORE_CONCURRENCY = 4;
@@ -1031,6 +1032,13 @@ async function restoreBffSession(set: AuthSet, get: AuthGet): Promise<void> {
   if (me.user.mustChangePassword) {
     set({ isAuthenticated: false, isLoading: false });
     goToPage('workspace/password');
+    return;
+  }
+  // Step 105: a person without a mailbox (XenRooms) has no mail session; the
+  // pages that need none (chat, settings) go on with the platform's session.
+  if (me.user.kind === 'chat') {
+    useXenaxioMeStore.setState({ me, loadedAt: Date.now() });
+    set({ isAuthenticated: false, isLoading: false, client: null });
     return;
   }
 

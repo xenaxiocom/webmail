@@ -130,6 +130,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/chat/threads",
   // Step 99, part G: profiles (job title, contacts, banner and frame).
   "/api/profile",
+  // Step 105: colleagues with their profile for the card in mail, contacts and calendar (lib/xenaxio/people.ts).
+  "/api/people",
   // Step 96: XenRooms without email (company set-up, invitation and reset links, people).
   "/api/rooms",
   "/api/admin/rooms",

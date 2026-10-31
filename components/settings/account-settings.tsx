@@ -24,6 +24,7 @@ import { MultipleAccountsSection } from './layout-settings';
 import { useAccountSecurityStore } from '@/stores/account-security-store';
 import { ProfilePictureSetting } from '@/components/xenaxio/profile-picture-setting';
 import { XenaxioNameSetting } from '@/components/xenaxio/name-setting';
+import { XenaxioPasswordSetting, XenaxioProfileSetting } from '@/components/xenaxio/profile-setting';
 import { XENAXIO_BFF } from '@/lib/xenaxio/bff';
 
 function hostnameOf(serverUrl: string): string {
@@ -161,6 +162,8 @@ export function AccountSettings() {
 
         {/* xenaxio (step 41): the profile picture colleagues see. */}
         <ProfilePictureSetting />
+        {/* xenaxio (step 105): the own password, also from XenRooms. */}
+        <XenaxioPasswordSetting />
 
         {/* Email Address */}
         <SettingItem label={t('email.label')}>
@@ -223,6 +226,9 @@ export function AccountSettings() {
           </SettingItem>
         )}
       </SettingsSection>
+
+      {/* xenaxio (step 105): one profile for Xenaxio and XenRooms (the chat's form). */}
+      <XenaxioProfileSetting />
 
       <EmailAddressesSection />
 

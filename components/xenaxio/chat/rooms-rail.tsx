@@ -5,7 +5,7 @@
 // direct messages (a dot for anything else unread). A click switches without a
 // password; "+" adds a company. Our own design: rounded tiles with the
 // company's logo or initials on its colour.
-import { IconLogout, IconPlus, IconSettings, IconSparkles } from "@tabler/icons-react";
+import { IconBuildingCog, IconLogout, IconPlus, IconSettings, IconSparkles } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useState } from "react";
 import { withBasePath } from "@/lib/browser-navigation";
@@ -89,6 +89,8 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
   const roomsOnly = me?.tenant.product === "rooms";
   const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/rooms/people/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
   const adminTarget = roomsOnly ? {} : { target: "_blank", rel: "noopener" };
+  // Step 105: everyone's own settings — the same pages as in Xenaxio, here on XenRooms.
+  const settingsUrl = withBasePath(`/${locale}/settings/account/`);
   // Step 96: someone without a mailbox connects AI chats (Claude …) here too; others in Xenaxio.
   const aiUrl = me?.user.kind === "chat" ? withBasePath(`/${locale}/workspace/mcp/`) : null;
 
@@ -140,9 +142,12 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
           )}
           {adminUrl && (
             <a href={adminUrl} {...adminTarget} title={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} aria-label={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
-              <IconSettings size={18} />
+              <IconBuildingCog size={18} />
             </a>
           )}
+          <a href={settingsUrl} title={t("rooms.settings")} aria-label={t("rooms.settings")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <IconSettings size={18} />
+          </a>
           <button type="button" onClick={() => void signOut()} title={t("rooms.sign_out", { company })} aria-label={t("rooms.sign_out", { company })} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
             <IconLogout size={18} />
           </button>
@@ -166,9 +171,12 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
       )}
       {adminUrl && (
         <a href={adminUrl} {...adminTarget} title={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} aria-label={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
-          <IconSettings size={20} />
+          <IconBuildingCog size={20} />
         </a>
       )}
+      <a href={settingsUrl} title={t("rooms.settings")} aria-label={t("rooms.settings")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+        <IconSettings size={20} />
+      </a>
       <button type="button" onClick={() => void signOut()} title={t("rooms.sign_out", { company })} aria-label={t("rooms.sign_out", { company })} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
         <IconLogout size={20} />
       </button>

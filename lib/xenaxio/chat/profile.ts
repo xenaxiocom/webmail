@@ -108,6 +108,19 @@ export function contactLink(c: { kind: ContactKind; value: string }): string | n
   }
 }
 
+/** Step 105: the own profile (Settings → Account; the chat has it from the colleagues' list). */
+export async function loadProfile(): Promise<UserProfile> {
+  let res: Response;
+  try {
+    res = await apiFetch("/api/profile", { credentials: "same-origin", headers: { Accept: "application/json" } });
+  } catch {
+    throw new XenaxioApiError(0, "network");
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new XenaxioApiError(res.status, typeof data.error === "string" ? data.error : "internal");
+  return { ...EMPTY_PROFILE, ...(data as Partial<UserProfile>) };
+}
+
 /**
  * Saves the profile (without the read-only picture). A refusal comes back as
  * XenaxioApiError with `issues` naming the fields (`contacts.1.value`).

@@ -86,6 +86,9 @@ import {
 import { useLiteLinkSegments } from '@/hooks/use-lite-link-segments';
 import { useDocumentTitle } from '@/hooks/use-document-title';
 import { MvTopBar } from "@/components/layout/mv-top-bar";
+import { RoomsRail } from "@/components/xenaxio/chat/rooms-rail";
+import { ChatOnlyAccountSettings, scopeTabs, useXenaxioSettingsScope } from "@/components/xenaxio/settings-scope";
+import { useXT } from "@/lib/xenaxio/i18n";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
 
 type Tab = SettingsSearchTab;
@@ -254,10 +257,13 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   const tSidebar = useTranslations('sidebar');
   useDocumentTitle(tSidebar('settings'));
   const { client, isAuthenticated, logout, checkAuth, isLoading: authLoading } = useAuthStore();
+  // xenaxio (step 105): the same settings on XenRooms; a person without a mailbox has no mail session.
+  const xenScope = useXenaxioSettingsScope();
+  const tx = useXT();
   const { showAppsModal, inlineApp, loadedApps, handleManageApps, handleInlineApp, closeInlineApp, closeAppsModal } = useSidebarApps();
   const isEmbedded = useIsEmbedded();
   // Mountain View's desktop chrome: its top bar in place of the left rail.
-  const mvShell = useMountainViewShell(isEmbedded);
+  const mvShell = useMountainViewShell(isEmbedded) && !xenScope.rooms;
   const [initialCheckDone, setInitialCheckDone] = useState(() => useAuthStore.getState().isAuthenticated && !!useAuthStore.getState().client);
   const { quota, isPushConnected } = useEmailStore();
   const { stalwartFeaturesEnabled } = useConfig();
@@ -474,11 +480,11 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   useEffect(() => () => clearManagedAccount(), [clearManagedAccount]);
 
   useEffect(() => {
-    if (initialCheckDone && !isAuthenticated && !authLoading) {
+    if (initialCheckDone && !isAuthenticated && !authLoading && !xenScope.chatOnly) {
       saveRedirectAfterLogin();
       redirectToLogin();
     }
-  }, [initialCheckDone, isAuthenticated, authLoading]);
+  }, [initialCheckDone, isAuthenticated, authLoading, xenScope.chatOnly]);
 
   // Sync the mobile submenu view with browser history so the system back
   // button (or gesture) returns to the settings list before exiting /settings.
@@ -576,7 +582,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
   const isFocusedProTab = useIsFocusedProTab();
   const settingsLinkPath = appPath(buildSettingsPath(!isDesktop && !mobileShowContent ? null : activeTab));
   useDeepLinkUrl(
-    !isAuthenticated
+    !isAuthenticated && !xenScope.chatOnly
       ? null
       : isEmbedded
         ? (isFocusedProTab ? settingsLinkPath : null)
@@ -618,7 +624,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
     }
   }, [activeTab]);
 
-  if (!isAuthenticated) {
+  if (!isAuthenticated && !xenScope.chatOnly) {
     return null;
   }
 
@@ -685,7 +691,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
     : [];
   const visibleTabs = managedAccountId
     ? tabs.filter((tab) => scopedTabIds.includes(tab.id as Tab))
-    : tabs;
+    : scopeTabs(tabs, xenScope);
 
   // Group tabs by category. Only Mail and Apps carry a heading.
   const groupedTabs = tabGroupOrder
@@ -769,7 +775,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
           </span>
         </button>
       )}
-      {effectiveActiveTab === 'account' && <AccountSettings />}
+      {effectiveActiveTab === 'account' && (xenScope.chatOnly ? <ChatOnlyAccountSettings /> : <AccountSettings />)}
       {effectiveActiveTab === 'general' && <GeneralSettings supportsCalendar={supportsCalendar} />}
       {effectiveActiveTab === 'notifications' && <NotificationSettings />}
       {effectiveActiveTab === 'appearance' && <AppearanceSettings />}
@@ -847,7 +853,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
             {renderTabContent()}
           </div>
 
-          {!isEmbedded && (
+          {!isEmbedded && !xenScope.rooms && (
             <NavigationRail
               orientation="horizontal"
               onManageApps={handleManageApps}
@@ -868,7 +874,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => router.push('/')}
+            onClick={() => router.push(xenScope.rooms ? '/chat' : '/')}
             className="h-10 w-10"
           >
             <ArrowLeft className="w-5 h-5" />
@@ -969,7 +975,7 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
           </div>
         </div>
 
-        {!isEmbedded && (
+        {!isEmbedded && !xenScope.rooms && (
           <NavigationRail
             orientation="horizontal"
             onManageApps={handleManageApps}
@@ -997,7 +1003,8 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
         />
       )}
       <div data-mv-card={mvShell ? "" : undefined} className={cn("flex flex-1 min-h-0", mvShell && "mb-4 mx-4")}>
-      {!isEmbedded && !mvShell && (
+      {!isEmbedded && xenScope.rooms && <RoomsRail />}
+      {!isEmbedded && !mvShell && !xenScope.rooms && (
         <div data-app-rail="" className="w-14 bg-secondary flex flex-col flex-shrink-0" style={{ borderRight: '1px solid rgba(128, 128, 128, 0.3)' }}>
           <NavigationRail
             collapsed
@@ -1032,11 +1039,11 @@ export function SettingsApp({ linkSegments: routeSegments }: SettingsAppProps = 
               <Button
                 variant="ghost"
                 size="sm"
-                onClick={() => router.push('/')}
+                onClick={() => router.push(xenScope.rooms ? '/chat' : '/')}
                 className="w-full justify-start"
               >
                 <ArrowLeft className="w-4 h-4 me-2" />
-                {t('back_to_mail')}
+                {xenScope.rooms ? tx('rooms.to_chat') : t('back_to_mail')}
               </Button>
             </div>
           </div>

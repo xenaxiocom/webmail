@@ -266,7 +266,9 @@
     "hint": "At least 10 characters.",
     "mismatch": "The passwords don't match.",
     "submit": "Change password",
-    "done": "Your password has been changed."
+    "done": "Your password has been changed.",
+    "setting_label": "Password",
+    "setting_intro": "Your password for Xenaxio and XenRooms."
   },
   "onboarding": {
     "title": "Set up your company",
@@ -3233,6 +3235,16 @@
     "own_domain_label": "Your domain",
     "own_domain_hint": "Chat addresses then end with it, e.g. @anna:mueller.de. Your email stays where it is. The chat starts at once; other companies reach it once you put a small file on your website or a DNS record – shown under Administration → Rooms. It cannot be changed later.",
     "moved_title": "Welcome to Xenaxio",
-    "moved_subtitle": "{company} now uses Xenaxio. Set the password for your new address."
+    "moved_subtitle": "{company} now uses Xenaxio. Set the password for your new address.",
+    "settings": "Settings"
+  },
+  "profile_settings": {
+    "title": "Profile",
+    "intro": "Job title, contacts, banner and frame – how colleagues see you in Rooms, XenRooms, mail, calendar and contacts. One profile for Xenaxio and XenRooms.",
+    "loading": "Loading the profile …",
+    "load_failed": "The profile could not be loaded. Please reload the page.",
+    "account_title": "Account",
+    "account_intro": "Your name, your photo and how you sign in to XenRooms.",
+    "sign_in_email": "Sign-in email"
   }
 }
