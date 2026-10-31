@@ -173,3 +173,23 @@ export function linkPreview(url: string): Promise<LinkPreview | null> {
 export function previewImageUrl(url: string): string {
   return withBasePath(`/api/chat/preview/image?url=${encodeURIComponent(url)}`);
 }
+
+// ---------------------------------------------------------------------------
+// Step 99, part E2b: following threads (replying follows one; "unfollow" silences it).
+
+/** The person's choice for a thread: true, false or null (none). */
+export async function threadFollow(roomId: string, rootId: string): Promise<boolean | null> {
+  const res = await apiFetch(`/api/chat/threads/follow?roomId=${encodeURIComponent(roomId)}&rootId=${encodeURIComponent(rootId)}`, { credentials: "same-origin", headers: { Accept: "application/json" } });
+  if (!res.ok) return null;
+  return ((await res.json()) as { follow: boolean | null }).follow;
+}
+
+export async function setThreadFollow(roomId: string, rootId: string, follow: boolean | null): Promise<void> {
+  const res = await apiFetch("/api/chat/threads/follow", {
+    method: "PUT",
+    credentials: "same-origin",
+    headers: { Accept: "application/json", "Content-Type": "application/json", "x-xenaxio-csrf": "1" },
+    body: JSON.stringify({ roomId, rootId, follow }),
+  });
+  if (!res.ok) throw new ChatError(res.status, "follow_failed");
+}

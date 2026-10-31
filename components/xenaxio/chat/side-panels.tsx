@@ -2,7 +2,7 @@
 
 // Step 43, part B: the right-hand panel — a thread, a channel's members or a
 // colleague's profile.
-import { IconSparkles, IconX } from "@tabler/icons-react";
+import { IconBell, IconBellOff, IconSparkles, IconX } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import { type ChatClient, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -10,6 +10,7 @@ import { type SidePanel, useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { sendAssistantCommand } from "@/lib/xenaxio/assistant";
 import { toast } from "@/stores/toast-store";
+import { setThreadFollow, threadFollow } from "@/lib/xenaxio/chat/api";
 import { PersonAvatar, presenceOf, useAssistant, useColleague, useDisplayName } from "./common";
 import { Composer } from "./composer";
 import { ChatMessage } from "./message";
@@ -42,9 +43,12 @@ function ThreadPanel({ client, roomId, rootId }: { client: ChatClient; roomId: s
   const locale = useLocale();
   const room = client.rooms.get(roomId);
   const [error, setError] = useState(false);
+  // Step 99, part E2b: following the thread, as in Slack (replying follows it).
+  const [follow, setFollow] = useState<boolean | null>(null);
   useEffect(() => {
     setError(false);
     void client.loadThread(roomId, rootId).catch(() => setError(true));
+    void threadFollow(roomId, rootId).then(setFollow);
   }, [client, roomId, rootId]);
   if (!room) return null;
   const root = room.byId.get(rootId);
@@ -61,8 +65,34 @@ function ThreadPanel({ client, roomId, rootId }: { client: ChatClient; roomId: s
       {t("chat.ai_summarize")}
     </button>
   ) : null;
+  // Following: chosen, or replied in it, or it is one's own message.
+  const following = follow ?? (root?.sender === client.userId || replies.some((r) => r.sender === client.userId));
+  const followButton = (
+    <button
+      type="button"
+      onClick={() => {
+        const next = !following;
+        setFollow(next);
+        void setThreadFollow(roomId, rootId, next).catch(() => toast.error(t("chat.error")));
+      }}
+      className="flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium hover:bg-accent"
+      aria-pressed={following}
+    >
+      {following ? <IconBellOff size={15} /> : <IconBell size={15} />}
+      {following ? t("chat.thread_unfollow") : t("chat.thread_follow")}
+    </button>
+  );
   return (
-    <PanelFrame title={t("chat.thread")} subtitle={client.roomName(room)} actions={summarize}>
+    <PanelFrame
+      title={t("chat.thread")}
+      subtitle={client.roomName(room)}
+      actions={
+        <>
+          {followButton}
+          {summarize}
+        </>
+      }
+    >
       <MessageList
         room={room}
         client={client}

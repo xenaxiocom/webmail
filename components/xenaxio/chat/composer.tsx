@@ -7,10 +7,10 @@
 // and go out together on "send". Step 87: ":" and a word suggests emoji;
 // typed emoticons (":)") go out as emoji. Step 99: code blocks, numbered
 // lists, links and code snippets (a long paste offers one, as in Slack).
-import { IconBold, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
+import { IconBold, IconChartBar, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
-import { uploadFile } from "@/lib/xenaxio/chat/api";
+import { setThreadFollow, uploadFile } from "@/lib/xenaxio/chat/api";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
 import { searchEmoji } from "@/lib/xenaxio/chat/emoji";
 import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
@@ -26,6 +26,7 @@ import { EmojiPicker } from "./emoji-picker";
 import { useChatDialogs } from "./dialogs";
 import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
 import { TimePicker } from "./later";
+import { PollDialog } from "./poll";
 import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
 
@@ -156,6 +157,7 @@ export function Composer({
   const [snippet, setSnippet] = useState<{ code: string; fromBox: boolean } | null>(null);
   const [longPaste, setLongPaste] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
+  const [polling, setPolling] = useState(false);
   const schedule = useChatLater((s) => s.schedule);
   const { prompt } = useChatDialogs();
   const area = useRef<HTMLTextAreaElement>(null);
@@ -320,6 +322,8 @@ export function Composer({
     const content = textContent(body, people);
     try {
       await client.send(room.id, content, threadRoot ? { threadRoot } : {});
+      // Step 99, part E2b: replying follows the thread, as in Slack.
+      if (threadRoot) void setThreadFollow(room.id, threadRoot, true).catch(() => undefined);
       if (threadRoot && alsoChannel) await client.send(room.id, { ...content, "com.xenaxio.thread": threadRoot });
     } catch {
       toast.error(t("chat.error"));
@@ -548,6 +552,12 @@ export function Composer({
           <button type="button" className={tool} onClick={() => openSnippet("", false)} title={t("chat.snippet_title")} aria-label={t("chat.snippet_title")}>
             <IconFileCode size={16} />
           </button>
+          {/* Step 99, part E2b: a poll in the channel (not in threads). */}
+          {!threadRoot && (
+            <button type="button" className={tool} onClick={() => setPolling(true)} title={t("chat.poll_create")} aria-label={t("chat.poll_create")}>
+              <IconChartBar size={16} />
+            </button>
+          )}
           {threadRoot && (
             <label className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={alsoChannel} onChange={(e) => setAlsoChannel(e.target.checked)} />
@@ -579,6 +589,7 @@ export function Composer({
           </span>
         </div>
       </div>
+      {polling && <PollDialog client={client} roomId={room.id} onClose={() => setPolling(false)} />}
       {scheduling && (
         <TimePicker
           title={t("chat.send_later")}

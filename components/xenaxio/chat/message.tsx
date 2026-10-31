@@ -26,6 +26,8 @@ import { LinkPreviewCard } from "./link-preview";
 import { ForwardDialog, ForwardedFrom } from "./forward";
 import { EditHistory } from "./edit-history";
 import { TimePicker } from "./later";
+import { PollCard } from "./poll";
+import { isPollStart } from "@/lib/xenaxio/chat/poll";
 import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { SnippetDialog } from "./snippet-dialog";
 import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
@@ -425,11 +427,11 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     toast.success(t("chat.report_sent"));
   };
   const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report, onForward: () => setForwarding(true), onRemind: () => setReminding(true) });
-  const actionable = message.type === "m.room.message" && !message.id.startsWith("~") && !message.redacted && !editing;
+  const actionable = (message.type === "m.room.message" || isPollStart(message.type)) && !message.id.startsWith("~") && !message.redacted && !editing;
   const longPress = useLongPress(() => setSheet(true), actionable);
   const closeSheet = useCallback(() => setSheet(false), []);
 
-  if (message.type !== "m.room.message") return <SystemLine message={message} room={room} />;
+  if (message.type !== "m.room.message" && !isPollStart(message.type)) return <SystemLine message={message} room={room} />;
   const real = !message.id.startsWith("~");
   // Part D: an integration posts under its own name with an "App" label.
   const app = appOf(message.content, message.sender);
@@ -485,7 +487,13 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             )}
           </div>
         )}
-        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} onHistory={() => setHistory(true)} />}
+        {isPollStart(message.type) ? (
+          <PollCard client={client} message={message} />
+        ) : editing ? (
+          <Editor message={message} client={client} onDone={() => setEditing(false)} />
+        ) : (
+          <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} onHistory={() => setHistory(true)} />
+        )}
         {message.status === "sending" && <div className="text-xs text-muted-foreground">{t("chat.sending")}</div>}
         {message.status === "failed" && (
           <div className="flex items-center gap-2 text-xs text-destructive">

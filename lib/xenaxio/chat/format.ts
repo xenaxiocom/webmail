@@ -5,6 +5,7 @@
 import DOMPurify from "dompurify";
 import { emoticonsToEmoji } from "./emoji";
 import { languageOf, SNIPPET_FIELD } from "./snippet";
+import { pollOf } from "./poll";
 
 export interface Mention {
   userId: string;
@@ -206,6 +207,9 @@ export function mentionsUser(content: Record<string, unknown>, userId: string): 
 export function plainPreview(content: Record<string, unknown>, max = 140): string {
   const type = content.msgtype;
   const body = typeof content.body === "string" ? content.body : "";
+  // Step 99, part E2b: a poll by its question.
+  const poll = pollOf(content);
+  if (poll) return `📊 ${poll.question.length > max ? `${poll.question.slice(0, max - 1)}…` : poll.question}`;
   // Step 99: a snippet by its title.
   const snippet = content[SNIPPET_FIELD] as { title?: unknown } | undefined;
   if (snippet && typeof snippet === "object") {

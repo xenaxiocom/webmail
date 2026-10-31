@@ -4,6 +4,7 @@
 // through the store (store.ts). No end-to-end encryption (decided for step 43),
 // so no crypto code is needed.
 import { ChatError, mx, newTxnId, paths } from "./api";
+import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
 /** A stable rule id per keyword (ids allow only a few characters). */
@@ -50,6 +51,8 @@ export interface Message {
   thread?: { count: number; latestTs: number; participants: string[] };
   /** Reaction → who reacted, in order. */
   reactions: Record<string, string[]>;
+  /** Step 99, part E2b: a poll's votes and end. */
+  pollState?: PollState;
 }
 
 export interface Member {
@@ -281,7 +284,8 @@ export function parseMatrixId(input: string): string | null {
 }
 
 export function isVisible(m: Pick<Message, "type" | "content" | "prevContent" | "stateKey">): boolean {
-  if (m.type === "m.room.message") return true;
+  // Step 99, part E2b: a poll shows like a message.
+  if (m.type === "m.room.message" || isPollStart(m.type)) return true;
   if (m.type === "m.room.member") {
     const now = m.content.membership;
     const before = m.prevContent?.membership;
@@ -650,6 +654,7 @@ export class ChatClient {
       return;
     }
     if (rel.relType === "m.replace" && rel.eventId) return this.applyEdit(room, ev, rel.eventId);
+    if ((isPollResponse(ev.type) || isPollEnd(ev.type)) && rel.relType === "m.reference" && rel.eventId) return this.applyPoll(room, ev, rel.eventId);
 
     const txn = ev.unsigned?.transaction_id;
     if (txn) {
@@ -676,8 +681,9 @@ export class ChatClient {
     if (message.threadRoot) this.addThreadReply(room, message, direction);
     else if (direction === "forward") room.timeline.push(message);
     else room.timeline.unshift(message);
-    if (direction === "forward" && message.type === "m.room.message") room.lastTs = Math.max(room.lastTs, message.ts);
-    if (direction === "backward" && room.lastTs === 0 && message.type === "m.room.message") room.lastTs = message.ts;
+    const news = message.type === "m.room.message" || isPollStart(message.type);
+    if (direction === "forward" && news) room.lastTs = Math.max(room.lastTs, message.ts);
+    if (direction === "backward" && room.lastTs === 0 && news) room.lastTs = message.ts;
     this.flushPending(room, message);
   }
 
@@ -712,6 +718,51 @@ export class ChatClient {
     this.pendingRelations.delete(message.id);
     // Oldest first, so the latest edit wins.
     for (const { ev } of waiting.sort((a, b) => (a.ev.origin_server_ts ?? 0) - (b.ev.origin_server_ts ?? 0))) this.addEvent(room, ev, "forward");
+  }
+
+  /** Step 99, part E2b: a vote (each person's latest counts) or the end of a poll (by whoever started it). */
+  private applyPoll(room: Room, ev: RawEvent, target: string): void {
+    const message = room.byId.get(target);
+    if (!message) return this.queue(target, ev);
+    const poll = pollOf(message.content);
+    if (!poll) return;
+    const state = (message.pollState ??= { votes: new Map(), endedTs: null });
+    const ts = ev.origin_server_ts ?? Date.now();
+    if (isPollEnd(ev.type)) {
+      if (ev.sender === message.sender && (state.endedTs === null || ts < state.endedTs)) state.endedTs = ts;
+      return;
+    }
+    // Votes after the end do not count.
+    if (state.endedTs !== null && ts > state.endedTs) return;
+    const answers = responseAnswers(ev.content ?? {}, poll);
+    if (answers === null) return;
+    const before = state.votes.get(ev.sender);
+    if (!before || before.ts <= ts) state.votes.set(ev.sender, { answers, ts });
+  }
+
+  /** Step 99, part E2b: every vote of a poll (the timeline only has the newest). */
+  async loadPoll(roomId: string, pollId: string): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    let from: string | undefined;
+    for (let page = 0; page < 10; page++) {
+      const res = await mx<{ chunk?: RawEvent[]; next_batch?: string }>("GET", `${paths.relations(roomId, pollId, "m.reference")}?limit=100${from ? `&from=${encodeURIComponent(from)}` : ""}`);
+      for (const ev of res.chunk ?? []) this.addEvent(room, ev, "forward");
+      if (!res.next_batch) break;
+      from = res.next_batch;
+    }
+    this.changed();
+  }
+
+  /** Sends any event (polls and their votes); shown at once for a poll, quietly for a vote. */
+  async sendEvent(roomId: string, type: string, content: Record<string, unknown>): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const res = await mx<{ event_id: string }>("PUT", paths.send(roomId, type, newTxnId()), content);
+    // A vote counts right away (the sync brings it again; the latest wins).
+    const rel = relation(content);
+    if (rel.relType === "m.reference" && rel.eventId) this.addEvent(room, { event_id: res.event_id, type, sender: this.userId, origin_server_ts: Date.now(), content }, "forward");
+    this.changed();
   }
 
   private applyEdit(room: Room, ev: RawEvent, target: string): void {
