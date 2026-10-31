@@ -267,6 +267,8 @@ export interface WorkspaceUser {
   usedBytes?: number | null;
   /** Step 41: picture (versioned path); null = initials. */
   avatarUrl?: string | null;
+  /** Step 106: blocked by Xenaxio; the admin cannot lift it. */
+  blockedByOperator?: boolean;
 }
 
 /** Step 31: a meeting room, car or piece of equipment; everyone books it by inviting it. */
@@ -634,6 +636,8 @@ export interface OperatorPeopleSummary {
   active30: number;
   neverSignedIn: number;
   disabledAccounts: number;
+  /** Step 106: blocked by the operator. */
+  operatorBlockedAccounts?: number;
   companies: number;
   workspaceCompanies: number;
   roomsFreeCompanies: number;
@@ -657,6 +661,9 @@ export interface OperatorPersonAccount {
   createdAt: string;
   lastLoginAt: string | null;
   lastSeenAt: string | null;
+  /** Step 106, part B: blocked by the operator, with the reason. */
+  operatorBlockedAt?: string | null;
+  operatorBlockReason?: string | null;
 }
 
 export interface OperatorPersonRow {
@@ -674,6 +681,29 @@ export interface OperatorPerson {
   accounts: OperatorPersonAccount[];
   devices: { company: string; browser: string | null; os: string | null; signedInAt: string; lastSeenAt: string }[];
   lastLogin: { at: string; ip: string | null; country: string | null } | null;
+  /** Step 106, part B: the address (or its domain) may not sign up or be invited. */
+  signupBlocked?: boolean;
+}
+
+/** Step 106, part B: an address or mail domain that may not sign up or be invited. */
+export interface BlockedSignup {
+  id: string;
+  kind: "email" | "domain";
+  value: string;
+  reason: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+/** Step 106, part D: what the operator did. */
+export interface OperatorAction {
+  id: string;
+  operator: string;
+  action: "person_blocked" | "person_unblocked" | "signup_blocked" | "signup_allowed" | string;
+  email: string | null;
+  reason: string | null;
+  details: Record<string, unknown>;
+  createdAt: string;
 }
 
 export interface OperatorPeopleFilter {
@@ -681,7 +711,7 @@ export interface OperatorPeopleFilter {
   product?: "workspace" | "rooms";
   plan?: "free" | "paid";
   role?: "user" | "admin";
-  status?: "active" | "disabled";
+  status?: "active" | "disabled" | "operator_blocked";
   inactiveDays?: number;
   sort?: "created" | "seen" | "name" | "email";
   page?: number;
@@ -706,6 +736,8 @@ export interface RoomsPerson {
   invited: boolean;
   chatAddress: string | null;
   createdAt: string;
+  /** Step 106: blocked by Xenaxio; the admin cannot lift it. */
+  blockedByOperator?: boolean;
 }
 
 /** Step 97: XenRooms Free or paid, the limits and the space used. */
@@ -1348,6 +1380,15 @@ export const xenaxio = {
     people: (f: OperatorPeopleFilter) =>
       request<{ people: OperatorPersonRow[]; total: number; page: number; pageSize: number }>("GET", `/api/operator/people${peopleQuery(f)}`),
     person: (email: string) => request<OperatorPerson>("GET", `/api/operator/person?email=${encodeURIComponent(email)}`),
+    // Step 106, part B: blocks, addresses that may not sign up, the operator's log.
+    blockPerson: (input: { email: string; userId?: string; reason: string; blockSignup: boolean; blockDomain: boolean; notify: boolean }) =>
+      request<{ blocked: number }>("POST", "/api/operator/people/block", input),
+    unblockPerson: (input: { email: string; userId?: string }) => request<{ unblocked: number }>("POST", "/api/operator/people/unblock", input),
+    blockedSignups: () => request<{ blocked: BlockedSignup[] }>("GET", "/api/operator/blocked-signups").then((r) => r.blocked),
+    addBlockedSignup: (kind: "email" | "domain", value: string, reason?: string) =>
+      request<{ blocked: BlockedSignup[] }>("POST", "/api/operator/blocked-signups", { kind, value, ...(reason ? { reason } : {}) }).then((r) => r.blocked),
+    removeBlockedSignup: (id: string) => request<{ blocked: BlockedSignup[] }>("DELETE", `/api/operator/blocked-signups/${encodeURIComponent(id)}`).then((r) => r.blocked),
+    actions: (email?: string) => request<{ actions: OperatorAction[] }>("GET", `/api/operator/actions${email ? `?email=${encodeURIComponent(email)}` : ""}`).then((r) => r.actions),
     // Step 90, part F: the installation's models.
     models: () => request<InstallationModels>("GET", "/api/operator/models"),
     availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),

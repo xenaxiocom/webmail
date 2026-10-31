@@ -47,7 +47,7 @@ function Person({ person, isSelf, onChanged, onMessage }: {
           {person.displayName}
           {person.role === "admin" && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">{t("rooms.people_admin")}</span>}
           {person.invited && <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-normal text-amber-700 dark:text-amber-400">{t("rooms.people_invited")}</span>}
-          {blocked && <span className="ml-2 rounded bg-destructive/15 px-1.5 py-0.5 text-xs font-normal text-destructive">{t("rooms.people_blocked")}</span>}
+          {blocked && <span className="ml-2 rounded bg-destructive/15 px-1.5 py-0.5 text-xs font-normal text-destructive">{person.blockedByOperator ? t("users.operator_blocked_badge") : t("rooms.people_blocked")}</span>}
         </p>
         <p className="text-sm text-muted-foreground truncate">{person.email}</p>
         {person.chatAddress && <p className="text-xs text-muted-foreground truncate font-mono">{person.chatAddress}</p>}
@@ -76,18 +76,23 @@ function Person({ person, isSelf, onChanged, onMessage }: {
               {t("rooms.people_resend")}
             </Button>
           )}
-          <Button
-            size="sm"
-            variant="outline"
-            className={blocked ? "" : "text-destructive"}
-            disabled={busy}
-            onClick={() => {
-              if (!blocked && !window.confirm(t("rooms.people_block_confirm", { email: person.email }))) return;
-              void run(() => xenaxio.roomsSetStatus(person.id, blocked ? "active" : "disabled"));
-            }}
-          >
-            {blocked ? t("rooms.people_unblock") : t("rooms.people_block")}
-          </Button>
+          {/* Step 106: blocked by Xenaxio — only Xenaxio lifts it. */}
+          {person.blockedByOperator ? (
+            <span className="text-xs text-destructive">{t("users.operator_blocked_hint")}</span>
+          ) : (
+            <Button
+              size="sm"
+              variant="outline"
+              className={blocked ? "" : "text-destructive"}
+              disabled={busy}
+              onClick={() => {
+                if (!blocked && !window.confirm(t("rooms.people_block_confirm", { email: person.email }))) return;
+                void run(() => xenaxio.roomsSetStatus(person.id, blocked ? "active" : "disabled"));
+              }}
+            >
+              {blocked ? t("rooms.people_unblock") : t("rooms.people_block")}
+            </Button>
+          )}
           <Button
             size="sm"
             variant="outline"

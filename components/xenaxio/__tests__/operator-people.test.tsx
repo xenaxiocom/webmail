@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor, within } from "@testing-library/rea
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Step 106, part A: every person in the operator console.
-const api = vi.hoisted(() => ({ peopleSummary: vi.fn(), people: vi.fn(), person: vi.fn() }));
+const api = vi.hoisted(() => ({ peopleSummary: vi.fn(), people: vi.fn(), person: vi.fn(), actions: vi.fn(), blockPerson: vi.fn(), unblockPerson: vi.fn(), blockedSignups: vi.fn(), addBlockedSignup: vi.fn(), removeBlockedSignup: vi.fn() }));
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/lib/xenaxio/api", async (orig) => {
   const real = await orig<typeof import("@/lib/xenaxio/api")>();
@@ -37,6 +37,8 @@ const summary = {
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
+  api.actions.mockResolvedValue([]);
+  vi.spyOn(window, "confirm").mockReturnValue(true);
   api.peopleSummary.mockResolvedValue(summary);
   api.people.mockResolvedValue({
     total: 2,
@@ -85,5 +87,61 @@ describe("step 106: people in the operator console", () => {
   it("builds the CSV link from the filter without empty values", () => {
     expect(peopleQuery({ q: "max", product: undefined, sort: "seen" })).toBe("?q=max&sort=seen");
     expect(peopleQuery({})).toBe("");
+  });
+
+  it("step 106, part B: blocks every account with a reason, then lifts it; the history shows both", async () => {
+    const card = {
+      email: "max@acme.de",
+      name: "Max Admin",
+      accounts: [account("Acme", "workspace"), account("Gamma", "rooms")],
+      devices: [],
+      lastLogin: null,
+      signupBlocked: false,
+    };
+    api.person.mockResolvedValue(card);
+    api.blockPerson.mockResolvedValue({ blocked: 2 });
+    render(<OperatorPeople />);
+    fireEvent.click(await screen.findByText("Max Admin"));
+    const form = (await screen.findByText("Person sperren")).closest("form")!;
+    const block = within(form).getByRole("button", { name: "Sperren" });
+    expect(block).toBeDisabled();
+    fireEvent.change(screen.getByPlaceholderText("z. B. Spam, Phishing, Missbrauch"), { target: { value: "Spam" } });
+    fireEvent.click(screen.getByLabelText("Auch die ganze Domain @acme.de sperren"));
+    // After the block: the card again, with the mark, the history and "Sperre aufheben".
+    api.person.mockResolvedValue({
+      ...card,
+      signupBlocked: true,
+      accounts: card.accounts.map((a) => ({ ...a, status: "disabled", operatorBlockedAt: "2026-10-31T11:00:00Z", operatorBlockReason: "Spam" })),
+    });
+    api.actions.mockResolvedValue([{ id: "1", operator: "op@xenaxio.test", action: "person_blocked", email: "max@acme.de", reason: "Spam", details: { scope: "all" }, createdAt: "2026-10-31T11:00:00Z" }]);
+    fireEvent.click(block);
+    await waitFor(() => expect(api.blockPerson).toHaveBeenCalledWith({ email: "max@acme.de", reason: "Spam", blockSignup: true, blockDomain: true, notify: true }));
+
+    expect(await screen.findByText("Gesperrt: 2 Konto/Konten.")).toBeInTheDocument();
+    expect(await screen.findByText(/op@xenaxio\.test/)).toBeInTheDocument();
+    expect(screen.getByText(/darf sich nicht registrieren/)).toBeInTheDocument();
+    expect(screen.queryByText("Person sperren")).toBeNull();
+    api.unblockPerson.mockResolvedValue({ unblocked: 2 });
+    fireEvent.click(screen.getByRole("button", { name: "Sperre aufheben" }));
+    await waitFor(() => expect(api.unblockPerson).toHaveBeenCalledWith({ email: "max@acme.de" }));
+  });
+
+  it("step 106, part B: blocked addresses and domains — list, add, allow again", async () => {
+    api.blockedSignups.mockResolvedValue([{ id: "b1", kind: "domain", value: "spam.io", reason: "Spam", createdAt: "2026-10-31T11:00:00Z", createdBy: "op@xenaxio.test" }]);
+    api.addBlockedSignup.mockResolvedValue([
+      { id: "b2", kind: "email", value: "x@y.de", reason: null, createdAt: "2026-10-31T12:00:00Z", createdBy: "op@xenaxio.test" },
+      { id: "b1", kind: "domain", value: "spam.io", reason: "Spam", createdAt: "2026-10-31T11:00:00Z", createdBy: "op@xenaxio.test" },
+    ]);
+    api.removeBlockedSignup.mockResolvedValue([]);
+    render(<OperatorPeople />);
+    fireEvent.click(await screen.findByText("Gesperrte Adressen und Domains"));
+    expect(await screen.findByText("@spam.io")).toBeInTheDocument();
+    fireEvent.change(screen.getByLabelText("Adresse oder Domain"), { target: { value: "x@y.de" } });
+    fireEvent.click(screen.getAllByRole("button", { name: "Sperren" }).at(-1)!);
+    await waitFor(() => expect(api.addBlockedSignup).toHaveBeenCalledWith("email", "x@y.de", undefined));
+    expect(await screen.findByText("x@y.de")).toBeInTheDocument();
+    fireEvent.click(screen.getAllByRole("button", { name: "Erlauben" })[0]!);
+    await waitFor(() => expect(api.removeBlockedSignup).toHaveBeenCalledWith("b2"));
+    expect(await screen.findByText("Keine gesperrten Adressen.")).toBeInTheDocument();
   });
 });
