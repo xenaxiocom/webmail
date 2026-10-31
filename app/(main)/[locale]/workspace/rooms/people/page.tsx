@@ -8,6 +8,7 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Plus } from "@/components/icons";
 import { Notice, TextField } from "@/components/xenaxio/ui";
+import { NameForm, saveMyName } from "@/components/xenaxio/name-setting";
 import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { errorText, type RoomsPerson, type RoomsPlanInfo, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -23,6 +24,8 @@ function Person({ person, isSelf, onChanged, onMessage }: {
 }) {
   const t = useXT();
   const [busy, setBusy] = useState(false);
+  // Step 101: the admin changes the name (their own too).
+  const [renaming, setRenaming] = useState(false);
   const run = async (action: () => Promise<unknown>, success?: string) => {
     setBusy(true);
     try {
@@ -48,9 +51,26 @@ function Person({ person, isSelf, onChanged, onMessage }: {
         </p>
         <p className="text-sm text-muted-foreground truncate">{person.email}</p>
         {person.chatAddress && <p className="text-xs text-muted-foreground truncate font-mono">{person.chatAddress}</p>}
+        {renaming && (
+          <div className="mt-2 max-w-sm">
+            <NameForm
+              initial={person.displayName}
+              save={isSelf ? saveMyName : async (name) => (await xenaxio.setUserName(person.id, name)).displayName}
+              onSaved={() => {
+                setRenaming(false);
+                void onChanged();
+              }}
+              compact
+            />
+          </div>
+        )}
       </div>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" disabled={busy} aria-expanded={renaming} onClick={() => setRenaming((v) => !v)}>
+          {t("name.rename")}
+        </Button>
       {!isSelf && (
-        <div className="flex flex-wrap gap-2">
+        <>
           {person.invited && !blocked && (
             <Button size="sm" variant="outline" disabled={busy} onClick={() => run(() => xenaxio.roomsResend(person.id), t("rooms.people_resent", { email: person.email }))}>
               {t("rooms.people_resend")}
@@ -80,8 +100,9 @@ function Person({ person, isSelf, onChanged, onMessage }: {
           >
             {t("rooms.people_remove")}
           </Button>
-        </div>
+        </>
       )}
+      </div>
     </li>
   );
 }

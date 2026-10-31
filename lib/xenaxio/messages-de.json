@@ -233,7 +233,10 @@
     "unknown_member": "Ein Mitglied gehört nicht zur Firma.",
     "too_many_groups": "Höchstens 100 Gruppen.",
     "not_an_image": "Das ist kein Bild (PNG, GIF, WebP oder JPEG).",
-    "too_many_emoji": "Höchstens 300 eigene Emoji."
+    "too_many_emoji": "Höchstens 300 eigene Emoji.",
+    "person_name_required": "Bitte geben Sie einen Namen ein.",
+    "person_name_too_long": "Der Name darf höchstens 100 Zeichen haben.",
+    "person_name_invalid": "Der Name darf keine Steuerzeichen enthalten."
   },
   "login": {
     "title": "Anmelden",
@@ -1426,6 +1429,14 @@
     "saving": "Wird gespeichert …",
     "unreadable": "Dieses Bild kann der Browser nicht öffnen. Bitte wählen Sie ein JPEG oder PNG.",
     "alt": "Profilbild von {name}"
+  },
+  "name": {
+    "label": "Name",
+    "intro": "So sehen Kolleginnen und Kollegen Sie: im Portal, im Verzeichnis, in Rooms und als Absender Ihrer E-Mails.",
+    "save": "Speichern",
+    "save_aria": "Name speichern",
+    "saved": "Name gespeichert.",
+    "rename": "Name ändern"
   },
   "chat": {
     "title": "Rooms",

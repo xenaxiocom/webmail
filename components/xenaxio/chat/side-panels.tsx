@@ -11,6 +11,8 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { sendAssistantCommand } from "@/lib/xenaxio/assistant";
 import { toast } from "@/stores/toast-store";
 import { setThreadFollow, threadFollow } from "@/lib/xenaxio/chat/api";
+import { NameForm, saveMyName } from "@/components/xenaxio/name-setting";
+import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { PersonAvatar, presenceOf, useAssistant, useColleague, useDisplayName } from "./common";
 import { Composer } from "./composer";
 import { ChatMessage } from "./message";
@@ -156,6 +158,8 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
   const setPanel = useChatStore((s) => s.setPanel);
   const person = client.people.get(userId);
   const me = userId === client.userId;
+  // Step 101: the own name, changed here too (the platform's, not the chat's alone).
+  const myName = useXenaxioMe()?.user.displayName;
   // The box is for a new status; the current one is shown under the name.
   const [status, setStatus] = useState("");
   const [editing, setEditing] = useState(false);
@@ -239,6 +243,16 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
           >
             {client.isIgnored(userId) ? t("chat.unblock") : t("chat.block")}
           </button>
+        )}
+        {me && (
+          <div className="mt-5">
+            <label htmlFor="chat-own-name" className="text-sm font-medium">
+              {t("name.label")}
+            </label>
+            <div className="mt-1">
+              <NameForm id="chat-own-name" initial={myName ?? name(userId)} save={saveMyName} compact />
+            </div>
+          </div>
         )}
         {me && (
           <div className="mt-5">
