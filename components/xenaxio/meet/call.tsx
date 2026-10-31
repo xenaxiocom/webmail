@@ -34,11 +34,26 @@ function errorOf(t: ReturnType<typeof useXT>, err: unknown): string {
   return text === `meet.errors.${code}` ? t("meet.errors.internal") : text;
 }
 
+/** Step 99, part H: starts the room's call or joins the one going on (the call button, voice channels, Ctrl+Shift+H). */
+export function useJoinRoomCall(client: ChatClient) {
+  const t = useXT();
+  const open = useCallStore((s) => s.open);
+  return useCallback(
+    async (room: Room) => {
+      const call = await meet.roomCall(room.id, room.kind === "dm" ? "dm" : "channel");
+      // A new call is announced in the room: the card for everyone, push for the partner.
+      if (call.created) await client.send(room.id, callMessage(call.code, meetingLink(call.code), t("meet.call_started_text")));
+      open({ code: call.code, title: call.title, roomId: room.id });
+    },
+    [client, open, t],
+  );
+}
+
 /** "Call" in the header of a channel or a direct message. */
-export function CallButton({ client, room }: { client: ChatClient; room: Room }) {
+export function CallButton({ client, room, participants = 0 }: { client: ChatClient; room: Room; participants?: number }) {
   const t = useXT();
   const { visible } = useMeetNavItem();
-  const open = useCallStore((s) => s.open);
+  const join = useJoinRoomCall(client);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   if (!visible || room.kind === "space") return null;
@@ -46,10 +61,7 @@ export function CallButton({ client, room }: { client: ChatClient; room: Room })
     setBusy(true);
     setError(null);
     try {
-      const call = await meet.roomCall(room.id, room.kind === "dm" ? "dm" : "channel");
-      // A new call is announced in the room: the card for everyone, push for the partner.
-      if (call.created) await client.send(room.id, callMessage(call.code, meetingLink(call.code), t("meet.call_started_text")));
-      open({ code: call.code, title: call.title, roomId: room.id });
+      await join(room);
     } catch (err) {
       setError(errorOf(t, err));
       setTimeout(() => setError(null), 5000);
@@ -59,8 +71,16 @@ export function CallButton({ client, room }: { client: ChatClient; room: Room })
   };
   return (
     <span className="relative">
-      <button type="button" disabled={busy} onClick={() => void start()} className="rounded p-1.5 text-muted-foreground hover:bg-accent disabled:opacity-50" title={t("meet.call_button")} aria-label={t("meet.call_button")}>
+      <button
+        type="button"
+        disabled={busy}
+        onClick={() => void start()}
+        className={cn("flex items-center gap-1 rounded p-1.5 text-muted-foreground hover:bg-accent disabled:opacity-50", participants > 0 && "bg-emerald-500/15 px-2 text-emerald-700 dark:text-emerald-300")}
+        title={participants > 0 ? t("meet.call_join_running", { count: participants }) : t("meet.call_button")}
+        aria-label={participants > 0 ? t("meet.call_join_running", { count: participants }) : t("meet.call_button")}
+      >
         <Phone size={16} />
+        {participants > 0 && <span className="text-xs font-semibold tabular-nums">{participants}</span>}
       </button>
       {error && <span className="absolute right-0 top-9 z-30 w-64 rounded-md border border-border bg-popover p-2 text-xs shadow-md">{error}</span>}
     </span>
