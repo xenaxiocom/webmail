@@ -1,14 +1,19 @@
-import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup as cleanupAll, fireEvent, render, screen, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { ChatClient, PowerLevels, Room } from "@/lib/xenaxio/chat/client";
 import { ChatClient as RealClient } from "@/lib/xenaxio/chat/client";
 
 const api = vi.hoisted(() => ({ changeChatChannel: vi.fn(async () => ({})), me: vi.fn() }));
 vi.mock("@/lib/xenaxio/api", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/api")>()), xenaxio: api }));
+// Step 109: an own picture is made smaller in the browser and goes up with the chat's files.
+const media = vi.hoisted(() => ({ shrinkPicture: vi.fn(async () => new Blob(["small"], { type: "image/jpeg" })), uploadFile: vi.fn(async () => "mxc://acme.de/Pic1") }));
+vi.mock("@/lib/xenaxio/meet-background", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet-background")>()), shrinkPicture: media.shrinkPicture }));
+vi.mock("@/lib/xenaxio/chat/api", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/chat/api")>()), uploadFile: media.uploadFile }));
 
 const { useXenaxioMeStore } = await import("@/lib/xenaxio/me-store");
 const { ChatDialogsProvider } = await import("../chat/dialogs");
 const { ChannelDetails } = await import("../chat/channel-details");
+const { RoomBackgroundDialog } = await import("../chat/room-background-settings");
 const { useChatStore } = await import("@/lib/xenaxio/chat/store");
 
 const ANNA = "@anna:acme.de";
@@ -19,7 +24,7 @@ function power(users: Record<string, number>): PowerLevels {
 }
 
 /** A real client's rules (levels, managers) with its network calls replaced. */
-function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user" }) {
+function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user"; background?: string | null; dm?: boolean }) {
   const client = new RealClient() as ChatClient;
   client.userId = opts.me;
   const room = {
@@ -27,7 +32,7 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     name: "projekt",
     topic: "Kickoff",
     description: null,
-    kind: "channel",
+    kind: opts.dm ? "dm" : "channel",
     joinRule: "invite",
     membership: "join",
     members: new Map([
@@ -42,6 +47,8 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     tags: {},
     archived: false,
     external: false,
+    background: opts.background ?? null,
+    backgroundImage: null,
   } as unknown as Room;
   client.rooms.set(room.id, room);
   client.people.set(ANNA, { userId: ANNA, displayName: "Anna" });
@@ -52,6 +59,10 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     setRoomRules: vi.spyOn(client, "setRoomRules").mockResolvedValue(),
     kick: vi.spyOn(client, "kick").mockResolvedValue(),
     setManager: vi.spyOn(client, "setManager").mockResolvedValue(),
+    setChannelBackground: vi.spyOn(client, "setChannelBackground").mockResolvedValue(),
+    setRoomBackgrounds: vi.spyOn(client, "setRoomBackgrounds").mockImplementation(async (next) => {
+      client.roomBackgrounds = next;
+    }),
   };
   useXenaxioMeStore.setState({
     me: { user: { id: "u", email: "x@acme.de", displayName: "X", role: opts.role ?? "user", mustChangePassword: false }, tenant: { id: "t", name: "Acme", status: "active" }, edition: "cloud" } as never,
@@ -60,7 +71,7 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
   });
   render(
     <ChatDialogsProvider>
-      <ChannelDetails client={client} room={room} onClose={vi.fn()} onInvite={vi.fn()} onIntegrations={vi.fn()} />
+      {opts.dm ? <RoomBackgroundDialog client={client} room={room} onClose={vi.fn()} /> : <ChannelDetails client={client} room={room} onClose={vi.fn()} onInvite={vi.fn()} onIntegrations={vi.fn()} />}
     </ChatDialogsProvider>,
   );
   return { client, room, calls };
@@ -130,6 +141,96 @@ describe("channel details (step 99, part B)", () => {
       fireEvent.click(within(confirm).getByRole("button", { name: "Remove from channel" }));
     });
     expect(calls.kick).toHaveBeenCalledWith("!proj:acme.de", BEN);
+  });
+});
+
+describe("channel background (step 109)", () => {
+  beforeEach(() => {
+    api.changeChatChannel.mockClear();
+    media.uploadFile.mockClear();
+    media.shrinkPicture.mockClear();
+  });
+  const section = (name: string) => screen.getByRole("heading", { name }).closest("section") as HTMLElement;
+
+  it("a manager sets it for everyone, and chooses only for themselves", async () => {
+    const { calls } = setup({ me: ANNA, levels: { [ANNA]: 100 } });
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    await act(async () => {
+      fireEvent.click(within(section("Channel background")).getByRole("button", { name: "Sea" }));
+    });
+    expect(calls.setChannelBackground).toHaveBeenCalledWith("!proj:acme.de", { background: "img-sea" });
+    expect(api.changeChatChannel).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(within(section("Background for me")).getByRole("button", { name: "Default" }));
+    });
+    expect(calls.setRoomBackgrounds).toHaveBeenLastCalledWith({ hideAll: false, rooms: { "!proj:acme.de": "default" } });
+  });
+
+  it("a member cannot set it for everyone, but chooses their own and hides all", async () => {
+    const { calls, client } = setup({ me: BEN, levels: { [ANNA]: 100 }, background: "img-sea" });
+    client.roomBackgrounds = { hideAll: false, rooms: {} };
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    expect(screen.queryByRole("heading", { name: "Channel background" })).toBeNull();
+    expect(screen.getByText(/The channel has the background "Sea"/)).toBeTruthy();
+    const mine = section("Background for me");
+    expect(within(mine).getByRole("button", { name: "As in the channel (Sea)" }).getAttribute("aria-pressed")).toBe("true");
+    await act(async () => {
+      fireEvent.click(within(mine).getByRole("button", { name: "Blue" }));
+    });
+    expect(calls.setRoomBackgrounds).toHaveBeenLastCalledWith({ hideAll: false, rooms: { "!proj:acme.de": "grad-blue" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("checkbox", { name: /Hide backgrounds in all channels/ }));
+    });
+    expect(calls.setRoomBackgrounds).toHaveBeenLastCalledWith({ hideAll: true, rooms: { "!proj:acme.de": "grad-blue" } });
+    expect(calls.setChannelBackground).not.toHaveBeenCalled();
+  });
+
+  it("a manager uploads an own picture: made smaller, kept with the chat's files, set in the channel", async () => {
+    const { calls } = setup({ me: ANNA, levels: { [ANNA]: 100 } });
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    const input = screen.getByTestId("room-background-file") as HTMLInputElement;
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [new File(["x"], "foto.txt", { type: "text/plain" })] } });
+    });
+    expect(media.uploadFile).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.change(input, { target: { files: [new File(["x"], "foto.png", { type: "image/png" })] } });
+    });
+    expect(media.shrinkPicture).toHaveBeenCalledWith(expect.any(File), 2560);
+    expect(media.uploadFile).toHaveBeenCalledWith(expect.any(Blob), "background.jpg");
+    expect(calls.setChannelBackground).toHaveBeenCalledWith("!proj:acme.de", { image: "mxc://acme.de/Pic1" });
+  });
+
+  it("the company admin uploads through the platform", async () => {
+    setup({ me: BEN, levels: { [ANNA]: 100 }, role: "admin" });
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    await act(async () => {
+      fireEvent.change(screen.getByTestId("room-background-file"), { target: { files: [new File(["x"], "foto.jpg", { type: "image/jpeg" })] } });
+    });
+    expect(api.changeChatChannel).toHaveBeenCalledWith("!proj:acme.de", { backgroundImage: "mxc://acme.de/Pic1" });
+  });
+
+  it("a direct conversation: anyone in it sets it for both; the company admin does not step in", async () => {
+    const { calls } = setup({ me: BEN, levels: { [ANNA]: 100, [BEN]: 100 }, dm: true });
+    expect(screen.getByRole("heading", { name: "Conversation background" })).toBeTruthy();
+    await act(async () => {
+      fireEvent.click(within(section("Conversation background")).getByRole("button", { name: "Pink" }));
+    });
+    expect(calls.setChannelBackground).toHaveBeenCalledWith("!proj:acme.de", { background: "grad-pink" });
+    cleanupAll();
+    setup({ me: BEN, levels: { [ANNA]: 100 }, dm: true, role: "admin" });
+    expect(screen.queryByRole("heading", { name: "Conversation background" })).toBeNull();
+    expect(screen.getByRole("heading", { name: "Background for me" })).toBeTruthy();
+  });
+
+  it("the company admin sets it through the platform; none removes it", async () => {
+    const { calls } = setup({ me: BEN, levels: { [ANNA]: 100 }, role: "admin", background: "img-sea" });
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    await act(async () => {
+      fireEvent.click(within(section("Channel background")).getByRole("button", { name: "None" }));
+    });
+    expect(api.changeChatChannel).toHaveBeenCalledWith("!proj:acme.de", { background: null });
+    expect(calls.setChannelBackground).not.toHaveBeenCalled();
   });
 });
 
