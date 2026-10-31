@@ -182,14 +182,43 @@ export function parseLayout(content: Record<string, unknown> | undefined): Sideb
   return { sections, collapsed, sort, unreadOnly: c.unreadOnly === true };
 }
 
-/** Channels muted or set to mentions only, from the push rules (our rules, see setNotifications). */
-export function roomLevelsOf(content: Record<string, unknown> | undefined): Map<string, "mentions" | "none"> {
-  const global = (content?.global ?? {}) as { override?: { rule_id?: string; enabled?: boolean }[]; room?: { rule_id?: string; enabled?: boolean }[] };
-  const levels = new Map<string, "mentions" | "none">();
-  for (const r of global.room ?? []) if (r.rule_id?.startsWith("!") && r.enabled !== false) levels.set(r.rule_id, "mentions");
-  for (const r of global.override ?? []) if (r.rule_id?.startsWith("xenaxio-mute-") && r.enabled !== false) levels.set(r.rule_id.slice("xenaxio-mute-".length), "none");
+export type NotifyLevel = "all" | "mentions" | "none";
+type PushRule = { rule_id?: string; enabled?: boolean; actions?: unknown[] };
+
+/**
+ * Each channel's own level from the push rules (our rules, see setNotifications):
+ * muted, mentions only, or — when the default is lower — all messages.
+ */
+export function roomLevelsOf(content: Record<string, unknown> | undefined): Map<string, NotifyLevel> {
+  const global = (content?.global ?? {}) as { override?: PushRule[]; room?: PushRule[] };
+  const levels = new Map<string, NotifyLevel>();
+  for (const r of global.room ?? [])
+    if (r.rule_id?.startsWith("!") && r.enabled !== false) levels.set(r.rule_id, (r.actions ?? []).includes("notify") ? "all" : "mentions");
+  for (const r of global.override ?? []) if (r.rule_id?.startsWith(MUTE_PREFIX) && r.enabled !== false) levels.set(r.rule_id.slice(MUTE_PREFIX.length), "none");
   return levels;
 }
+
+/**
+ * Step 99, part D: the default for channels, as in Slack — all new messages;
+ * direct messages, mentions and keywords; or nothing. It is the person's own
+ * push rules on the chat server: "nothing" is the master rule, "mentions"
+ * turns off the rule for ordinary messages in channels.
+ */
+export function defaultLevelOf(content: Record<string, unknown> | undefined): NotifyLevel {
+  const global = (content?.global ?? {}) as { override?: PushRule[]; underride?: PushRule[] };
+  if (global.override?.find((r) => r.rule_id === ".m.rule.master")?.enabled === true) return "none";
+  if (global.underride?.find((r) => r.rule_id === ".m.rule.message")?.enabled === false) return "mentions";
+  return "all";
+}
+
+/** Channels where @channel / @here do not notify this person (step 99). */
+export function ignoredRoomMentionsOf(content: Record<string, unknown> | undefined): Set<string> {
+  const global = (content?.global ?? {}) as { override?: PushRule[] };
+  return new Set((global.override ?? []).filter((r) => r.rule_id?.startsWith(NOROOM_PREFIX) && r.enabled !== false).map((r) => (r.rule_id as string).slice(NOROOM_PREFIX.length)));
+}
+
+const MUTE_PREFIX = "xenaxio-mute-";
+const NOROOM_PREFIX = "xenaxio-noroom-";
 
 /** Our own room state: an archived channel (read-only, out of the directory). */
 export const ARCHIVED_TYPE = "com.xenaxio.archived";
@@ -311,8 +340,11 @@ export class ChatClient {
   saved: SavedItem[] = [];
   /** Step 99, part C: own sections, folded sections, order and filter of the sidebar. */
   sidebar: SidebarLayout = EMPTY_LAYOUT;
-  /** Channels with fewer notifications than "all" (from the push rules on the server). */
-  roomLevels = new Map<string, "mentions" | "none">();
+  /** Channels with their own level (from the push rules on the server); the others follow `defaultLevel`. */
+  roomLevels = new Map<string, NotifyLevel>();
+  /** Step 99, part D: the default level for channels, and channels where @channel is ignored. */
+  defaultLevel: NotifyLevel = "all";
+  ignoredRoomMentions = new Set<string>();
   /** People I blocked (Matrix ignore list). */
   ignored: Record<string, object> = {};
   ready = false;
@@ -486,6 +518,8 @@ export class ChatClient {
       this.sidebar = parseLayout(ev.content);
     } else if (ev.type === "m.push_rules") {
       this.roomLevels = roomLevelsOf(ev.content);
+      this.defaultLevel = defaultLevelOf(ev.content);
+      this.ignoredRoomMentions = ignoredRoomMentionsOf(ev.content);
     }
   }
 
@@ -1090,16 +1124,51 @@ export class ChatClient {
   }
 
   /** Mute a channel ("Nichts") or hear only mentions; back to everything with "all". */
-  async setNotifications(roomId: string, level: "all" | "mentions" | "none"): Promise<void> {
-    const muteId = `xenaxio-mute-${roomId}`;
+  async setNotifications(roomId: string, level: NotifyLevel): Promise<void> {
+    const muteId = `${MUTE_PREFIX}${roomId}`;
     await mx("DELETE", paths.pushRule("override", muteId)).catch(() => undefined);
     await mx("DELETE", paths.pushRule("room", roomId)).catch(() => undefined);
-    if (level === "mentions") await mx("PUT", paths.pushRule("room", roomId), { actions: [] });
-    if (level === "none") await mx("PUT", paths.pushRule("override", muteId), { actions: [], conditions: [{ kind: "event_match", key: "room_id", pattern: roomId }] });
+    // Step 99: a channel at the default level has no rule of its own; "all" under a lower default has one.
+    const own = level !== this.defaultLevel;
+    if (own && level === "all") await mx("PUT", paths.pushRule("room", roomId), { actions: ["notify", { set_tweak: "sound", value: "default" }] });
+    if (own && level === "mentions") await mx("PUT", paths.pushRule("room", roomId), { actions: [] });
+    if (own && level === "none") await mx("PUT", paths.pushRule("override", muteId), { actions: [], conditions: [{ kind: "event_match", key: "room_id", pattern: roomId }] });
     const levels = new Map(this.roomLevels);
-    if (level === "all") levels.delete(roomId);
-    else levels.set(roomId, level);
+    if (own) levels.set(roomId, level);
+    else levels.delete(roomId);
     this.roomLevels = levels;
+    this.changed();
+  }
+
+  /** The level a channel notifies at: its own, else the default. */
+  levelOf(roomId: string): NotifyLevel {
+    return this.roomLevels.get(roomId) ?? this.defaultLevel;
+  }
+
+  /** Step 99, part D: the default for channels (direct messages and mentions notify unless "nothing"). */
+  async setDefaultLevel(level: NotifyLevel): Promise<void> {
+    await mx("PUT", `${paths.pushRule("override", ".m.rule.master")}/enabled`, { enabled: level === "none" });
+    await mx("PUT", `${paths.pushRule("underride", ".m.rule.message")}/enabled`, { enabled: level === "all" });
+    this.defaultLevel = level;
+    this.changed();
+  }
+
+  /** Step 99, part D: @channel / @here in this channel do not notify me. */
+  async setIgnoreRoomMentions(roomId: string, ignore: boolean): Promise<void> {
+    const id = `${NOROOM_PREFIX}${roomId}`;
+    if (ignore)
+      await mx("PUT", paths.pushRule("override", id), {
+        actions: [],
+        conditions: [
+          { kind: "event_match", key: "room_id", pattern: roomId },
+          { kind: "event_property_is", key: "content.m\\.mentions.room", value: true },
+        ],
+      });
+    else await mx("DELETE", paths.pushRule("override", id)).catch(() => undefined);
+    const next = new Set(this.ignoredRoomMentions);
+    if (ignore) next.add(roomId);
+    else next.delete(roomId);
+    this.ignoredRoomMentions = next;
     this.changed();
   }
 
@@ -1139,19 +1208,9 @@ export class ChatClient {
   }
 
   /** The current notification level of a channel. */
-  async notificationLevel(roomId: string): Promise<"all" | "mentions" | "none"> {
-    try {
-      await mx("GET", paths.pushRule("override", `xenaxio-mute-${roomId}`));
-      return "none";
-    } catch {
-      // No mute rule.
-    }
-    try {
-      await mx("GET", paths.pushRule("room", roomId));
-      return "mentions";
-    } catch {
-      return "all";
-    }
+  /** The current level of a channel (the push rules come with the sync). */
+  async notificationLevel(roomId: string): Promise<NotifyLevel> {
+    return this.levelOf(roomId);
   }
 
   async publicChannels(): Promise<{ roomId: string; name: string; topic: string | null; members: number }[]> {

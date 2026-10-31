@@ -3,6 +3,9 @@
 // Step 43, part C: notifications of the chat — the "turn them on" banner, the
 // settings (this device, pause, quiet hours, keywords, e-mail) and the bridge
 // that lets a click on a chat notification open the chat from any window.
+// Step 99, part D: as in Slack — the default for channels, phones apart,
+// sound, the text in the notification, how soon the e-mail comes; all kept on
+// the server (the platform, and push rules on the chat server).
 import { IconBell, IconBellOff, IconX } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
@@ -14,6 +17,7 @@ import {
   disableChatPush,
   enableChatPush,
   isPaused,
+  browserTimeZone,
   loadChatSettings,
   minutesToTime,
   pauseUntil,
@@ -170,6 +174,8 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
   };
 
   const base: ChatNotifySettings = settings ?? { dndUntil: null, dndFrom: null, dndTo: null, dndDays: [], emailDigest: true };
+  const [defaultLevel, setDefaultLevel] = useState(client.defaultLevel);
+  const zone = browserTimeZone();
   const paused = isPaused(settings);
   const until = paused && settings?.dndUntil ? new Date(settings.dndUntil) : null;
 
@@ -208,6 +214,62 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
               <span>{t("chat.notify_device_on")}</span>
             </label>
           )}
+        </section>
+
+        <section>
+          <h3 className="font-semibold">{t("chat.notify_default")}</h3>
+          <div className="mt-1 space-y-1">
+            {(["all", "mentions", "none"] as const).map((l) => (
+              <label key={l} className="flex items-start gap-2">
+                <input
+                  type="radio"
+                  name="chat-notify-default"
+                  className="mt-1"
+                  checked={defaultLevel === l}
+                  disabled={busy}
+                  onChange={() =>
+                    run(async () => {
+                      await client.setDefaultLevel(l);
+                      setDefaultLevel(l);
+                    })
+                  }
+                />
+                <span>{t(`chat.notify_default_${l}`)}</span>
+              </label>
+            ))}
+          </div>
+          <p className="mt-1 text-xs text-muted-foreground">{t("chat.notify_default_hint")}</p>
+        </section>
+
+        <section>
+          <label htmlFor="chat-notify-mobile" className="font-semibold">
+            {t("chat.notify_mobile")}
+          </label>
+          <select
+            id="chat-notify-mobile"
+            value={base.mobileLevel ?? "same"}
+            disabled={busy}
+            onChange={(e) => run(() => save({ ...base, mobileLevel: e.target.value as "same" | "mentions" | "none" }))}
+            className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-2"
+          >
+            <option value="same">{t("chat.notify_mobile_same")}</option>
+            <option value="mentions">{t("chat.notify_mobile_mentions")}</option>
+            <option value="none">{t("chat.notify_mobile_none")}</option>
+          </select>
+        </section>
+
+        <section className="space-y-1.5">
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={base.sound ?? true} disabled={busy} onChange={(e) => run(() => save({ ...base, sound: e.target.checked }))} />
+            <span>{t("chat.notify_sound")}</span>
+          </label>
+          <label className="flex items-start gap-2">
+            <input type="checkbox" className="mt-1" checked={base.preview ?? true} disabled={busy} onChange={(e) => run(() => save({ ...base, preview: e.target.checked }))} />
+            <span>
+              {t("chat.notify_preview")}
+              <span className="block text-xs text-muted-foreground">{t("chat.notify_preview_hint")}</span>
+            </span>
+          </label>
         </section>
 
         <section>
@@ -283,7 +345,10 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
                   </button>
                 ))}
               </div>
-              <p className="text-xs text-muted-foreground">{t("chat.notify_schedule_hint")}</p>
+              <p className="text-xs text-muted-foreground">
+                {t("chat.notify_schedule_hint")}
+                {zone && <> {t("chat.notify_zone", { zone })}</>}
+              </p>
             </div>
           )}
         </section>
@@ -300,10 +365,25 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
         </section>
 
         <section>
-          <label className="flex items-start gap-2">
-            <input type="checkbox" className="mt-1" checked={base.emailDigest} disabled={busy} onChange={(e) => run(() => save({ ...base, emailDigest: e.target.checked }))} />
-            <span>{t("chat.notify_email")}</span>
+          <label htmlFor="chat-notify-email" className="font-semibold">
+            {t("chat.notify_email_title")}
           </label>
+          <select
+            id="chat-notify-email"
+            value={base.emailFrequency ?? (base.emailDigest ? "daily" : "never")}
+            disabled={busy}
+            onChange={(e) => {
+              const emailFrequency = e.target.value as "never" | "15m" | "hourly" | "daily";
+              void run(() => save({ ...base, emailFrequency, emailDigest: emailFrequency !== "never" }));
+            }}
+            className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-2"
+          >
+            {(["15m", "hourly", "daily", "never"] as const).map((f) => (
+              <option key={f} value={f}>
+                {t(`chat.notify_email_${f}`)}
+              </option>
+            ))}
+          </select>
         </section>
 
         <div className="flex justify-end">

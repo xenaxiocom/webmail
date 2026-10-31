@@ -71,7 +71,7 @@ function RoomMenu({ client, room, onClose }: { client: ChatClient; room: Room; o
   const setView = useChatStore((s) => s.setView);
   const save = useLayout(client);
   const starred = !!room.tags["m.favourite"];
-  const level = client.roomLevels.get(room.id) ?? "all";
+  const level = client.levelOf(room.id);
   const inSection = client.sidebar.sections.find((s) => s.rooms.includes(room.id))?.id ?? null;
   const run = (job: () => Promise<unknown> | void) => () => {
     onClose();
@@ -110,6 +110,11 @@ function RoomMenu({ client, room, onClose }: { client: ChatClient; room: Room; o
           {t(`chat.notify_${l}`)}
         </MenuItem>
       ))}
+      {room.kind === "channel" && (
+        <MenuItem checked={client.ignoredRoomMentions.has(room.id)} onClick={run(() => client.setIgnoreRoomMentions(room.id, !client.ignoredRoomMentions.has(room.id)))}>
+          {t("chat.notify_ignore_room")}
+        </MenuItem>
+      )}
       <MenuLine />
       {(room.notifications > 0 || room.highlights > 0) && <MenuItem onClick={run(() => client.markRead(room.id))}>{t("chat.side_mark_read")}</MenuItem>}
       <MenuItem

@@ -49,6 +49,20 @@ function NotificationMenu({ client, room, onClose }: { client: ChatClient; room:
           {level === l && <span>✓</span>}
         </button>
       ))}
+      {/* Step 99, part D: as in Slack, a channel's @channel / @here can be ignored. */}
+      {room.kind === "channel" && (
+        <button
+          type="button"
+          onClick={() => {
+            onClose();
+            void client.setIgnoreRoomMentions(room.id, !client.ignoredRoomMentions.has(room.id)).catch(() => toast.error(t("chat.error")));
+          }}
+          className={cn("flex w-full items-center justify-between border-t border-border px-3 py-1.5 text-left text-sm hover:bg-accent", client.ignoredRoomMentions.has(room.id) && "font-semibold")}
+        >
+          {t("chat.notify_ignore_room")}
+          {client.ignoredRoomMentions.has(room.id) && <span>✓</span>}
+        </button>
+      )}
     </div>
   );
 }
