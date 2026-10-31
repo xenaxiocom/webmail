@@ -6,7 +6,7 @@
 // part C: a menu on every channel (right click, "⋯", long press), own
 // sections with drag and drop, order per section, "unread only", Shift+Esc
 // marks everything read; the layout is kept on the server (account data).
-import { IconAdjustmentsHorizontal, IconAt, IconPencil, IconBellOff, IconBookmark, IconChevronDown, IconChevronRight, IconDots, IconHash, IconLock, IconMessages, IconPlus, IconSearch, IconSparkles, IconWorld } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconAlarm, IconAt, IconPencil, IconBellOff, IconBookmark, IconChevronDown, IconChevronRight, IconDots, IconHash, IconLock, IconMessages, IconPlus, IconSearch, IconSparkles, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { type ChatClient, type Room, type SectionSort, type SidebarLayout, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -20,6 +20,7 @@ import { cn } from "@/lib/utils";
 import { channelLink, PersonAvatar, presenceOf, useAssistant } from "./common";
 import { useChatDialogs } from "./dialogs";
 import { useLongPress } from "./message-sheet";
+import { isDue, useChatLater } from "@/lib/xenaxio/chat/later";
 
 const ROOM_DRAG = "application/x-xenaxio-room";
 
@@ -372,6 +373,11 @@ export function ChatSidebar({
   const collapsed = new Set(layout.collapsed);
   const toggle = (key: string) => save((l) => ({ ...l, collapsed: l.collapsed.includes(key) ? l.collapsed.filter((c) => c !== key) : [...l.collapsed, key] }));
   const [options, setOptions] = useState(false);
+  // Step 99, part E2: "Later" with the count of due reminders.
+  const laterReminders = useChatLater((s) => s.reminders);
+  const laterScheduled = useChatLater((s) => s.scheduled);
+  const laterDue = laterReminders.filter((r) => isDue(r)).length;
+  const laterAny = laterReminders.length + laterScheduled.length > 0;
   const ai = useAssistant();
   const [search, setSearch] = useState("");
   const rooms = [...client.rooms.values()];
@@ -478,6 +484,7 @@ export function ChatSidebar({
           {nav(t("chat.mentions"), <IconAt size={16} />, { kind: "mentions" })}
           {nav(t("chat.saved"), <IconBookmark size={16} />, { kind: "saved" })}
           {Object.keys(client.drafts).length > 0 && nav(t("chat.drafts"), <IconPencil size={16} />, { kind: "drafts" })}
+          {(laterDue > 0 || laterAny) && nav(t("chat.later"), <IconAlarm size={16} />, { kind: "later" }, laterDue)}
           {nav(t("chat.browse"), <IconHash size={16} />, { kind: "browse" })}
           {ai && (
             <button

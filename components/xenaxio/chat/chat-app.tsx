@@ -36,6 +36,7 @@ import { tellChatWorker } from "@/lib/xenaxio/chat/push";
 import { openAccount } from "@/lib/xenaxio/accounts";
 import { ChatSidebar } from "./sidebar";
 import { BrowseView, DraftsView, HomeView, MentionsView, SavedView, SearchView, ThreadsView } from "./views";
+import { LaterView, useLaterLoader } from "./later";
 // Step 99: colours of highlighted code in messages and snippets.
 import "./code.css";
 
@@ -81,6 +82,8 @@ function ChatInside() {
   const connect = useChatStore((s) => s.connect);
   const [dialog, setDialog] = useState<"jump" | "create" | "dm" | "notify" | null>(null);
   useChatNotifyLoader(!!client?.ready);
+  // Step 99, part E2: reminders and messages sent later.
+  useLaterLoader(!!client?.ready);
 
   useEffect(() => {
     void loadStatus(true).then(() => connect());
@@ -198,6 +201,7 @@ function ChatInside() {
   else if (view.kind === "mentions") main = <MentionsView client={client} />;
   else if (view.kind === "saved") main = <SavedView client={client} />;
   else if (view.kind === "drafts") main = <DraftsView client={client} />;
+  else if (view.kind === "later") main = <LaterView client={client} />;
   else if (view.kind === "browse") main = <BrowseView client={client} onCreate={() => setDialog("create")} />;
   else if (view.kind === "search") main = <SearchView client={client} query={view.query} />;
   else main = <HomeView />;
