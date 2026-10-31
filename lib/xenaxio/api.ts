@@ -1036,7 +1036,7 @@ export const xenaxio = {
     if (q.slug !== undefined) params.set("slug", q.slug);
     return request<{ domain: string; suggestion: string | null; slug?: string; problem?: SlugProblem | null }>("GET", `/api/rooms/onboarding/slug?${params}`);
   },
-  roomsOnboard: (input: { token: string; companyName: string; slug: string; adminName: string; email: string; password: string; locale: "de" | "en" }) =>
+  roomsOnboard: (input: { token: string; companyName: string; slug: string; adminName: string; email: string; password: string; locale: "de" | "en"; chatDomain?: string }) =>
     request<Me>("POST", "/api/rooms/onboarding", input),
   roomsLink: (kind: "invite" | "reset", token: string) => request<RoomsLinkInfo>("GET", `/api/rooms/link?kind=${kind}&token=${encodeURIComponent(token)}`),
   roomsUseLink: (kind: "invite" | "reset", token: string, password: string, locale?: string) =>
