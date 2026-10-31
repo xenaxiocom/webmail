@@ -11,6 +11,12 @@ const api = vi.hoisted(() => ({
   purgeImage: vi.fn(),
   blockPerson: vi.fn(),
   setTenantBlocked: vi.fn(),
+  chatImages: vi.fn(),
+  imageCheckSettings: vi.fn(),
+  setImageCheckThreshold: vi.fn(),
+  dismissChatImage: vi.fn(),
+  removeChatImage: vi.fn(),
+  blockFromChatImage: vi.fn(),
 }));
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/lib/xenaxio/api", async (orig) => {
@@ -92,5 +98,22 @@ describe("step 106, part C: pictures", () => {
     fireEvent.click(screen.getByRole("button", { name: "Wiederherstellen" }));
     await waitFor(() => expect(api.restoreImage).toHaveBeenCalledWith("q1"));
     expect(await screen.findByText("Keine ausgeblendeten Bilder.")).toBeInTheDocument();
+  });
+
+  it("step 106, part C3: flagged chat pictures — only a preview, the company and the time; remove, block, threshold", async () => {
+    const flag = { id: "f1", tenantId: "t1", company: "Spam Club", plan: "free", product: "rooms", score: 0.97, createdAt: "2026-10-31T10:00:00Z", removable: true };
+    api.chatImages.mockResolvedValue({ flags: [flag], available: true });
+    api.imageCheckSettings.mockResolvedValue({ available: true, threshold: 0.85 });
+    api.removeChatImage.mockResolvedValue([]);
+    api.setImageCheckThreshold.mockResolvedValue({ available: true, threshold: 0.9 });
+    render(<OperatorImages />);
+    fireEvent.click(await screen.findByRole("tab", { name: "Chat (Verdacht)" }));
+    expect(await screen.findByText("Verdacht 97 %")).toBeInTheDocument();
+    expect(screen.getByAltText("Auffälliges Bild — Spam Club")).toHaveAttribute("src", "/api/operator/chat-images/f1/preview");
+    fireEvent.change(screen.getByLabelText("Ab welcher Sicherheit des Modells:"), { target: { value: "0.9" } });
+    await waitFor(() => expect(api.setImageCheckThreshold).toHaveBeenCalledWith(0.9));
+    fireEvent.click(screen.getByRole("button", { name: "Bild entfernen" }));
+    await waitFor(() => expect(api.removeChatImage).toHaveBeenCalledWith("f1", "Anstößig"));
+    expect(await screen.findByText("Keine auffälligen Bilder.")).toBeInTheDocument();
   });
 });

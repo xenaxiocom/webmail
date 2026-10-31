@@ -9,6 +9,8 @@ import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
 import {
+  type ChatImageFlag,
+  chatImagePreviewUrl,
   errorKey,
   type GalleryFilter,
   type GalleryImage,
@@ -77,6 +79,9 @@ function Card({ image, onChanged, onMessage }: { image: GalleryImage; onChanged:
       <div className="flex-1 space-y-0.5 p-2 text-xs">
         <div className="font-medium">
           {label} {image.reviewed && <span className="ml-1 rounded bg-muted px-1 text-muted-foreground">{t("operator.images_reviewed")}</span>}
+          {typeof image.score === "number" && image.score >= 0.5 && (
+            <span className="ml-1 rounded bg-destructive/15 px-1 text-destructive">{t("operator.images_suspect", { percent: Math.round(image.score * 100) })}</span>
+          )}
         </div>
         <div className="break-words">
           {image.company}
@@ -163,9 +168,136 @@ function Hidden({ onMessage }: { onMessage: (kind: "success" | "error", text: st
   );
 }
 
+/** Part C3: what our model flagged in the chat — only a preview, the company and the time. */
+function ChatFlags({ onMessage }: { onMessage: (kind: "success" | "error", text: string) => void }) {
+  const t = useXT();
+  const date = useDate();
+  const [flags, setFlags] = useState<ChatImageFlag[] | null>(null);
+  const [available, setAvailable] = useState(true);
+  const [threshold, setThreshold] = useState<number | null>(null);
+  const [busy, setBusy] = useState(false);
+  useEffect(() => {
+    xenaxio.operator.chatImages().then(
+      (r) => {
+        setFlags(r.flags);
+        setAvailable(r.available);
+      },
+      (err) => onMessage("error", t(errorKey(err))),
+    );
+    xenaxio.operator.imageCheckSettings().then((r) => setThreshold(r.threshold), () => setThreshold(null));
+  }, [onMessage, t]);
+  const act = async (fn: () => Promise<ChatImageFlag[]>, done: string) => {
+    setBusy(true);
+    try {
+      setFlags(await fn());
+      onMessage("success", done);
+    } catch (err) {
+      onMessage("error", t(errorKey(err)));
+    } finally {
+      setBusy(false);
+    }
+  };
+  const ask = (question: string) => {
+    const reason = window.prompt(question)?.trim();
+    return reason && reason.length >= 3 ? reason : null;
+  };
+  const saveThreshold = async (value: number) => {
+    try {
+      setThreshold((await xenaxio.operator.setImageCheckThreshold(value)).threshold);
+      onMessage("success", t("operator.images_threshold_saved"));
+    } catch (err) {
+      onMessage("error", t(errorKey(err)));
+    }
+  };
+  return (
+    <div className="space-y-3">
+      <p className="text-xs text-muted-foreground">{t("operator.images_chat_intro")}</p>
+      {!available && <Notice kind="info">{t("operator.images_chat_unavailable")}</Notice>}
+      {threshold !== null && (
+        <label className="flex flex-wrap items-center gap-2 text-sm">
+          {t("operator.images_threshold")}
+          <select aria-label={t("operator.images_threshold")} className={SELECT} value={String(threshold)} onChange={(e) => void saveThreshold(Number(e.target.value))}>
+            {[0.6, 0.7, 0.8, 0.85, 0.9, 0.95, 0.99].map((v) => (
+              <option key={v} value={String(v)}>
+                {Math.round(v * 100)} %
+              </option>
+            ))}
+          </select>
+        </label>
+      )}
+      {!flags && <Spinner label={t("operator.loading")} />}
+      {flags && flags.length === 0 && <p className="text-sm text-muted-foreground">{t("operator.images_chat_none")}</p>}
+      {flags && flags.length > 0 && (
+        <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4">
+          {flags.map((f) => (
+            <div key={f.id} className="flex flex-col overflow-hidden rounded-lg border border-border bg-card">
+              <div className="flex aspect-square items-center justify-center bg-muted/40">
+                <Picture src={chatImagePreviewUrl(f.id)} contentType="image/png" alt={t("operator.images_chat_alt", { company: f.company })} />
+              </div>
+              <div className="flex-1 space-y-0.5 p-2 text-xs">
+                <div className="font-medium">
+                  <span className="rounded bg-destructive/15 px-1 text-destructive">{t("operator.images_suspect", { percent: Math.round(f.score * 100) })}</span>
+                </div>
+                <div className="break-words">
+                  {f.company}
+                  {f.plan === "free" && <span className="text-muted-foreground"> · Free</span>}
+                </div>
+                <div className="text-muted-foreground">{date(f.createdAt)}</div>
+              </div>
+              <div className="flex flex-wrap gap-1 border-t border-border p-2">
+                <Button size="sm" variant="outline" disabled={busy} onClick={() => void act(() => xenaxio.operator.dismissChatImage(f.id), t("operator.images_chat_ok_done"))}>
+                  {t("operator.images_chat_ok")}
+                </Button>
+                {f.removable && (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="text-destructive"
+                    disabled={busy}
+                    onClick={() => {
+                      const reason = ask(t("operator.images_delete_reason"));
+                      if (reason) void act(() => xenaxio.operator.removeChatImage(f.id, reason), t("operator.images_chat_removed_done"));
+                    }}
+                  >
+                    {t("operator.images_chat_remove")}
+                  </Button>
+                )}
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  disabled={busy}
+                  onClick={() => {
+                    const reason = ask(t("operator.images_chat_block_reason"));
+                    if (reason) void act(() => xenaxio.operator.blockFromChatImage(f.id, "person", reason), t("operator.images_chat_person_blocked"));
+                  }}
+                >
+                  {t("operator.images_block_person")}
+                </Button>
+                <Button
+                  size="sm"
+                  variant="ghost"
+                  className="text-destructive"
+                  disabled={busy}
+                  onClick={() => {
+                    const reason = ask(t("operator.images_block_company_confirm", { company: f.company }));
+                    if (reason) void act(() => xenaxio.operator.blockFromChatImage(f.id, "company", reason), t("operator.images_company_blocked", { company: f.company }));
+                  }}
+                >
+                  {t("operator.images_block_company")}
+                </Button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function OperatorImages() {
   const t = useXT();
-  const [view, setView] = useState<"new" | "all" | "hidden">("new");
+  const [view, setView] = useState<"new" | "all" | "hidden" | "chat">("new");
   const [filter, setFilter] = useState<GalleryFilter>({ page: 1 });
   const [search, setSearch] = useState("");
   const [data, setData] = useState<{ images: GalleryImage[]; total: number; newCount: number; pageSize: number } | null>(null);
@@ -180,7 +312,7 @@ export function OperatorImages() {
   }, [search]);
 
   useEffect(() => {
-    if (view === "hidden") return;
+    if (view === "hidden" || view === "chat") return;
     let current = true;
     xenaxio.operator.images({ ...filter, status: view }).then(
       (r) => current && setData(r),
@@ -200,14 +332,16 @@ export function OperatorImages() {
     <div className="space-y-4">
       <p className="text-xs text-muted-foreground">{t("operator.images_intro")}</p>
       <div className="flex flex-wrap gap-1" role="tablist" aria-label={t("operator.tab_images")}>
-        {(["new", "all", "hidden"] as const).map((v) => (
+        {(["new", "all", "hidden", "chat"] as const).map((v) => (
           <Button key={v} size="sm" variant={view === v ? "default" : "outline"} role="tab" aria-selected={view === v} onClick={() => setView(v)}>
             {v === "new" ? t("operator.images_view_new", { count: data?.newCount ?? 0 }) : t(`operator.images_view_${v}`)}
           </Button>
         ))}
       </div>
       {notice && <Notice kind={notice.kind}>{notice.text}</Notice>}
-      {view === "hidden" ? (
+      {view === "chat" ? (
+        <ChatFlags onMessage={onMessage} />
+      ) : view === "hidden" ? (
         <Hidden onMessage={onMessage} />
       ) : (
         <>
@@ -232,6 +366,10 @@ export function OperatorImages() {
               <option value="">{t("operator.people_all_plans")}</option>
               <option value="free">Free</option>
               <option value="paid">{t("operator.people_paid")}</option>
+            </select>
+            <select aria-label={t("operator.people_sort")} className={SELECT} value={filter.sort ?? "new"} onChange={(e) => set("sort", e.target.value as GalleryFilter["sort"])}>
+              <option value="new">{t("operator.images_sort_new")}</option>
+              <option value="score">{t("operator.images_sort_score")}</option>
             </select>
             {view === "new" && unreviewed.length > 0 && (
               <Button

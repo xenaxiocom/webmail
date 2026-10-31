@@ -741,6 +741,8 @@ export interface GalleryImage {
   animated: boolean;
   version: string;
   reviewed: boolean;
+  /** Part C3: our model's score of this version (0–1), when it ran. */
+  score?: number | null;
 }
 
 export interface HiddenImage {
@@ -764,6 +766,25 @@ export interface GalleryFilter {
   product?: "workspace" | "rooms";
   q?: string;
   page?: number;
+  /** Part C3: the likely problems first. */
+  sort?: "new" | "score";
+}
+
+/** Step 106, part C3: a chat picture our own model flagged: only a preview, the company and the time. */
+export interface ChatImageFlag {
+  id: string;
+  tenantId: string;
+  company: string;
+  plan: "free" | "paid" | null;
+  product: "workspace" | "rooms";
+  score: number;
+  createdAt: string;
+  /** The message is known and can be removed for everyone. */
+  removable: boolean;
+}
+
+export function chatImagePreviewUrl(id: string): string {
+  return `/api/operator/chat-images/${encodeURIComponent(id)}/preview`;
 }
 
 /** The picture for the operator's eyes (the platform answers only to the operator). */
@@ -1257,6 +1278,10 @@ export const xenaxio = {
   roomsSetStatus: (id: string, status: "active" | "disabled") => request<RoomsPerson>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/status`, { status }),
   roomsRemove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/rooms/people/${encodeURIComponent(id)}`),
 
+  /** Step 106, part C3: pictures in the company's chat checked by Xenaxio's own model. */
+  imageCheck: () => request<{ enabled: boolean; forced: boolean; available: boolean }>("GET", "/api/admin/image-check"),
+  setImageCheck: (enabled: boolean) => request<{ enabled: boolean; forced: boolean; available: boolean }>("PUT", "/api/admin/image-check", { enabled }),
+
   invitationStatus: (token: string) =>
     request<{ status: "valid" | "used" | "expired" | "unknown" }>("GET", `/api/onboarding/invitation?token=${encodeURIComponent(token)}`),
   onboard: (input: { token: string; companyName: string; domain: string; adminName: string; adminLocalPart: string; password: string; slug?: string }) =>
@@ -1446,6 +1471,14 @@ export const xenaxio = {
     removeImage: (kind: GalleryKind, ref: string, reason: string, mode: "hide" | "delete") => request<{ ok: true }>("POST", "/api/operator/images/remove", { kind, ref, reason, mode }),
     hiddenImages: () => request<{ hidden: HiddenImage[] }>("GET", "/api/operator/images/hidden").then((r) => r.hidden),
     restoreImage: (id: string) => request<{ hidden: HiddenImage[] }>("POST", `/api/operator/images/hidden/${encodeURIComponent(id)}/restore`, {}).then((r) => r.hidden),
+    // Step 106, part C3: chat pictures our own model flagged (only those, only a preview) and the threshold.
+    imageCheckSettings: () => request<{ available: boolean; threshold: number | null }>("GET", "/api/operator/image-check"),
+    setImageCheckThreshold: (threshold: number) => request<{ available: boolean; threshold: number }>("PUT", "/api/operator/image-check", { threshold }),
+    chatImages: () => request<{ flags: ChatImageFlag[]; available: boolean }>("GET", "/api/operator/chat-images"),
+    dismissChatImage: (id: string) => request<{ flags: ChatImageFlag[] }>("POST", `/api/operator/chat-images/${encodeURIComponent(id)}/dismiss`, {}).then((r) => r.flags),
+    removeChatImage: (id: string, reason: string) => request<{ flags: ChatImageFlag[] }>("POST", `/api/operator/chat-images/${encodeURIComponent(id)}/remove`, { reason }).then((r) => r.flags),
+    blockFromChatImage: (id: string, target: "person" | "company", reason: string) =>
+      request<{ flags: ChatImageFlag[] }>("POST", `/api/operator/chat-images/${encodeURIComponent(id)}/block`, { target, reason }).then((r) => r.flags),
     purgeImage: (id: string) => request<{ hidden: HiddenImage[] }>("DELETE", `/api/operator/images/hidden/${encodeURIComponent(id)}`).then((r) => r.hidden),
     // Step 90, part F: the installation's models.
     models: () => request<InstallationModels>("GET", "/api/operator/models"),

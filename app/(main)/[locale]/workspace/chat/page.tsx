@@ -9,6 +9,7 @@ import { Notice, Spinner } from "@/components/xenaxio/ui";
 import { ChannelsAdmin } from "@/components/xenaxio/chat/channels-admin";
 import { FederationAdmin } from "@/components/xenaxio/chat/federation-admin";
 import { EmojiAdmin, GroupsAdmin } from "@/components/xenaxio/chat/groups-admin";
+import { ImageCheckAdmin } from "@/components/xenaxio/chat/image-check-admin";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { Link } from "@/i18n/navigation";
 import { type ChatAdmin, errorText, xenaxio } from "@/lib/xenaxio/api";
@@ -105,6 +106,8 @@ function ChatSettings() {
       {/* Step 99, part H: groups to mention and the company's emoji. */}
       {data.state === "active" && <GroupsAdmin />}
       {data.state === "active" && <EmojiAdmin />}
+      {/* Step 106, part C3: pictures in the chat checked by Xenaxio's own model. */}
+      {data.state === "active" && <ImageCheckAdmin />}
       {/* Step 43, part E: other companies (federation), once the chat runs. */}
       {data.state === "active" && <FederationAdmin />}
     </div>

@@ -251,7 +251,12 @@
     "domain_public": "Domains of public email services (e.g. gmail.com) cannot be blocked – block the single address instead.",
     "invalid_email": "Please enter a valid email address.",
     "image_not_found": "The picture no longer exists.",
-    "image_replaced": "The person has uploaded a new picture meanwhile; the old one cannot be put back."
+    "image_replaced": "The person has uploaded a new picture meanwhile; the old one cannot be put back.",
+    "image_check_required": "In XenRooms Free the check cannot be switched off.",
+    "message_unknown": "The message of this picture is not known; it can only be marked as done.",
+    "chat_remove_failed": "The message could not be removed. Please try again later.",
+    "sender_unknown": "The person who sent the picture no longer exists.",
+    "image_check_unavailable": "The picture check is not available on this server."
   },
   "login": {
     "title": "Sign in",
@@ -667,7 +672,23 @@
     "images_deletes_at": "Deleted on {at}",
     "images_restore": "Put back",
     "images_restored_done": "Put back.",
-    "images_purge_confirm": "Delete for good?"
+    "images_purge_confirm": "Delete for good?",
+    "images_view_chat": "Chat (flagged)",
+    "images_suspect": "Flagged {percent} %",
+    "images_sort_new": "Newest first",
+    "images_sort_score": "Likely problems first",
+    "images_chat_intro": "Pictures from chat messages our own model rates as likely explicit – only a preview, the company and the time, without text, channel, recipients or sender. Nobody sees unremarkable pictures. XenRooms Free always, other companies only when their admin switches it on.",
+    "images_chat_unavailable": "The model is not on this server: pictures are not checked.",
+    "images_threshold": "From which certainty of the model:",
+    "images_threshold_saved": "Saved.",
+    "images_chat_none": "No flagged pictures.",
+    "images_chat_alt": "Flagged picture — {company}",
+    "images_chat_ok": "No violation",
+    "images_chat_ok_done": "Done: no violation.",
+    "images_chat_remove": "Remove picture",
+    "images_chat_removed_done": "The message with the picture was removed for everyone.",
+    "images_chat_block_reason": "Reason for blocking the person who sent the picture (all accounts):",
+    "images_chat_person_blocked": "The person has been blocked."
   },
   "about": {
     "based_on": "Based on",
@@ -2244,7 +2265,12 @@
     "emoji_delete": "Delete :{name}:",
     "emoji_name": "Name (optional)",
     "emoji_upload": "Upload picture",
-    "emoji_limits": "PNG, GIF, WebP or JPEG, up to 128 KB"
+    "emoji_limits": "PNG, GIF, WebP or JPEG, up to 128 KB",
+    "image_check_title": "Check chat pictures automatically",
+    "image_check_text": "An AI model of Xenaxio's own on our server checks every picture sent for obviously explicit content. The picture does not leave the server. Xenaxio staff only see pictures the model flags – as a small preview, without text, channel, recipients or sender.",
+    "image_check_toggle": "Check pictures automatically",
+    "image_check_forced": "In XenRooms Free the check is always on.",
+    "image_check_unavailable": "The check is not available on this server yet."
   },
   "ownmodel": {
     "title": "Own AI model",

@@ -251,7 +251,12 @@
     "domain_public": "Domains öffentlicher E-Mail-Dienste (z. B. gmail.com) können nicht gesperrt werden – sperren Sie die einzelne Adresse.",
     "invalid_email": "Bitte geben Sie eine gültige E-Mail-Adresse ein.",
     "image_not_found": "Das Bild gibt es nicht mehr.",
-    "image_replaced": "Die Person hat inzwischen ein neues Bild hochgeladen; das alte lässt sich nicht wiederherstellen."
+    "image_replaced": "Die Person hat inzwischen ein neues Bild hochgeladen; das alte lässt sich nicht wiederherstellen.",
+    "image_check_required": "In XenRooms Free lässt sich die Prüfung nicht ausschalten.",
+    "message_unknown": "Die Nachricht zu diesem Bild ist nicht bekannt; es lässt sich nur als erledigt markieren.",
+    "chat_remove_failed": "Die Nachricht ließ sich nicht entfernen. Bitte später erneut versuchen.",
+    "sender_unknown": "Die Person, die das Bild gesendet hat, gibt es nicht mehr.",
+    "image_check_unavailable": "Die Bildprüfung ist auf diesem Server nicht verfügbar."
   },
   "login": {
     "title": "Anmelden",
@@ -667,7 +672,23 @@
     "images_deletes_at": "Wird gelöscht am {at}",
     "images_restore": "Wiederherstellen",
     "images_restored_done": "Wiederhergestellt.",
-    "images_purge_confirm": "Endgültig löschen?"
+    "images_purge_confirm": "Endgültig löschen?",
+    "images_view_chat": "Chat (Verdacht)",
+    "images_suspect": "Verdacht {percent} %",
+    "images_sort_new": "Neueste zuerst",
+    "images_sort_score": "Verdächtige zuerst",
+    "images_chat_intro": "Bilder aus Chat-Nachrichten, die unser eigenes Modell als wahrscheinlich anstößig einstuft – nur eine Vorschau, Firma und Zeitpunkt, ohne Text, Kanal, Empfänger und Absender. Unauffällige Bilder sieht niemand. XenRooms Free immer, andere Firmen nur, wenn ihr Admin es einschaltet.",
+    "images_chat_unavailable": "Das Modell ist auf diesem Server nicht vorhanden: Bilder werden nicht geprüft.",
+    "images_threshold": "Ab welcher Sicherheit des Modells:",
+    "images_threshold_saved": "Gespeichert.",
+    "images_chat_none": "Keine auffälligen Bilder.",
+    "images_chat_alt": "Auffälliges Bild — {company}",
+    "images_chat_ok": "Kein Verstoß",
+    "images_chat_ok_done": "Erledigt: kein Verstoß.",
+    "images_chat_remove": "Bild entfernen",
+    "images_chat_removed_done": "Die Nachricht mit dem Bild wurde für alle entfernt.",
+    "images_chat_block_reason": "Grund für die Sperre der Person, die das Bild gesendet hat (alle Konten):",
+    "images_chat_person_blocked": "Die Person wurde gesperrt."
   },
   "about": {
     "based_on": "Basiert auf",
@@ -2244,7 +2265,12 @@
     "emoji_delete": ":{name}: löschen",
     "emoji_name": "Name (optional)",
     "emoji_upload": "Bild hochladen",
-    "emoji_limits": "PNG, GIF, WebP oder JPEG, bis 128 KB"
+    "emoji_limits": "PNG, GIF, WebP oder JPEG, bis 128 KB",
+    "image_check_title": "Bilder im Chat automatisch prüfen",
+    "image_check_text": "Ein eigenes KI-Modell von Xenaxio auf unserem Server prüft jedes gesendete Bild auf offensichtlich anstößige Inhalte. Das Bild verlässt den Server nicht. Mitarbeitende von Xenaxio sehen nur Bilder, die das Modell meldet – als kleine Vorschau, ohne Text, Kanal, Empfänger und Absender.",
+    "image_check_toggle": "Bilder automatisch prüfen",
+    "image_check_forced": "In XenRooms Free ist die Prüfung immer an.",
+    "image_check_unavailable": "Die Prüfung ist auf diesem Server noch nicht verfügbar."
   },
   "ownmodel": {
     "title": "Eigenes KI-Modell",
