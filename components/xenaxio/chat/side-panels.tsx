@@ -349,7 +349,7 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
         <div className="px-5 pb-6">
           <div className="-mt-12">
             <ProfileFrame profile={profile}>
-              <LargeAvatar colleague={colleague} name={name(userId)} email={colleague?.email} presence={presence} />
+              <LargeAvatar colleague={colleague} name={name(userId)} email={colleague?.email} presence={presence} framed={(profile?.frame ?? "none") !== "none"} />
             </ProfileFrame>
           </div>
           <div className="mt-2 flex flex-wrap items-baseline gap-x-2">
