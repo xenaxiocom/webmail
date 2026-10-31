@@ -807,7 +807,14 @@
     },
     "remembered": "Remembered: {text}",
     "remembered_undo": "Undo",
-    "remembered_company": "This is company knowledge: your administrator deletes it under “Company knowledge”."
+    "remembered_company": "This is company knowledge: your administrator deletes it under “Company knowledge”.",
+    "tool_list_flow_tasks": "Checking what waits for you in flows…",
+    "tool_list_flow_runs": "Looking at flows…",
+    "tool_get_flow_run": "Reading the run…",
+    "tool_start_flow": "Starting the run…",
+    "tool_update_flow": "Changing the flow…",
+    "tool_add_flow_person": "Adding the person…",
+    "tool_remove_flow_person": "Removing the person…"
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -2553,7 +2560,21 @@
     "conn_not_set": "Not set up yet",
     "conn_remove": "Remove",
     "conn_oauth_later": "Signing in with OAuth comes later.",
-    "conn_mcp": "MCP server: the address of its endpoint, e.g. https://…/mcp"
+    "conn_mcp": "MCP server: the address of its endpoint, e.g. https://…/mcp",
+    "waiting": "Waiting for me",
+    "waiting_none": "Nothing is waiting for your decision.",
+    "task_kind_decide": "Decision",
+    "task_kind_confirm": "Confirmation",
+    "task_comment": "Your comment",
+    "task_send": "Send",
+    "task_answered": "Answered: no. {number}.",
+    "task_closed": "Already decided: someone answered this first.",
+    "runs_mine": "Only mine",
+    "runs_all_steps": "All steps",
+    "waiting_for_me": "Waiting for me",
+    "run_updated": "changed {when}",
+    "documents": "Documents",
+    "working": "Flows I work in"
   },
   "permissions": {
     "title": "AI permissions",
@@ -2584,6 +2605,7 @@
       "chat": "Rooms",
       "booking": "Online booking",
       "meetings": "Meetings and webinars",
+      "flows": "Flows",
       "memory": "Assistant's memory",
       "schedules": "Scheduled tasks",
       "settings": "Settings",
@@ -2627,7 +2649,14 @@
       "delete_schedule": "Delete a scheduled task",
       "find_setting": "Find a setting",
       "set_signature": "Change signature",
-      "set_out_of_office": "Change out-of-office reply"
+      "set_out_of_office": "Change out-of-office reply",
+      "list_flow_tasks": "See what waits for my decision in flows",
+      "list_flow_runs": "See runs of flows",
+      "get_flow_run": "Read a run of a flow",
+      "start_flow": "Start a run of a flow",
+      "update_flow": "Change settings of own flows",
+      "add_flow_person": "Add a person to own flows",
+      "remove_flow_person": "Remove a person from own flows"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",

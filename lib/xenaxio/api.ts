@@ -800,9 +800,42 @@ export interface FlowRunSummary {
   result: string | null;
   step: string;
   waiting: string | null;
+  /** Stage E2, part C: the run (or one of its branches) waits for my decision or confirmation. */
+  waitingForMe?: boolean;
+  /** Started by me or waiting for me. */
+  mine?: boolean;
   initiator: string | null;
   createdAt: string;
   updatedAt: string;
+}
+/** Stage E2, part C: a document of a run (an invoice, a photo from Telegram). */
+export interface FlowFile {
+  n: number;
+  name: string;
+  mimeType: string;
+  size: number | null;
+}
+export interface FlowRunDetail extends FlowRunSummary {
+  flowId: string;
+  card: Record<string, unknown>;
+  branches: (FlowRunSummary & { card: Record<string, unknown> })[];
+  journal: FlowJournalEntry[];
+  files: FlowFile[];
+}
+/** Stage E2, part C: a decision or confirmation waiting for me ("Wartet auf mich"). */
+export interface FlowTask {
+  key: string;
+  flowId: string;
+  flowTitle: string;
+  runId: string;
+  runNumber: string;
+  kind: "decide" | "confirm";
+  title: string;
+  text: string;
+  show: Record<string, unknown>;
+  /** `comment`: the option needs a text (a question back, a correction). */
+  options: { id: string; label: string; comment: boolean }[];
+  askedAt: string;
 }
 export interface FlowJournalEntry {
   runId: string;
@@ -818,6 +851,8 @@ export interface FlowsOverview {
   admin: boolean;
   templates: FlowTemplateInfo[];
   installations: FlowInstallation[];
+  /** Stage E2, part C: flows I work in as a person (their runs, not their settings). */
+  working?: { id: string; flow: string; title: string; status: "active" | "paused" }[];
   employees: FlowEmployee[];
   /** Shared mailboxes this employee may send from: the only ones their flows may write from. */
   mailboxes: { id: string; email: string }[];
@@ -1047,9 +1082,13 @@ export const xenaxio = {
       request<{ rows: number }>("PUT", `${FLOW}/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`, { csv }),
     connectTelegram: (id: string, token: string) => request<{ botName: string }>("PUT", `${FLOW}/${encodeURIComponent(id)}/telegram`, { token }),
     disconnectTelegram: (id: string) => request<{ ok: true }>("DELETE", `${FLOW}/${encodeURIComponent(id)}/telegram`),
-    runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs`),
-    run: (id: string) =>
-      request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    runs: (id: string, mine = false) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs${mine ? "?mine=1" : ""}`),
+    run: (id: string) => request<FlowRunDetail>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    fileUrl: (runId: string, n: number) => `${FLOW}/runs/${encodeURIComponent(runId)}/files/${n}`,
+    // Stage E2, part C: decisions and confirmations waiting for me; whoever answers first decides.
+    tasks: () => request<{ tasks: FlowTask[]; count: number }>("GET", `${FLOW}/tasks`),
+    answerTask: (key: string, option: string, comment?: string) =>
+      request<{ ok: true }>("POST", `${FLOW}/tasks/${encodeURIComponent(key)}/answer`, { option, ...(comment ? { comment } : {}) }),
     // Stage E2 (B1): connections to outside APIs; without `secret` the stored key stays.
     setConnection: (id: string, name: string, body: { baseUrl: string; secret?: Record<string, string> }) =>
       request<FlowDetail>("PUT", `${FLOW}/${encodeURIComponent(id)}/connections/${encodeURIComponent(name)}`, body),
