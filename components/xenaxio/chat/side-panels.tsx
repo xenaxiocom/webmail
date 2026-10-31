@@ -16,6 +16,7 @@ import { Composer } from "./composer";
 import { ChatMessage } from "./message";
 import { MessageList } from "./message-list";
 import { TypingLine } from "./room-view";
+import { ProfileBanner, ProfileDetails, ProfileDialog, ProfileFrame } from "./profile";
 
 function PanelFrame({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode }) {
   const t = useXT();
@@ -156,6 +157,7 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
   const me = userId === client.userId;
   // The box is for a new status; the current one is shown under the name.
   const [status, setStatus] = useState("");
+  const [editing, setEditing] = useState(false);
   const presence = presenceOf(client, userId);
   const presenceLabel = presence === "online" ? t("chat.online") : presence === "unavailable" ? t("chat.away") : t("chat.offline");
   const saveStatus = async (value: string | null) => {
@@ -167,11 +169,23 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
       toast.error(t("chat.error"));
     }
   };
+  // Step 99, part G: banner, frame, job title and contacts (colleagues of the same company).
+  const profile = colleague?.profile;
   return (
     <PanelFrame title={name(userId)}>
       <div className="flex-1 overflow-y-auto p-5">
-        <PersonAvatar userId={userId} name={name(userId)} size="lg" presence={presence} />
+        <ProfileBanner profile={profile} />
+        <ProfileFrame profile={profile}>
+          <PersonAvatar userId={userId} name={name(userId)} size="lg" presence={presence} />
+        </ProfileFrame>
         <h3 className="mt-3 text-lg font-bold">{name(userId)}</h3>
+        <ProfileDetails profile={profile} />
+        {me && colleague && (
+          <button type="button" onClick={() => setEditing(true)} className="mt-2 h-8 rounded-md border border-border px-3 text-sm hover:bg-accent">
+            {t("chat.profile_edit")}
+          </button>
+        )}
+        {editing && colleague && <ProfileDialog address={colleague.address} initial={profile} onClose={() => setEditing(false)} />}
         {client.isExternalUser(userId) && (
           <div className="mt-1 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
             {t("chat.ext_person", { domain: serverOfUser(userId) })}

@@ -206,7 +206,7 @@ export function Composer({
       const found = people
         .filter((p) => p.displayName.toLowerCase().includes(q) || p.userId.toLowerCase().includes(q))
         .slice(0, 8)
-        .map((p) => ({ key: p.userId, label: p.displayName, insert: `@${p.displayName} `, userId: p.userId, hint: colleagues.get(p.userId)?.email }));
+        .map((p) => ({ key: p.userId, label: p.displayName, insert: `@${p.displayName} `, userId: p.userId, hint: colleagues.get(p.userId)?.profile?.title ?? colleagues.get(p.userId)?.email }));
       return [...found, ...special];
     }
     if (suggestion.trigger === ":") return searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }));
