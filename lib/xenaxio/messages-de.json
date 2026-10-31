@@ -77,7 +77,7 @@
     "invitation_not_found": "Diese Einladung gibt es nicht.",
     "user_disabled": "Dieses Postfach ist deaktiviert. Wählen Sie ein aktives.",
     "user_not_found": "Diese Person gibt es nicht mehr.",
-    "too_many_accounts": "In diesem Browser sind schon 5 Konten angemeldet. Melden Sie sich zuerst von einem ab.",
+    "too_many_accounts": "In diesem Browser sind schon {max} Konten angemeldet. Melden Sie sich zuerst von einem ab.",
     "account_not_found": "Dieses Konto ist nicht mehr angemeldet. Bitte fügen Sie es erneut hinzu.",
     "account_active": "Vom aktiven Konto melden Sie sich über „Abmelden“ ab.",
     "domain_limit_reached": "Ihr Tarif erlaubt höchstens {limit} Domains.",
@@ -1654,7 +1654,11 @@
     "report_sent": "Gemeldet.",
     "restored_event": "{name} hat den Kanal wiederhergestellt",
     "by_admin": "{name} (Admin)",
-    "restore": "Kanal wiederherstellen"
+    "restore": "Kanal wiederherstellen",
+    "notify_app": "Chat-Benachrichtigungen erscheinen in",
+    "notify_app_auto": "Automatisch – XenRooms, wenn installiert, sonst Xenaxio",
+    "notify_app_hint": "Sind beide Apps installiert, meldet sich der Chat nur in einer davon. Mail, Termine und der Assistent melden sich immer in Xenaxio.",
+    "notify_app_now": "Zurzeit: {app}."
   },
   "chatadmin": {
     "title": "Rooms",

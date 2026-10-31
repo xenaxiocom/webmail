@@ -11,7 +11,7 @@ import { useRouter } from "@/i18n/navigation";
 import { withBasePath } from "@/lib/browser-navigation";
 import { Button } from "@/components/ui/button";
 import { AuthCard, Notice, PasswordField, TextField } from "@/components/xenaxio/ui";
-import { errorKey, type RoomsLinkInfo, xenaxio } from "@/lib/xenaxio/api";
+import { errorKey, errorText, type RoomsLinkInfo, xenaxio } from "@/lib/xenaxio/api";
 import { clearAssistantState } from "@/lib/xenaxio/assistant";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { useDocumentTitle } from "@/hooks/use-document-title";
@@ -179,7 +179,8 @@ function LoginForm() {
     } catch (err) {
       setOtherPortal(otherCompanyPortal(err));
       setRoomsOrigin(roomsSignInOrigin(err));
-      setError(t(errorKey(err)));
+      // errorText fills in details such as the limit of accounts (step 98).
+      setError(errorText(t, err));
       setBusy(false);
     }
   };
