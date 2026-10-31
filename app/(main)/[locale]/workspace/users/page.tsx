@@ -119,7 +119,9 @@ function UserEditor({ user, isSelf, maxQuotaBytes, aiEnabled, onChanged, onMessa
             {t("users.ai")}: {aiEnabled ? t("users.ai_on") : t("users.ai_off")}
           </Button>
         )}
-        {!isSelf && (
+        {/* Step 108: blocked by Xenaxio — only Xenaxio lifts it. */}
+        {!isSelf && user.blockedByOperator && <span className="text-xs text-destructive">{t("users.operator_blocked_hint")}</span>}
+        {!isSelf && !user.blockedByOperator && (
           <Button
             size="sm"
             variant="outline"
@@ -291,7 +293,7 @@ function UsersView() {
                 </div>
                 <div className="flex flex-wrap items-center gap-2 text-xs">
                   <span className="rounded-full bg-muted px-2.5 py-0.5">{u.role === "admin" ? t("users.role_admin") : t("users.role_user")}</span>
-                  {u.status === "disabled" && <span className="rounded-full bg-destructive/15 px-2.5 py-0.5 text-destructive">{t("users.disabled_badge")}</span>}
+                  {u.status === "disabled" && <span className="rounded-full bg-destructive/15 px-2.5 py-0.5 text-destructive">{u.blockedByOperator ? t("users.operator_blocked_badge") : t("users.disabled_badge")}</span>}
                   {ai?.get(u.id) && <span className="rounded-full bg-primary/15 px-2.5 py-0.5 text-primary">{t("users.ai_on")}</span>}
                   {u.mustChangePassword && <span className="rounded-full bg-amber-500/15 px-2.5 py-0.5 text-amber-700 dark:text-amber-400">{t("users.must_change")}</span>}
                   <Button variant="outline" size="sm" onClick={() => setEditing(editing === u.id ? null : u.id)} aria-expanded={editing === u.id}>

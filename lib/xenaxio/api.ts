@@ -267,6 +267,8 @@ export interface WorkspaceUser {
   usedBytes?: number | null;
   /** Step 41: picture (versioned path); null = initials. */
   avatarUrl?: string | null;
+  /** Step 108: blocked by Xenaxio; the admin cannot lift it. */
+  blockedByOperator?: boolean;
 }
 
 /** Step 31: a meeting room, car or piece of equipment; everyone books it by inviting it. */
@@ -622,6 +624,178 @@ export interface OperatorReport {
   tenants: { id: string; name: string; domain: string | null; status: string; mailUsers: number; aiWorkspaceUsers: number; aiTokens: number }[];
 }
 
+/** Step 108: the people of the installation for the operator console. */
+export interface OperatorPeopleSummary {
+  people: number;
+  accounts: number;
+  workspacePeople: number;
+  roomsPeople: number;
+  new7: number;
+  new30: number;
+  active7: number;
+  active30: number;
+  neverSignedIn: number;
+  disabledAccounts: number;
+  /** Step 108: blocked by the operator. */
+  operatorBlockedAccounts?: number;
+  companies: number;
+  workspaceCompanies: number;
+  roomsFreeCompanies: number;
+  roomsPaidCompanies: number;
+  freeSignups7: number;
+  freeSignups30: number;
+}
+
+export interface OperatorPersonAccount {
+  userId: string;
+  tenantId: string;
+  company: string;
+  slug: string | null;
+  product: "workspace" | "rooms";
+  plan: "free" | "paid" | null;
+  companyStatus: string;
+  role: "user" | "admin";
+  kind: "mailbox" | "chat";
+  status: "active" | "disabled";
+  invited: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastSeenAt: string | null;
+  /** Step 108, part B: blocked by the operator, with the reason. */
+  operatorBlockedAt?: string | null;
+  operatorBlockReason?: string | null;
+}
+
+export interface OperatorPersonRow {
+  email: string;
+  name: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastSeenAt: string | null;
+  accounts: OperatorPersonAccount[];
+}
+
+export interface OperatorPerson {
+  email: string;
+  name: string;
+  accounts: OperatorPersonAccount[];
+  devices: { company: string; browser: string | null; os: string | null; signedInAt: string; lastSeenAt: string }[];
+  lastLogin: { at: string; ip: string | null; country: string | null } | null;
+  /** Step 108, part B: the address (or its domain) may not sign up or be invited. */
+  signupBlocked?: boolean;
+}
+
+/** Step 108, part B: an address or mail domain that may not sign up or be invited. */
+export interface BlockedSignup {
+  id: string;
+  kind: "email" | "domain";
+  value: string;
+  reason: string | null;
+  createdAt: string;
+  createdBy: string | null;
+}
+
+/** Step 108, part D: what the operator did. */
+export interface OperatorAction {
+  id: string;
+  operator: string;
+  action: "person_blocked" | "person_unblocked" | "signup_blocked" | "signup_allowed" | string;
+  email: string | null;
+  reason: string | null;
+  details: Record<string, unknown>;
+  createdAt: string;
+}
+
+export interface OperatorPeopleFilter {
+  q?: string;
+  product?: "workspace" | "rooms";
+  plan?: "free" | "paid";
+  role?: "user" | "admin";
+  status?: "active" | "disabled" | "operator_blocked";
+  inactiveDays?: number;
+  sort?: "created" | "seen" | "name" | "email";
+  page?: number;
+}
+
+/** Query string of a filter of the operator console (empty values left out). */
+export function peopleQuery(f: OperatorPeopleFilter | GalleryFilter): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(f as Record<string, unknown>)) if (value !== undefined && value !== "" && value !== null) params.set(key, String(value));
+  const q = params.toString();
+  return q ? `?${q}` : "";
+}
+
+/** Step 108, part C: a picture people upload that others see. */
+export type GalleryKind = "avatar" | "banner" | "logo" | "meeting_background" | "emoji";
+
+export interface GalleryImage {
+  kind: GalleryKind;
+  ref: string;
+  tenantId: string;
+  company: string;
+  slug: string | null;
+  product: "workspace" | "rooms";
+  plan: "free" | "paid" | null;
+  owner: { userId: string | null; email: string | null; name: string | null; kind: "person" | "shared_mailbox" | "resource" | "company" };
+  contentType: string;
+  animated: boolean;
+  version: string;
+  reviewed: boolean;
+  /** Part C3: our model's score of this version (0–1), when it ran. */
+  score?: number | null;
+}
+
+export interface HiddenImage {
+  id: string;
+  kind: GalleryKind;
+  ref: string;
+  tenantId: string;
+  company: string;
+  ownerEmail: string | null;
+  contentType: string;
+  reason: string;
+  hiddenAt: string;
+  hiddenBy: string | null;
+  deletesAt: string;
+}
+
+export interface GalleryFilter {
+  status?: "new" | "all";
+  kind?: GalleryKind;
+  plan?: "free" | "paid";
+  product?: "workspace" | "rooms";
+  q?: string;
+  page?: number;
+  /** Part C3: the likely problems first. */
+  sort?: "new" | "score";
+}
+
+/** Step 108, part C3: a chat picture our own model flagged: only a preview, the company and the time. */
+export interface ChatImageFlag {
+  id: string;
+  tenantId: string;
+  company: string;
+  plan: "free" | "paid" | null;
+  product: "workspace" | "rooms";
+  score: number;
+  createdAt: string;
+  /** The message is known and can be removed for everyone. */
+  removable: boolean;
+}
+
+export function chatImagePreviewUrl(id: string): string {
+  return `/api/operator/chat-images/${encodeURIComponent(id)}/preview`;
+}
+
+/** The picture for the operator's eyes (the platform answers only to the operator). */
+export function galleryImageUrl(kind: GalleryKind, ref: string, animated = false): string {
+  return `/api/operator/images/${kind}/content?ref=${encodeURIComponent(ref)}${animated ? "&animated=1" : ""}`;
+}
+
+export function hiddenImageUrl(id: string, animated = false): string {
+  return `/api/operator/images/hidden/${encodeURIComponent(id)}/content${animated ? "?animated=1" : ""}`;
+}
+
 /** Step 96: a person of a company without email (XenRooms). */
 export interface RoomsPerson {
   id: string;
@@ -633,6 +807,8 @@ export interface RoomsPerson {
   invited: boolean;
   chatAddress: string | null;
   createdAt: string;
+  /** Step 108: blocked by Xenaxio; the admin cannot lift it. */
+  blockedByOperator?: boolean;
 }
 
 /** Step 97: XenRooms Free or paid, the limits and the space used. */
@@ -1102,6 +1278,10 @@ export const xenaxio = {
   roomsSetStatus: (id: string, status: "active" | "disabled") => request<RoomsPerson>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/status`, { status }),
   roomsRemove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/rooms/people/${encodeURIComponent(id)}`),
 
+  /** Step 108, part C3: pictures in the company's chat checked by Xenaxio's own model. */
+  imageCheck: () => request<{ enabled: boolean; forced: boolean; available: boolean }>("GET", "/api/admin/image-check"),
+  setImageCheck: (enabled: boolean) => request<{ enabled: boolean; forced: boolean; available: boolean }>("PUT", "/api/admin/image-check", { enabled }),
+
   invitationStatus: (token: string) =>
     request<{ status: "valid" | "used" | "expired" | "unknown" }>("GET", `/api/onboarding/invitation?token=${encodeURIComponent(token)}`),
   onboard: (input: { token: string; companyName: string; domain: string; adminName: string; adminLocalPart: string; password: string; slug?: string }) =>
@@ -1270,6 +1450,36 @@ export const xenaxio = {
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
+    // Step 108: every person, which companies they are in, their activity.
+    peopleSummary: () => request<OperatorPeopleSummary>("GET", "/api/operator/people/summary"),
+    people: (f: OperatorPeopleFilter) =>
+      request<{ people: OperatorPersonRow[]; total: number; page: number; pageSize: number }>("GET", `/api/operator/people${peopleQuery(f)}`),
+    person: (email: string) => request<OperatorPerson>("GET", `/api/operator/person?email=${encodeURIComponent(email)}`),
+    // Step 108, part B: blocks, addresses that may not sign up, the operator's log.
+    blockPerson: (input: { email: string; userId?: string; reason: string; blockSignup: boolean; blockDomain: boolean; notify: boolean }) =>
+      request<{ blocked: number }>("POST", "/api/operator/people/block", input),
+    unblockPerson: (input: { email: string; userId?: string }) => request<{ unblocked: number }>("POST", "/api/operator/people/unblock", input),
+    blockedSignups: () => request<{ blocked: BlockedSignup[] }>("GET", "/api/operator/blocked-signups").then((r) => r.blocked),
+    addBlockedSignup: (kind: "email" | "domain", value: string, reason?: string) =>
+      request<{ blocked: BlockedSignup[] }>("POST", "/api/operator/blocked-signups", { kind, value, ...(reason ? { reason } : {}) }).then((r) => r.blocked),
+    removeBlockedSignup: (id: string) => request<{ blocked: BlockedSignup[] }>("DELETE", `/api/operator/blocked-signups/${encodeURIComponent(id)}`).then((r) => r.blocked),
+    actions: (email?: string) => request<{ actions: OperatorAction[] }>("GET", `/api/operator/actions${email ? `?email=${encodeURIComponent(email)}` : ""}`).then((r) => r.actions),
+    // Step 108, part C: the pictures people upload that others see.
+    images: (f: GalleryFilter) =>
+      request<{ images: GalleryImage[]; total: number; newCount: number; page: number; pageSize: number }>("GET", `/api/operator/images${peopleQuery(f)}`),
+    reviewImages: (items: { kind: GalleryKind; ref: string; version: string }[]) => request<{ ok: true }>("POST", "/api/operator/images/review", { items }),
+    removeImage: (kind: GalleryKind, ref: string, reason: string, mode: "hide" | "delete") => request<{ ok: true }>("POST", "/api/operator/images/remove", { kind, ref, reason, mode }),
+    hiddenImages: () => request<{ hidden: HiddenImage[] }>("GET", "/api/operator/images/hidden").then((r) => r.hidden),
+    restoreImage: (id: string) => request<{ hidden: HiddenImage[] }>("POST", `/api/operator/images/hidden/${encodeURIComponent(id)}/restore`, {}).then((r) => r.hidden),
+    // Step 108, part C3: chat pictures our own model flagged (only those, only a preview) and the threshold.
+    imageCheckSettings: () => request<{ available: boolean; threshold: number | null }>("GET", "/api/operator/image-check"),
+    setImageCheckThreshold: (threshold: number) => request<{ available: boolean; threshold: number }>("PUT", "/api/operator/image-check", { threshold }),
+    chatImages: () => request<{ flags: ChatImageFlag[]; available: boolean }>("GET", "/api/operator/chat-images"),
+    dismissChatImage: (id: string) => request<{ flags: ChatImageFlag[] }>("POST", `/api/operator/chat-images/${encodeURIComponent(id)}/dismiss`, {}).then((r) => r.flags),
+    removeChatImage: (id: string, reason: string) => request<{ flags: ChatImageFlag[] }>("POST", `/api/operator/chat-images/${encodeURIComponent(id)}/remove`, { reason }).then((r) => r.flags),
+    blockFromChatImage: (id: string, target: "person" | "company", reason: string) =>
+      request<{ flags: ChatImageFlag[] }>("POST", `/api/operator/chat-images/${encodeURIComponent(id)}/block`, { target, reason }).then((r) => r.flags),
+    purgeImage: (id: string) => request<{ hidden: HiddenImage[] }>("DELETE", `/api/operator/images/hidden/${encodeURIComponent(id)}`).then((r) => r.hidden),
     // Step 90, part F: the installation's models.
     models: () => request<InstallationModels>("GET", "/api/operator/models"),
     availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),
