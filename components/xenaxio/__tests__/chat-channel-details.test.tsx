@@ -1,0 +1,145 @@
+import { act, fireEvent, render, screen, within } from "@testing-library/react";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import type { ChatClient, PowerLevels, Room } from "@/lib/xenaxio/chat/client";
+import { ChatClient as RealClient } from "@/lib/xenaxio/chat/client";
+
+const api = vi.hoisted(() => ({ changeChatChannel: vi.fn(async () => ({})), me: vi.fn() }));
+vi.mock("@/lib/xenaxio/api", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/api")>()), xenaxio: api }));
+
+const { useXenaxioMeStore } = await import("@/lib/xenaxio/me-store");
+const { ChatDialogsProvider } = await import("../chat/dialogs");
+const { ChannelDetails } = await import("../chat/channel-details");
+const { useChatStore } = await import("@/lib/xenaxio/chat/store");
+
+const ANNA = "@anna:acme.de";
+const BEN = "@ben:acme.de";
+
+function power(users: Record<string, number>): PowerLevels {
+  return { users, users_default: 0, events: {}, events_default: 0, state_default: 50, redact: 50, invite: 0, kick: 50 };
+}
+
+/** A real client's rules (levels, managers) with its network calls replaced. */
+function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user" }) {
+  const client = new RealClient() as ChatClient;
+  client.userId = opts.me;
+  const room = {
+    id: "!proj:acme.de",
+    name: "projekt",
+    topic: "Kickoff",
+    description: null,
+    kind: "channel",
+    joinRule: "invite",
+    membership: "join",
+    members: new Map([
+      [ANNA, { userId: ANNA, displayName: "Anna", membership: "join" }],
+      [BEN, { userId: BEN, displayName: "Ben", membership: "join" }],
+    ]),
+    pinned: [],
+    byId: new Map(),
+    powerLevels: power(opts.levels),
+    creator: ANNA,
+    createdTs: Date.UTC(2026, 9, 1),
+    archived: false,
+    external: false,
+  } as unknown as Room;
+  client.rooms.set(room.id, room);
+  client.people.set(ANNA, { userId: ANNA, displayName: "Anna" });
+  client.people.set(BEN, { userId: BEN, displayName: "Ben" });
+  useChatStore.setState({ client, colleagues: new Map() });
+  const calls = {
+    setDescription: vi.spyOn(client, "setDescription").mockResolvedValue(),
+    setRoomRules: vi.spyOn(client, "setRoomRules").mockResolvedValue(),
+    kick: vi.spyOn(client, "kick").mockResolvedValue(),
+    setManager: vi.spyOn(client, "setManager").mockResolvedValue(),
+  };
+  useXenaxioMeStore.setState({
+    me: { user: { id: "u", email: "x@acme.de", displayName: "X", role: opts.role ?? "user", mustChangePassword: false }, tenant: { id: "t", name: "Acme", status: "active" }, edition: "cloud" } as never,
+    loadedAt: Date.now(),
+    loading: false,
+  });
+  render(
+    <ChatDialogsProvider>
+      <ChannelDetails client={client} room={room} onClose={vi.fn()} onInvite={vi.fn()} onIntegrations={vi.fn()} />
+    </ChatDialogsProvider>,
+  );
+  return { client, room, calls };
+}
+
+async function answerPrompt(value: string) {
+  const dialog = await screen.findByRole("dialog", { name: /description/i });
+  fireEvent.change(within(dialog).getByRole("textbox"), { target: { value } });
+  await act(async () => {
+    fireEvent.click(within(dialog).getByRole("button", { name: "Save" }));
+  });
+}
+
+describe("channel details (step 99, part B)", () => {
+  beforeEach(() => api.changeChatChannel.mockClear());
+
+  it("the manager edits the description and limits posting to managers", async () => {
+    const { calls } = setup({ me: ANNA, levels: { [ANNA]: 100 } });
+    expect(screen.getByText("Kickoff")).toBeTruthy();
+    expect(screen.getByText(/Created by .* on/)).toBeTruthy();
+    const edits = screen.getAllByRole("button", { name: "Edit" });
+    expect(edits).toHaveLength(3);
+    fireEvent.click(edits[2] as HTMLElement);
+    await answerPrompt("  Alles zum Projekt ");
+    expect(calls.setDescription).toHaveBeenCalledWith("!proj:acme.de", "Alles zum Projekt");
+
+    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    await act(async () => {
+      fireEvent.click(screen.getAllByRole("radio", { name: /^Channel managers only/ })[0] as HTMLElement);
+    });
+    expect(calls.setRoomRules).toHaveBeenCalledWith("!proj:acme.de", { posting: "managers" });
+    expect(api.changeChatChannel).not.toHaveBeenCalled();
+  });
+
+  it("a member sees no edit buttons and no settings", () => {
+    setup({ me: BEN, levels: { [ANNA]: 100 } });
+    expect(screen.queryByRole("button", { name: "Edit" })).toBeNull();
+    expect(screen.queryByRole("tab", { name: "Settings" })).toBeNull();
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }));
+    expect(screen.queryByRole("button", { name: "Remove from channel" })).toBeNull();
+  });
+
+  it("the company admin changes it through the platform", async () => {
+    const { calls } = setup({ me: BEN, levels: { [ANNA]: 100 }, role: "admin" });
+    fireEvent.click(screen.getByRole("tab", { name: "Settings" }));
+    await act(async () => {
+      // Matrix lets only moderators notify everyone by default; the admin opens it to all.
+      fireEvent.click(screen.getAllByRole("radio", { name: "All members" })[1] as HTMLElement);
+    });
+    expect(api.changeChatChannel).toHaveBeenCalledWith("!proj:acme.de", { channelMentions: "everyone" });
+    expect(calls.setRoomRules).not.toHaveBeenCalled();
+  });
+
+  it("the manager makes a member a manager or removes them; managers come first", async () => {
+    const { calls } = setup({ me: ANNA, levels: { [ANNA]: 100 } });
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }));
+    const rows = screen.getAllByRole("listitem");
+    expect(rows[0]?.textContent).toContain("Anna");
+    expect(rows[0]?.textContent).toContain("Manager");
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Make channel manager" }));
+    });
+    expect(calls.setManager).toHaveBeenCalledWith("!proj:acme.de", BEN, true);
+    fireEvent.click(screen.getByRole("button", { name: "Remove from channel" }));
+    const confirm = await screen.findByRole("alertdialog");
+    await act(async () => {
+      fireEvent.click(within(confirm).getByRole("button", { name: "Remove from channel" }));
+    });
+    expect(calls.kick).toHaveBeenCalledWith("!proj:acme.de", BEN);
+  });
+});
+
+describe("channel rules on the client (step 99)", () => {
+  it("reads and writes who posts and who may @channel through the power levels", async () => {
+    const client = new RealClient();
+    const room = { powerLevels: power({ "@a:x": 100 }) } as unknown as Room;
+    expect(client.roomRules(room)).toEqual({ posting: "everyone", channelMentions: "managers" });
+    room.powerLevels = { ...room.powerLevels, events: { "m.room.message": 50 }, notifications: { room: 0 } };
+    expect(client.roomRules(room)).toEqual({ posting: "managers", channelMentions: "everyone" });
+    expect(client.isManager(room, "@a:x")).toBe(true);
+    expect(client.isManager(room, "@b:x")).toBe(false);
+  });
+});

@@ -181,7 +181,8 @@ export function Composer({
     if (!suggestion) return [];
     const q = suggestion.query.toLowerCase();
     if (suggestion.trigger === "@") {
-      const special: Suggestion[] = ["channel", "here"].filter((s) => s.startsWith(q)).map((s) => ({ key: s, label: `@${s}`, insert: `@${s} ` }));
+      // Step 99: @channel / @here only for those the channel lets notify everyone.
+      const special: Suggestion[] = (client.can(room, "mentionRoom") ? ["channel", "here"] : []).filter((s) => s.startsWith(q)).map((s) => ({ key: s, label: `@${s}`, insert: `@${s} ` }));
       const found = people
         .filter((p) => p.displayName.toLowerCase().includes(q) || p.userId.toLowerCase().includes(q))
         .slice(0, 8)
@@ -193,7 +194,7 @@ export function Composer({
       .filter((r) => r.kind === "channel" && r.membership === "join" && client.roomName(r).toLowerCase().includes(q))
       .slice(0, 8)
       .map((r) => ({ key: r.id, label: `#${client.roomName(r)}`, insert: `#${client.roomName(r)} ` }));
-  }, [suggestion, people, colleagues, client]);
+  }, [suggestion, people, colleagues, client, room]);
 
   useEffect(() => setSelected(0), [suggestion?.query, suggestion?.trigger]);
 

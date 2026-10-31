@@ -97,6 +97,9 @@ export interface Room {
   tags: Record<string, { order?: number }>;
   lastTs: number;
   archived: boolean;
+  /** Step 99: the channel's description (our state, next to the topic) and when it was made. */
+  description: string | null;
+  createdTs: number | null;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
   external: boolean;
 }
@@ -110,6 +113,8 @@ export interface PowerLevels {
   redact: number;
   invite: number;
   kick: number;
+  /** Who may notify everyone (@room, our @channel / @here). */
+  notifications?: { room?: number };
 }
 
 export interface SavedItem {
@@ -146,6 +151,10 @@ export const SAVED_TYPE = "com.xenaxio.saved";
 export const ARCHIVED_TYPE = "com.xenaxio.archived";
 /** Step 63: on a change the platform made in a channel, the admin who asked for it. */
 export const BY_FIELD = "com.xenaxio.by";
+/** Step 99: a channel's description; the platform writes the same type for the company admin. */
+export const DESCRIPTION_TYPE = "com.xenaxio.description";
+/** Step 99: the level of a channel's managers (Matrix moderators). */
+export const MANAGER_LEVEL = 50;
 
 /** The platform's own account (it sets channels up; never shown as a person). */
 export function isPlatformAccount(userId: string): boolean {
@@ -239,6 +248,8 @@ function newRoom(id: string): Room {
     lastTs: 0,
     archived: false,
     external: false,
+    description: null,
+    createdTs: null,
   };
 }
 
@@ -449,6 +460,7 @@ export class ChatClient {
     switch (ev.type) {
       case "m.room.create":
         room.creator = (c.creator as string) ?? ev.sender;
+        if (typeof ev.origin_server_ts === "number") room.createdTs = ev.origin_server_ts;
         if (c.type === "m.space") room.kind = "space";
         room.external = c[EXTERNAL_MARK] === true && c["m.federate"] !== false;
         break;
@@ -469,6 +481,9 @@ export class ChatClient {
         break;
       case ARCHIVED_TYPE:
         room.archived = c.archived === true;
+        break;
+      case DESCRIPTION_TYPE:
+        room.description = typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 1000) : null;
         break;
       case "m.room.member": {
         const userId = ev.state_key as string;
@@ -846,8 +861,8 @@ export class ChatClient {
       preset: input.isPublic ? "public_chat" : "private_chat",
       visibility: input.isPublic ? "public" : "private",
       invite: input.invite ?? [],
-      // Everyone in the channel may pin messages, as in Slack.
-      power_level_content_override: { events: { "m.room.pinned_events": 0 } },
+      // Everyone in the channel may pin messages and notify everyone with @channel, as in Slack (step 99).
+      power_level_content_override: { events: { "m.room.pinned_events": 0 }, notifications: { room: 0 } },
     });
     return res.room_id;
   }
@@ -928,6 +943,56 @@ export class ChatClient {
 
   async rename(roomId: string, name: string): Promise<void> {
     await mx("PUT", paths.state(roomId, "m.room.name"), { name });
+  }
+
+  // --- Step 99: channel details, as in Slack ----------------------------------
+
+  async setDescription(roomId: string, description: string): Promise<void> {
+    await mx("PUT", paths.state(roomId, DESCRIPTION_TYPE), { description });
+  }
+
+  /** Open (in the directory, anyone of the company joins) or closed (invitation only). */
+  async setPublic(roomId: string, isPublic: boolean): Promise<void> {
+    await mx("PUT", paths.state(roomId, "m.room.join_rules"), { join_rule: isPublic ? "public" : "invite" });
+    await mx("PUT", `/_matrix/client/v3/directory/list/room/${encodeURIComponent(roomId)}`, { visibility: isPublic ? "public" : "private" }).catch(() => undefined);
+  }
+
+  /** Who writes (everyone or the managers) and who may notify everyone. */
+  async setRoomRules(roomId: string, rules: { posting?: "everyone" | "managers"; channelMentions?: "everyone" | "managers" }): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const pl = room.powerLevels;
+    const events = { ...pl.events };
+    if (rules.posting) events["m.room.message"] = rules.posting === "managers" ? MANAGER_LEVEL : pl.events_default;
+    const notifications = { ...(pl.notifications ?? {}), ...(rules.channelMentions ? { room: rules.channelMentions === "managers" ? MANAGER_LEVEL : 0 } : {}) };
+    await mx("PUT", paths.state(roomId, "m.room.power_levels"), { ...pl, events, notifications });
+  }
+
+  /** Makes someone a manager of the channel, or takes it back. */
+  async setManager(roomId: string, userId: string, on: boolean): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const users = { ...room.powerLevels.users };
+    if (on) users[userId] = Math.max(MANAGER_LEVEL, users[userId] ?? 0);
+    else delete users[userId];
+    await mx("PUT", paths.state(roomId, "m.room.power_levels"), { ...room.powerLevels, users });
+  }
+
+  /** Removes someone from the channel (they can be invited again). */
+  async kick(roomId: string, userId: string): Promise<void> {
+    await mx("POST", `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/kick`, { user_id: userId });
+  }
+
+  /** Is this person a manager of the channel (moderator or higher)? */
+  isManager(room: Room, userId: string): boolean {
+    return this.powerOf(room, userId) >= MANAGER_LEVEL;
+  }
+
+  /** Who writes and who may notify everyone, read from the room's levels. */
+  roomRules(room: Room): { posting: "everyone" | "managers"; channelMentions: "everyone" | "managers" } {
+    const pl = room.powerLevels;
+    const writeLevel = pl.events["m.room.message"] ?? pl.events_default;
+    return { posting: writeLevel > 0 ? "managers" : "everyone", channelMentions: (pl.notifications?.room ?? 50) > 0 ? "managers" : "everyone" };
   }
 
   /** Archived: read-only for everyone and gone from the directory; messages stay. */
@@ -1060,7 +1125,7 @@ export class ChatClient {
     return room.powerLevels.users[userId] ?? room.powerLevels.users_default;
   }
 
-  can(room: Room, action: "send" | "state" | "redact" | "invite" | "pin"): boolean {
+  can(room: Room, action: "send" | "state" | "redact" | "invite" | "pin" | "kick" | "mentionRoom"): boolean {
     const mine = this.powerOf(room, this.userId);
     const pl = room.powerLevels;
     switch (action) {
@@ -1074,6 +1139,10 @@ export class ChatClient {
         return mine >= pl.invite;
       case "pin":
         return mine >= (pl.events["m.room.pinned_events"] ?? pl.state_default);
+      case "kick":
+        return mine >= pl.kick;
+      case "mentionRoom":
+        return mine >= (pl.notifications?.room ?? 50);
     }
   }
 
