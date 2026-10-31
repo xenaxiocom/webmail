@@ -20,6 +20,10 @@ import { cn } from "@/lib/utils";
 import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
+import { type MessageAction, MessageSheet, useLongPress } from "./message-sheet";
+import { RichHtml, SnippetCard } from "./code";
+import { SnippetDialog } from "./snippet-dialog";
+import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
 import { ImageViewer } from "./image-viewer";
 import { CallCard } from "@/components/xenaxio/meet/call";
 import { callOf } from "@/lib/xenaxio/meet-call";
@@ -110,12 +114,15 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
   );
 }
 
-function Body({ message, me, onMention }: { message: Message; me: string; onMention: (userId: string) => void }) {
+function Body({ message, me, onMention, onEditSnippet }: { message: Message; me: string; onMention: (userId: string) => void; onEditSnippet?: () => void }) {
   const t = useXT();
   const name = useDisplayName();
   const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
+  // Step 99, part A: a code snippet (in the message or, when large, in a file).
+  const snippet = snippetOf(c);
+  if (snippet) return <SnippetCard snippet={snippet} onEdit={snippet.code !== null && message.sender === me ? onEditSnippet : undefined} />;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
   // Step 78, part D: a call in the room: its card, live.
   const call = callOf(c);
@@ -142,7 +149,7 @@ function Body({ message, me, onMention }: { message: Message; me: string; onMent
       }}
     >
       {c.msgtype === "m.emote" && <span>* {name(message.sender)} </span>}
-      {html && <span dangerouslySetInnerHTML={{ __html: html }} />}
+      {html && <RichHtml html={html} />}
       {message.edited && <span className="ml-1 text-xs text-muted-foreground">{t("chat.edited")}</span>}
       {email && <EmailCard email={email} />}
     </div>
@@ -258,60 +265,72 @@ function Editor({ message, client, onDone }: { message: Message; client: ChatCli
   );
 }
 
-function MoreMenu({ message, room, client, onEdit, onReport, onClose }: { message: Message; room: Room; client: ChatClient; onEdit: () => void; onReport: () => Promise<void>; onClose: () => void }) {
+/**
+ * What can be done with a message. The hover toolbar shows the thread and
+ * "save" as buttons and the rest in "⋯"; the sheet on phones (step 99) shows all.
+ */
+function useMessageActions({ message, room, client, inThread, saved, onEdit, onReport }: { message: Message; room: Room; client: ChatClient; inThread?: boolean; saved: boolean; onEdit: () => void; onReport: () => Promise<void> }): MessageAction[] {
   const t = useXT();
   const locale = useLocale();
+  const setPanel = useChatStore((s) => s.setPanel);
   const mine = message.sender === client.userId;
   const textual = !message.redacted && (message.content.msgtype === "m.text" || message.content.msgtype === "m.emote");
   const pinned = room.pinned.includes(message.id);
+  const run = (job: () => Promise<unknown> | void) => () => void Promise.resolve(job()).catch(() => toast.error(t("chat.error")));
+  const actions: (MessageAction | false)[] = [
+    !inThread && { key: "thread", label: t("chat.reply_in_thread"), run: () => setPanel({ kind: "thread", roomId: room.id, rootId: message.id }) },
+    mine && textual && { key: "edit", label: t("chat.edit"), run: onEdit },
+    { key: "save", label: saved ? t("chat.unsave") : t("chat.save"), run: run(() => client.setSaved(room.id, message.id, !saved)) },
+    client.can(room, "pin") && !message.redacted && { key: "pin", label: pinned ? t("chat.unpin") : t("chat.pin"), run: run(() => client.setPinned(room.id, message.id, !pinned)) },
+    {
+      key: "link",
+      label: t("chat.copy_link"),
+      run: run(async () => {
+        await navigator.clipboard.writeText(messageLink(locale, room.id, message.id));
+        toast.success(t("chat.copied"));
+      }),
+    },
+    textual && {
+      key: "text",
+      label: t("chat.copy_text"),
+      run: run(async () => {
+        await navigator.clipboard.writeText(snippetOf(message.content)?.code ?? String(message.content.body ?? ""));
+        toast.success(t("chat.copied"));
+      }),
+    },
+    !mine && !message.redacted && { key: "report", label: t("chat.report"), run: run(onReport) },
+    (mine || client.can(room, "redact")) &&
+      !message.redacted && {
+        key: "delete",
+        label: t("chat.delete"),
+        destructive: true,
+        run: run(async () => {
+          if (window.confirm(t("chat.delete_confirm"))) await client.remove(room.id, message.id);
+        }),
+      },
+  ];
+  return actions.filter((a): a is MessageAction => !!a);
+}
+
+function MoreMenu({ actions, onClose }: { actions: MessageAction[]; onClose: () => void }) {
   const item = "block w-full px-3 py-1.5 text-left text-sm hover:bg-accent";
-  const run = (job: () => Promise<unknown> | void) => () => {
-    onClose();
-    void Promise.resolve(job()).catch(() => toast.error(t("chat.error")));
-  };
   return (
     <div className="absolute right-0 top-8 z-40 w-52 rounded-md border border-border bg-popover py-1 shadow-lg" onMouseLeave={onClose}>
-      {mine && textual && (
-        <button type="button" className={item} onClick={run(onEdit)}>
-          {t("chat.edit")}
-        </button>
-      )}
-      {client.can(room, "pin") && !message.redacted && (
-        <button type="button" className={item} onClick={run(() => client.setPinned(room.id, message.id, !pinned))}>
-          {pinned ? t("chat.unpin") : t("chat.pin")}
-        </button>
-      )}
-      <button
-        type="button"
-        className={item}
-        onClick={run(async () => {
-          await navigator.clipboard.writeText(messageLink(locale, room.id, message.id));
-          toast.success(t("chat.copied"));
-        })}
-      >
-        {t("chat.copy_link")}
-      </button>
-      {textual && (
-        <button type="button" className={item} onClick={run(() => navigator.clipboard.writeText(String(message.content.body ?? "")))}>
-          {t("chat.copy_text")}
-        </button>
-      )}
-      {!mine && !message.redacted && (
-        <button type="button" className={item} onClick={run(onReport)}>
-          {t("chat.report")}
-        </button>
-      )}
-      {(mine || client.can(room, "redact")) && !message.redacted && (
-        <button
-          type="button"
-          className={cn(item, "text-destructive")}
-          onClick={run(async () => {
-            if (window.confirm(t("chat.delete_confirm"))) await client.remove(room.id, message.id);
-          })}
-        >
-          {t("chat.delete")}
-        </button>
-      )}
+      {actions
+        .filter((a) => a.key !== "thread" && a.key !== "save")
+        .map((a) => (
+          <button
+            key={a.key}
+            type="button"
+            className={cn(item, a.destructive && "text-destructive")}
+            onClick={() => {
+              onClose();
+              a.run();
+            }}
+          >
+            {a.label}
+          </button>
+        ))}
     </div>
   );
 }
@@ -327,6 +346,10 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
   const setEditing = useCallback((on: boolean) => setEditingId(on ? message.id : null), [setEditingId, message.id]);
   const [picker, setPicker] = useState(false);
   const [menu, setMenu] = useState(false);
+  const [sheet, setSheet] = useState(false);
+  const [snippetEdit, setSnippetEdit] = useState(false);
+  const snippet = snippetOf(message.content);
+  const editSnippet = useCallback(() => setSnippetEdit(true), []);
   const saved = client.saved.some((s) => s.eventId === message.id);
   const openProfile = useCallback((userId: string) => setPanel({ kind: "profile", userId }), [setPanel]);
   const { prompt } = useChatDialogs();
@@ -337,6 +360,10 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     await reportMessage({ roomId: room.id, eventId: message.id, sender: message.sender, excerpt: String(message.content.body ?? "").slice(0, 500), reason: reason.trim() });
     toast.success(t("chat.report_sent"));
   };
+  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report });
+  const actionable = message.type === "m.room.message" && !message.id.startsWith("~") && !message.redacted && !editing;
+  const longPress = useLongPress(() => setSheet(true), actionable);
+  const closeSheet = useCallback(() => setSheet(false), []);
 
   if (message.type !== "m.room.message") return <SystemLine message={message} room={room} />;
   const real = !message.id.startsWith("~");
@@ -348,7 +375,8 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
   return (
     <div
       id={`msg-${message.id}`}
-      className={cn("group relative flex gap-2 px-5 hover:bg-muted/40", continued ? "py-0.5" : "pt-2 pb-0.5", highlighted && "bg-amber-100/60 dark:bg-amber-500/10", pinned && !inThread && "bg-amber-50/50 dark:bg-amber-500/5")}
+      {...longPress}
+      className={cn("group relative flex gap-2 px-5 hover:bg-muted/40 [-webkit-touch-callout:none]", sheet && "bg-muted/60", continued ? "py-0.5" : "pt-2 pb-0.5", highlighted && "bg-amber-100/60 dark:bg-amber-500/10", pinned && !inThread && "bg-amber-50/50 dark:bg-amber-500/5")}
     >
       <div className="w-9 shrink-0">
         {continued ? (
@@ -387,7 +415,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             )}
           </div>
         )}
-        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} />}
+        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} />}
         {message.status === "sending" && <div className="text-xs text-muted-foreground">{t("chat.sending")}</div>}
         {message.status === "failed" && (
           <div className="flex items-center gap-2 text-xs text-destructive">
@@ -455,10 +483,32 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             <button type="button" className="flex h-8 w-8 items-center justify-center rounded hover:bg-accent" onClick={() => setMenu((m) => !m)} aria-label={t("chat.more")} title={t("chat.more")}>
               <IconDots size={16} />
             </button>
-            {menu && <MoreMenu message={message} room={room} client={client} onEdit={() => setEditing(true)} onReport={report} onClose={() => setMenu(false)} />}
+            {menu && <MoreMenu actions={actions} onClose={() => setMenu(false)} />}
           </span>
         </div>
       )}
+      {snippetEdit && snippet && (
+        <SnippetDialog
+          editing
+          initial={{ title: snippet.title, language: snippet.language, code: snippet.code ?? "" }}
+          onClose={() => setSnippetEdit(false)}
+          onSubmit={async (input) => {
+            const content = snippetContent(input);
+            if (!content) {
+              toast.error(t("chat.snippet_too_large_edit"));
+              return false;
+            }
+            try {
+              await client.edit(room.id, message.id, content);
+              return true;
+            } catch {
+              toast.error(t("chat.error"));
+              return false;
+            }
+          }}
+        />
+      )}
+      {sheet && <MessageSheet actions={actions} onClose={closeSheet} onReact={(e) => void client.toggleReaction(room.id, message.id, e).catch(() => toast.error(t("chat.error")))} />}
     </div>
   );
 }

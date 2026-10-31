@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 // cards was kept in the browser only, so the cards came back in another
 // browser or on the company's own address. The platform now keeps it per user.
 
+// The cards ask whose address this is (step 96: XenRooms); here it is the shared app address.
 const api = vi.hoisted(() => ({ me: vi.fn(), dismissHint: vi.fn(), portal: vi.fn(async () => ({ kind: "app", portals: false, baseDomain: null })) }));
 const mocks = vi.hoisted(() => ({
   authState: {
