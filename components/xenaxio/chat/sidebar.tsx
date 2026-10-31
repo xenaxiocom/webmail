@@ -6,7 +6,7 @@
 // part C: a menu on every channel (right click, "⋯", long press), own
 // sections with drag and drop, order per section, "unread only", Shift+Esc
 // marks everything read; the layout is kept on the server (account data).
-import { IconAdjustmentsHorizontal, IconAt, IconBellOff, IconBookmark, IconChevronDown, IconChevronRight, IconDots, IconHash, IconLock, IconMessages, IconPlus, IconSearch, IconSparkles, IconWorld } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconAt, IconPencil, IconBellOff, IconBookmark, IconChevronDown, IconChevronRight, IconDots, IconHash, IconLock, IconMessages, IconPlus, IconSearch, IconSparkles, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { type ChatClient, type Room, type SectionSort, type SidebarLayout, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -116,7 +116,18 @@ function RoomMenu({ client, room, onClose }: { client: ChatClient; room: Room; o
         </MenuItem>
       )}
       <MenuLine />
-      {(room.notifications > 0 || room.highlights > 0) && <MenuItem onClick={run(() => client.markRead(room.id))}>{t("chat.side_mark_read")}</MenuItem>}
+      {client.isUnread(room) ? (
+        <MenuItem
+          onClick={run(() => {
+            room.keepUnread = false;
+            return client.markRead(room.id);
+          })}
+        >
+          {t("chat.side_mark_read")}
+        </MenuItem>
+      ) : (
+        <MenuItem onClick={run(() => client.markUnread(room.id))}>{t("chat.mark_unread")}</MenuItem>
+      )}
       <MenuItem
         onClick={run(async () => {
           await navigator.clipboard.writeText(channelLink(locale, room.id));
@@ -151,7 +162,7 @@ function RoomRow({ client, room, active, onOpen, onDropBefore }: { client: ChatC
   const muted = client.roomLevels.get(room.id) === "none";
   const threadHighlights = [...room.threadUnread.values()].reduce((n, c) => n + c.highlights, 0);
   const badge = room.kind === "dm" ? room.notifications : room.highlights + threadHighlights;
-  const unread = room.notifications > 0 || badge > 0;
+  const unread = room.notifications > 0 || badge > 0 || !!room.markedUnread;
   const partner = room.kind === "dm" ? client.dmPartners(room)[0] : undefined;
   return (
     <div
@@ -466,6 +477,7 @@ export function ChatSidebar({
           {nav(t("chat.threads"), <IconMessages size={16} />, { kind: "threads" }, threadNews)}
           {nav(t("chat.mentions"), <IconAt size={16} />, { kind: "mentions" })}
           {nav(t("chat.saved"), <IconBookmark size={16} />, { kind: "saved" })}
+          {Object.keys(client.drafts).length > 0 && nav(t("chat.drafts"), <IconPencil size={16} />, { kind: "drafts" })}
           {nav(t("chat.browse"), <IconHash size={16} />, { kind: "browse" })}
           {ai && (
             <button

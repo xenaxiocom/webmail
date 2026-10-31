@@ -115,6 +115,51 @@ export function SavedView({ client }: { client: ChatClient }) {
   );
 }
 
+/** Step 99, part E: unsent drafts of every channel and thread (kept on the server), as in Slack. */
+export function DraftsView({ client }: { client: ChatClient }) {
+  const t = useXT();
+  const setView = useChatStore((s) => s.setView);
+  const setPanel = useChatStore((s) => s.setPanel);
+  const { relative } = useChatTime();
+  const drafts = Object.entries(client.drafts)
+    .map(([key, d]) => {
+      const [roomId, threadRoot] = key.split("|") as [string, string];
+      return { key, roomId, threadRoot: threadRoot || null, room: client.rooms.get(roomId), ...d };
+    })
+    .filter((d) => d.room && d.room.membership === "join")
+    .sort((a, b) => b.ts - a.ts);
+  return (
+    <ViewFrame title={t("chat.drafts")}>
+      {drafts.length === 0 && <p className="p-5 text-sm text-muted-foreground">{t("chat.drafts_empty")}</p>}
+      <ul>
+        {drafts.map((d) => (
+          <li key={d.key} className="group flex items-start gap-2 border-b border-border px-5 py-3 hover:bg-muted/40">
+            <button
+              type="button"
+              className="min-w-0 flex-1 text-left"
+              onClick={() => {
+                setView({ kind: "room", roomId: d.roomId });
+                setPanel(d.threadRoot ? { kind: "thread", roomId: d.roomId, rootId: d.threadRoot } : null);
+              }}
+            >
+              <span className="block text-xs font-semibold text-muted-foreground">
+                {d.room?.kind === "dm" ? "" : "#"}
+                {client.roomName(d.room as NonNullable<typeof d.room>)}
+                {d.threadRoot && ` · ${t("chat.thread")}`}
+                {d.ts > 0 && ` · ${relative(d.ts)}`}
+              </span>
+              <span className="mt-0.5 line-clamp-2 block whitespace-pre-wrap break-words text-sm">{d.text}</span>
+            </button>
+            <button type="button" onClick={() => client.setDraft(d.key, "")} className="shrink-0 rounded px-2 py-1 text-xs text-muted-foreground opacity-0 hover:bg-accent group-hover:opacity-100 focus:opacity-100 [@media(hover:none)]:opacity-100">
+              {t("chat.drafts_delete")}
+            </button>
+          </li>
+        ))}
+      </ul>
+    </ViewFrame>
+  );
+}
+
 export function BrowseView({ client, onCreate }: { client: ChatClient; onCreate: () => void }) {
   const t = useXT();
   const setView = useChatStore((s) => s.setView);

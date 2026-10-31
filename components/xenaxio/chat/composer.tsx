@@ -27,8 +27,6 @@ import { useChatDialogs } from "./dialogs";
 import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
 
-/** Drafts per channel and thread, for this page load. */
-const drafts = new Map<string, string>();
 
 async function imageSize(file: File): Promise<{ w: number; h: number } | null> {
   try {
@@ -136,7 +134,18 @@ export function Composer({
   const key = composerKey(room.id, threadRoot);
   const pending = usePendingFiles(key);
   const colleagues = useChatStore((s) => s.colleagues);
-  const [text, setText] = useState(() => drafts.get(key) ?? "");
+  // Step 99, part E: the draft of each channel and thread is kept on the server.
+  const [text, setTextOnly] = useState(() => client.drafts[key]?.text ?? "");
+  const keyNow = useRef(key);
+  keyNow.current = key;
+  /** Every change of the text is the draft of this channel or thread. */
+  const setText = useCallback(
+    (value: string) => {
+      setTextOnly(value);
+      client.setDraft(keyNow.current, value);
+    },
+    [client],
+  );
   const [cursor, setCursor] = useState(0);
   const [selected, setSelected] = useState(0);
   const [emoji, setEmoji] = useState(false);
@@ -154,12 +163,10 @@ export function Composer({
   useEffect(() => (writable && box.current ? avoidAssistantButton(box.current) : undefined), [writable]);
 
   useEffect(() => {
-    setText(drafts.get(key) ?? "");
+    setTextOnly(client.drafts[key]?.text ?? "");
     area.current?.focus();
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when switching the channel or thread
   }, [key]);
-  useEffect(() => {
-    drafts.set(key, text);
-  }, [key, text]);
   // Grow with the text, up to a limit.
   useEffect(() => {
     const el = area.current;
@@ -209,7 +216,7 @@ export function Composer({
         setCursor(pos);
       });
     },
-    [suggestion, text, cursor],
+    [suggestion, text, cursor, setText],
   );
 
   /** Wraps the selection in Markdown markers (or starts each line with one). */
@@ -275,7 +282,6 @@ export function Composer({
     const ok = await sendSnippet(client, room.id, input, locale, threadRoot);
     if (ok && snippet?.fromBox) {
       setText("");
-      drafts.delete(key);
     }
     return ok;
   };
@@ -293,7 +299,6 @@ export function Composer({
     if ((!body && !pending.length) || busy) return;
     setText("");
     setLongPaste(null);
-    drafts.delete(key);
     void client.setTyping(room.id, false);
     // Files first, then the text under them; one that fails goes back into the box.
     const { files: list, done } = takePendingFiles(key);

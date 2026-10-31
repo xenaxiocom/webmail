@@ -142,3 +142,34 @@ export async function reportMessage(report: { roomId: string; eventId: string; s
   });
   if (!res.ok) throw new ChatError(res.status, "report_failed");
 }
+
+// ---------------------------------------------------------------------------
+// Step 99, part E: link previews, fetched by the platform (public https pages).
+
+export interface LinkPreview {
+  url: string;
+  title: string | null;
+  description: string | null;
+  siteName: string | null;
+  image: string | null;
+}
+
+const previews = new Map<string, Promise<LinkPreview | null>>();
+
+/** The preview of a link; null when the page has none. Asked once per page load. */
+export function linkPreview(url: string): Promise<LinkPreview | null> {
+  let hit = previews.get(url);
+  if (!hit) {
+    hit = apiFetch(`/api/chat/preview?url=${encodeURIComponent(url)}`, { credentials: "same-origin", headers: { Accept: "application/json" } })
+      .then((res) => (res.ok ? (res.json() as Promise<{ preview: LinkPreview | null }>) : { preview: null }))
+      .then((r) => r.preview)
+      .catch(() => null);
+    previews.set(url, hit);
+  }
+  return hit;
+}
+
+/** A preview's picture, through the platform (the page never learns who reads the chat). */
+export function previewImageUrl(url: string): string {
+  return withBasePath(`/api/chat/preview/image?url=${encodeURIComponent(url)}`);
+}

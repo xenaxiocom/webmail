@@ -38,12 +38,15 @@ export function MessageList({
 
   // The "new" line stays where it was when the channel was opened.
   const readMark = useRef<{ room: string; readUpTo: string | null; unread: boolean } | null>(null);
-  if (!inThread && readMark.current?.room !== room.id) readMark.current = { room: room.id, readUpTo: room.readUpTo, unread: room.notifications > 0 };
+  if (!inThread && readMark.current?.room !== room.id) readMark.current = { room: room.id, readUpTo: room.markedUnread?.readUpTo ?? room.readUpTo, unread: room.notifications > 0 || !!room.markedUnread };
+  // Step 99, part E: marked unread from a message right here: the "new" line moves there.
+  if (!inThread && room.keepUnread && room.markedUnread && readMark.current && readMark.current.readUpTo !== room.markedUnread.readUpTo)
+    readMark.current = { room: room.id, readUpTo: room.markedUnread.readUpTo, unread: true };
 
   const rows = useMemo(
     () => timelineRows(messages, inThread ? {} : { readUpTo: readMark.current?.readUpTo, me: client.userId, hasUnread: readMark.current?.unread }),
     // eslint-disable-next-line react-hooks/exhaustive-deps -- messages are mutated in place; length and last id tell changes
-    [messages, messages.length, messages[messages.length - 1]?.id, inThread, client.userId, room.id],
+    [messages, messages.length, messages[messages.length - 1]?.id, inThread, client.userId, room.id, readMark.current?.readUpTo],
   );
 
   const markRead = () => {
@@ -65,6 +68,14 @@ export function MessageList({
     if (atBottom.current) markRead();
     // eslint-disable-next-line react-hooks/exhaustive-deps -- runs on every new row
   }, [rows.length, messages[messages.length - 1]?.id]);
+
+  // Leaving a channel marked unread here: from now on, opening it reads it.
+  useEffect(
+    () => () => {
+      if (!inThread) room.keepUnread = false;
+    },
+    [room, inThread],
+  );
 
   // Opening another channel or thread: start at the bottom.
   useEffect(() => {

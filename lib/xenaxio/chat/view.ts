@@ -81,7 +81,7 @@ function sorted(rooms: Room[], sort: SectionSort, roomName: (r: Room) => string)
  */
 export function sidebarGroups(rooms: Room[], roomName: (r: Room) => string, layout: SidebarLayout, activeId: string | null = null): SidebarGroups {
   const base = sidebarSections(rooms, roomName);
-  const keep = (r: Room) => !layout.unreadOnly || r.id === activeId || r.notifications > 0 || r.highlights > 0 || [...r.threadUnread.values()].some((c) => c.notifications > 0);
+  const keep = (r: Room) => !layout.unreadOnly || r.id === activeId || r.notifications > 0 || r.highlights > 0 || !!r.markedUnread || [...r.threadUnread.values()].some((c) => c.notifications > 0);
   const starredIds = new Set(base.starred.map((r) => r.id));
   const byId = new Map([...base.channels, ...base.direct].map((r) => [r.id, r]));
   const placed = new Set<string>();

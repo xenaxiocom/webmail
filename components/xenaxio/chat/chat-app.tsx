@@ -35,7 +35,7 @@ import { RoomsRail } from "./rooms-rail";
 import { tellChatWorker } from "@/lib/xenaxio/chat/push";
 import { openAccount } from "@/lib/xenaxio/accounts";
 import { ChatSidebar } from "./sidebar";
-import { BrowseView, HomeView, MentionsView, SavedView, SearchView, ThreadsView } from "./views";
+import { BrowseView, DraftsView, HomeView, MentionsView, SavedView, SearchView, ThreadsView } from "./views";
 // Step 99: colours of highlighted code in messages and snippets.
 import "./code.css";
 
@@ -197,6 +197,7 @@ function ChatInside() {
   else if (view.kind === "threads") main = <ThreadsView client={client} />;
   else if (view.kind === "mentions") main = <MentionsView client={client} />;
   else if (view.kind === "saved") main = <SavedView client={client} />;
+  else if (view.kind === "drafts") main = <DraftsView client={client} />;
   else if (view.kind === "browse") main = <BrowseView client={client} onCreate={() => setDialog("create")} />;
   else if (view.kind === "search") main = <SearchView client={client} query={view.query} />;
   else main = <HomeView />;
