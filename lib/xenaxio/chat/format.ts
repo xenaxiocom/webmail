@@ -175,7 +175,7 @@ export function messageHtml(content: Record<string, unknown>): string {
   const raw = content.format === "org.matrix.custom.html" && typeof content.formatted_body === "string" ? content.formatted_body : linkify(escapeHtml(body)).replace(/\n/g, "<br>");
   // Thread fallbacks quote the replied-to message; Matrix marks them for removal.
   const withoutFallback = raw.replace(/<mx-reply>[\s\S]*?<\/mx-reply>/g, "");
-  return purifier().sanitize(withoutFallback, { ALLOWED_TAGS, ALLOWED_ATTR: ["href", "target", "rel", "data-mention", "class"], ALLOW_DATA_ATTR: false }) as string;
+  return withCompanyEmoji(purifier().sanitize(withoutFallback, { ALLOWED_TAGS, ALLOWED_ATTR: ["href", "target", "rel", "data-mention", "class"], ALLOW_DATA_ATTR: false }) as string);
 }
 
 /**
@@ -195,6 +195,50 @@ export function firstLink(body: string, ownOrigin: string | null = null): string
     return url;
   }
   return null;
+}
+
+// ---------------------------------------------------------------------------
+// Step 99, part H: the company's own emoji (":logo:"), as in Slack.
+
+const companyEmoji = new Map<string, string>();
+
+/** The company's emoji: name → picture address (set when the chat starts). */
+export function setCompanyEmoji(list: { name: string; url: string }[]): void {
+  companyEmoji.clear();
+  for (const e of list) companyEmoji.set(e.name, e.url);
+}
+
+export function companyEmojiUrl(key: string): string | null {
+  const m = /^:([a-z0-9_-]{2,32}):$/.exec(key);
+  return m ? (companyEmoji.get(m[1] as string) ?? null) : null;
+}
+
+/** ":name:" of the company's emoji as pictures — in text, never in code or inside tags. */
+export function withCompanyEmoji(html: string): string {
+  if (companyEmoji.size === 0 || !html.includes(":")) return html;
+  return html
+    .split(/(<pre[\s\S]*?<\/pre>|<code[\s\S]*?<\/code>|<[^>]+>)/g)
+    .map((part) =>
+      part.startsWith("<")
+        ? part
+        : part.replace(/:([a-z0-9_-]{2,32}):/g, (m, name: string) => {
+            const url = companyEmoji.get(name);
+            return url ? `<img class="chat-emoji" src="${escapeHtml(url)}" alt="${m}" title="${m}">` : m;
+          }),
+    )
+    .join("");
+}
+
+/**
+ * Step 99, part H: "@vertrieb" in the text mentions every member of the group
+ * (as Slack's user groups); the text stays as typed.
+ */
+export function withGroupMentions(content: Record<string, unknown>, body: string, groups: { handle: string; addresses: string[] }[], me: string): Record<string, unknown> {
+  const used = groups.filter((g) => new RegExp(`(^|\\s)@${g.handle.replace(/[.*+?^${}()|[\]\\]/g, "\\$&")}(?![\\w-])`, "i").test(body));
+  if (!used.length) return content;
+  const mentions = (content["m.mentions"] ?? {}) as { user_ids?: string[]; room?: boolean };
+  const ids = [...new Set([...(mentions.user_ids ?? []), ...used.flatMap((g) => g.addresses)])].filter((a) => a !== me);
+  return { ...content, "m.mentions": { ...mentions, user_ids: ids } };
 }
 
 /** Does the message mention this person (or everyone)? */

@@ -5,6 +5,7 @@
 // so no crypto code is needed.
 import { ChatError, mx, newTxnId, paths } from "./api";
 import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
+import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, VOICE_TYPE } from "./extras";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
 /** A stable rule id per keyword (ids allow only a few characters). */
@@ -105,6 +106,11 @@ export interface Room {
   createdTs: number | null;
   /** Step 99, part E: marked unread by hand (Matrix m.marked_unread); the "new" line goes after `readUpTo`. */
   markedUnread: { readUpTo: string | null } | null;
+  /** Step 99, part H: a voice channel (Discord), a forum with its tags (Discord), the canvas and bookmarks (Slack). */
+  voice: boolean;
+  forum: { tags: string[] } | null;
+  canvas: { text: string; by: string; ts: number } | null;
+  bookmarks: Bookmark[];
   /** Marked here and now: the open view does not mark it read again until it is left. */
   keepUnread?: boolean;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
@@ -359,6 +365,10 @@ function newRoom(id: string): Room {
     description: null,
     createdTs: null,
     markedUnread: null,
+    voice: false,
+    forum: null,
+    canvas: null,
+    bookmarks: [],
   };
 }
 
@@ -613,6 +623,18 @@ export class ChatClient {
         break;
       case ARCHIVED_TYPE:
         room.archived = c.archived === true;
+        break;
+      case VOICE_TYPE:
+        room.voice = c.voice === true;
+        break;
+      case FORUM_TYPE:
+        room.forum = c.forum === true ? { tags: (Array.isArray(c.tags) ? c.tags : []).filter((x): x is string => typeof x === "string").map((x) => x.slice(0, 40)).slice(0, 20) } : null;
+        break;
+      case CANVAS_TYPE:
+        room.canvas = typeof c.text === "string" && c.text.trim() ? { text: c.text.slice(0, 50_000), by: ev.sender, ts: ev.origin_server_ts ?? 0 } : null;
+        break;
+      case BOOKMARKS_TYPE:
+        room.bookmarks = bookmarksOf(c);
         break;
       case DESCRIPTION_TYPE:
         room.description = typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 1000) : null;
@@ -1038,7 +1060,7 @@ export class ChatClient {
   // --- Channels and people --------------------------------------------------
 
   /** A new channel: open ones are listed in the company's channel directory. */
-  async createChannel(input: { name: string; topic?: string; isPublic: boolean; invite?: string[]; external?: boolean }): Promise<string> {
+  async createChannel(input: { name: string; topic?: string; isPublic: boolean; invite?: string[]; external?: boolean; kind?: "text" | "voice" | "forum"; tags?: string[] }): Promise<string> {
     const res = await mx<{ room_id: string }>("POST", paths.createRoom, {
       name: input.name,
       // Part E: only channels made for it ever take people of other companies; others never federate.
@@ -1047,8 +1069,14 @@ export class ChatClient {
       preset: input.isPublic ? "public_chat" : "private_chat",
       visibility: input.isPublic ? "public" : "private",
       invite: input.invite ?? [],
-      // Everyone in the channel may pin messages and notify everyone with @channel, as in Slack (step 99).
-      power_level_content_override: { events: { "m.room.pinned_events": 0 }, notifications: { room: 0 } },
+      // Everyone in the channel may pin messages and notify everyone with @channel, as in Slack (step 99);
+      // and edit the canvas and bookmarks (step 99, part H).
+      power_level_content_override: { events: { "m.room.pinned_events": 0, [CANVAS_TYPE]: 0, [BOOKMARKS_TYPE]: 0 }, notifications: { room: 0 } },
+      // Step 99, part H: a voice channel or a forum from the start.
+      initial_state: [
+        ...(input.kind === "voice" ? [{ type: VOICE_TYPE, state_key: "", content: { voice: true } }] : []),
+        ...(input.kind === "forum" ? [{ type: FORUM_TYPE, state_key: "", content: { forum: true, tags: (input.tags ?? []).slice(0, 20) } }] : []),
+      ],
     });
     return res.room_id;
   }
@@ -1132,6 +1160,21 @@ export class ChatClient {
   }
 
   // --- Step 99: channel details, as in Slack ----------------------------------
+
+  /** Step 99, part H: the channel's canvas (a page of notes, as in Slack). */
+  async setCanvas(roomId: string, text: string): Promise<void> {
+    await mx("PUT", paths.state(roomId, CANVAS_TYPE), { text: text.slice(0, 50_000) });
+  }
+
+  /** Step 99, part H: the links under the channel's name (Slack's bookmarks). */
+  async setBookmarks(roomId: string, items: Bookmark[]): Promise<void> {
+    await mx("PUT", paths.state(roomId, BOOKMARKS_TYPE), { items: items.slice(0, 20) });
+  }
+
+  /** May this person change a kind of room state (canvas, bookmarks)? */
+  canSetState(room: Room, type: string): boolean {
+    return this.powerOf(room, this.userId) >= (room.powerLevels.events[type] ?? room.powerLevels.state_default);
+  }
 
   async setDescription(roomId: string, description: string): Promise<void> {
     await mx("PUT", paths.state(roomId, DESCRIPTION_TYPE), { description });

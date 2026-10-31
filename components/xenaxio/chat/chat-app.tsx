@@ -37,6 +37,8 @@ import { openAccount } from "@/lib/xenaxio/accounts";
 import { ChatSidebar } from "./sidebar";
 import { BrowseView, DraftsView, HomeView, MentionsView, SavedView, SearchView, ThreadsView } from "./views";
 import { LaterView, useLaterLoader } from "./later";
+import { CatchUpView } from "./channel-extras";
+import { useExtrasLoader } from "@/lib/xenaxio/chat/extras";
 // Step 99: colours of highlighted code in messages and snippets.
 import "./code.css";
 
@@ -84,6 +86,8 @@ function ChatInside() {
   useChatNotifyLoader(!!client?.ready);
   // Step 99, part E2: reminders and messages sent later.
   useLaterLoader(!!client?.ready);
+  // Step 99, part H: calls going on in rooms, groups to mention, the company's emoji.
+  useExtrasLoader(!!client?.ready, () => (client ? [...client.rooms.values()].filter((r) => r.membership === "join" && r.kind !== "space").map((r) => r.id) : []));
 
   useEffect(() => {
     void loadStatus(true).then(() => connect());
@@ -202,6 +206,7 @@ function ChatInside() {
   else if (view.kind === "saved") main = <SavedView client={client} />;
   else if (view.kind === "drafts") main = <DraftsView client={client} />;
   else if (view.kind === "later") main = <LaterView client={client} />;
+  else if (view.kind === "catchup") main = <CatchUpView client={client} />;
   else if (view.kind === "browse") main = <BrowseView client={client} onCreate={() => setDialog("create")} />;
   else if (view.kind === "search") main = <SearchView client={client} query={view.query} />;
   else main = <HomeView />;

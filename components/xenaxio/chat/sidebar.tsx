@@ -6,7 +6,7 @@
 // part C: a menu on every channel (right click, "⋯", long press), own
 // sections with drag and drop, order per section, "unread only", Shift+Esc
 // marks everything read; the layout is kept on the server (account data).
-import { IconAdjustmentsHorizontal, IconAlarm, IconAt, IconPencil, IconBellOff, IconBookmark, IconChevronDown, IconChevronRight, IconDots, IconHash, IconLock, IconMessages, IconPlus, IconSearch, IconSparkles, IconWorld } from "@tabler/icons-react";
+import { IconAdjustmentsHorizontal, IconAlarm, IconAt, IconCards, IconHeadphones, IconMessage2, IconPencil, IconVolume, IconBellOff, IconBookmark, IconChevronDown, IconChevronRight, IconDots, IconHash, IconLock, IconMessages, IconPlus, IconSearch, IconSparkles, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useRef, useState } from "react";
 import { type ChatClient, type Room, type SectionSort, type SidebarLayout, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -21,6 +21,7 @@ import { channelLink, PersonAvatar, presenceOf, useAssistant } from "./common";
 import { useChatDialogs } from "./dialogs";
 import { useLongPress } from "./message-sheet";
 import { isDue, useChatLater } from "@/lib/xenaxio/chat/later";
+import { useChatExtras } from "@/lib/xenaxio/chat/extras";
 
 const ROOM_DRAG = "application/x-xenaxio-room";
 
@@ -161,6 +162,8 @@ function RoomRow({ client, room, active, onOpen, onDropBefore }: { client: ChatC
   const longPress = useLongPress(() => setMenu(true));
   const name = client.roomName(room);
   const muted = client.roomLevels.get(room.id) === "none";
+  // Step 99, part H: a call going on in the room (Slack's huddle sign, Discord's voice channel).
+  const inCall = useChatExtras((s) => s.calls.get(room.id) ?? 0);
   const threadHighlights = [...room.threadUnread.values()].reduce((n, c) => n + c.highlights, 0);
   const badge = room.kind === "dm" ? room.notifications : room.highlights + threadHighlights;
   const unread = room.notifications > 0 || badge > 0 || !!room.markedUnread;
@@ -203,6 +206,10 @@ function RoomRow({ client, room, active, onOpen, onDropBefore }: { client: ChatC
       >
         {room.kind === "dm" ? (
           partner ? <PersonAvatar userId={partner} name={name} size="sm" presence={presenceOf(client, partner)} className="scale-[0.8]" /> : <IconMessages size={16} />
+        ) : room.voice ? (
+          <IconVolume size={16} className="shrink-0 opacity-80" />
+        ) : room.forum ? (
+          <IconMessage2 size={16} className="shrink-0 opacity-80" />
         ) : room.external ? (
           <IconWorld size={16} className="shrink-0 opacity-80" />
         ) : room.joinRule === "public" ? (
@@ -213,6 +220,12 @@ function RoomRow({ client, room, active, onOpen, onDropBefore }: { client: ChatC
         <span className="min-w-0 flex-1 truncate">{name}</span>
         {room.kind === "dm" && partner && client.isExternalUser(partner) && <span className="shrink-0 text-[10px] opacity-70">{serverOfUser(partner)}</span>}
         {muted && <IconBellOff size={13} className="shrink-0 opacity-70" aria-label={t("chat.notify_none")} />}
+        {inCall > 0 && (
+          <span className={cn("flex shrink-0 items-center gap-0.5 text-[11px] font-semibold", active ? "" : "text-emerald-600")} title={t("chat.call_running_count", { count: inCall })} aria-label={t("chat.call_running_count", { count: inCall })}>
+            <IconHeadphones size={13} />
+            {inCall}
+          </span>
+        )}
         {badge > 0 && <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[11px] font-bold leading-5", active ? "bg-primary-foreground text-primary" : "bg-red-500 text-white")}>{badge}</span>}
       </button>
       <button
@@ -378,6 +391,8 @@ export function ChatSidebar({
   const laterScheduled = useChatLater((s) => s.scheduled);
   const laterDue = laterReminders.filter((r) => isDue(r)).length;
   const laterAny = laterReminders.length + laterScheduled.length > 0;
+  // Step 99, part H: how many channels "Catch up" goes through.
+  const unreadRooms = [...client.rooms.values()].filter((r) => r.membership === "join" && r.kind !== "space" && client.isUnread(r)).length;
   const ai = useAssistant();
   const [search, setSearch] = useState("");
   const rooms = [...client.rooms.values()];
@@ -485,6 +500,7 @@ export function ChatSidebar({
           {nav(t("chat.saved"), <IconBookmark size={16} />, { kind: "saved" })}
           {Object.keys(client.drafts).length > 0 && nav(t("chat.drafts"), <IconPencil size={16} />, { kind: "drafts" })}
           {(laterDue > 0 || laterAny) && nav(t("chat.later"), <IconAlarm size={16} />, { kind: "later" }, laterDue)}
+          {unreadRooms > 0 && nav(t("chat.catchup"), <IconCards size={16} />, { kind: "catchup" }, unreadRooms)}
           {nav(t("chat.browse"), <IconHash size={16} />, { kind: "browse" })}
           {ai && (
             <button
@@ -550,10 +566,23 @@ export function ChatSidebar({
           </Section>
         ))}
 
+        {/* Step 99, part H: voice channels of their own, as in Discord. */}
+        {sections.channels.some((r) => r.voice) && (
+          <Section id="voice" title={t("chat.voice_channels")} collapsed={collapsed.has("voice")} onToggle={toggle}>
+            {sections.channels
+              .filter((r) => r.voice)
+              .map((r) => (
+                <RoomRow key={r.id} client={client} room={r} active={view.kind === "room" && view.roomId === r.id} onOpen={() => open(r.id)} />
+              ))}
+          </Section>
+        )}
+
         <Section id="channels" title={t("chat.channels")} collapsed={collapsed.has("channels")} onToggle={toggle} action={onCreateChannel} actionLabel={t("chat.add_channel")} onDropRoom={dropInto(null)} menu={(close) => <SectionMenu client={client} id="channels" own={false} close={close} />}>
-          {sections.channels.map((r) => (
-            <RoomRow key={r.id} client={client} room={r} active={view.kind === "room" && view.roomId === r.id} onOpen={() => open(r.id)} />
-          ))}
+          {sections.channels
+            .filter((r) => !r.voice)
+            .map((r) => (
+              <RoomRow key={r.id} client={client} room={r} active={view.kind === "room" && view.roomId === r.id} onOpen={() => open(r.id)} />
+            ))}
           <button type="button" onClick={onCreateChannel} className="flex h-8 w-full items-center gap-2 rounded-md px-2 text-left text-sm text-muted-foreground hover:bg-accent">
             <IconPlus size={16} />
             {t("chat.add_channel")}

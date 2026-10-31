@@ -27,11 +27,13 @@ export type ChatView =
   | { kind: "drafts" }
   /** Step 99, part E2: reminders and messages sent later. */
   | { kind: "later" }
+  /** Step 99, part H: unread channels one after another (Slack's "Catch up"). */
+  | { kind: "catchup" }
   | { kind: "browse" }
   | { kind: "search"; query: string }
   | { kind: "home" };
 
-export type SidePanel = { kind: "thread"; roomId: string; rootId: string } | { kind: "members"; roomId: string } | { kind: "profile"; userId: string } | null;
+export type SidePanel = { kind: "thread"; roomId: string; rootId: string } | { kind: "members"; roomId: string } | { kind: "profile"; userId: string } | { kind: "canvas"; roomId: string } | null;
 
 interface ChatState {
   status: ChatStatus | null;

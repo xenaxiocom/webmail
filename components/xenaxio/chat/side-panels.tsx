@@ -17,8 +17,9 @@ import { ChatMessage } from "./message";
 import { MessageList } from "./message-list";
 import { TypingLine } from "./room-view";
 import { ProfileBanner, ProfileDetails, ProfileDialog, ProfileFrame } from "./profile";
+import { CanvasPanel } from "./channel-extras";
 
-function PanelFrame({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode }) {
+export function PanelFrame({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode }) {
   const t = useXT();
   const setPanel = useChatStore((s) => s.setPanel);
   return (
@@ -281,5 +282,6 @@ export function ChatSidePanel({ client, panel }: { client: ChatClient; panel: Si
   if (!panel) return null;
   if (panel.kind === "thread") return <ThreadPanel key={`${panel.roomId}|${panel.rootId}`} client={client} roomId={panel.roomId} rootId={panel.rootId} />;
   if (panel.kind === "members") return <MembersPanel client={client} roomId={panel.roomId} />;
+  if (panel.kind === "canvas") return <CanvasPanel client={client} roomId={panel.roomId} />;
   return <ProfilePanel key={panel.userId} client={client} userId={panel.userId} />;
 }

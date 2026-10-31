@@ -22,12 +22,14 @@ import { toast } from "@/stores/toast-store";
 import { cn, formatFileSize } from "@/lib/utils";
 import { addPendingFiles, composerKey, MAX_FILE_BYTES, MAX_PENDING_FILES, removePendingFile, takePendingFiles, usePendingFiles } from "@/lib/xenaxio/chat/pending-files";
 import { PersonAvatar } from "./common";
-import { EmojiPicker } from "./emoji-picker";
+import { EmojiGlyph, EmojiPicker } from "./emoji-picker";
 import { useChatDialogs } from "./dialogs";
 import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
 import { TimePicker } from "./later";
 import { PollDialog } from "./poll";
 import { useChatNotify } from "./notifications";
+import { useChatExtras } from "@/lib/xenaxio/chat/extras";
+import { withGroupMentions } from "@/lib/xenaxio/chat/format";
 import { type Command, dndUntil, parseSlash, personArg, slashSuggestions } from "@/lib/xenaxio/chat/slash";
 import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
@@ -160,6 +162,8 @@ export function Composer({
   const [longPaste, setLongPaste] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [polling, setPolling] = useState(false);
+  const groups = useChatExtras((s) => s.groups);
+  const companyEmoji = useChatExtras((s) => s.emoji);
   const [remindAbout, setRemindAbout] = useState<{ eventId: string; preview: string } | null>(null);
   const remind = useChatLater((s) => s.remind);
   const notify = useChatNotify();
@@ -207,14 +211,20 @@ export function Composer({
         .filter((p) => p.displayName.toLowerCase().includes(q) || p.userId.toLowerCase().includes(q))
         .slice(0, 8)
         .map((p) => ({ key: p.userId, label: p.displayName, insert: `@${p.displayName} `, userId: p.userId, hint: colleagues.get(p.userId)?.profile?.title ?? colleagues.get(p.userId)?.email }));
-      return [...found, ...special];
+      // Step 99, part H: groups notify all their members (@vertrieb).
+      const teams: Suggestion[] = groups.filter((g) => g.handle.startsWith(q) || g.name.toLowerCase().includes(q)).slice(0, 5).map((g) => ({ key: `g:${g.handle}`, label: `@${g.handle}`, insert: `@${g.handle} `, hint: g.name }));
+      return [...found, ...teams, ...special];
     }
-    if (suggestion.trigger === ":") return searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }));
+    if (suggestion.trigger === ":") {
+      // Step 99, part H: the company's own emoji first.
+      const own: Suggestion[] = companyEmoji.filter((e) => e.name.includes(q)).slice(0, 5).map((e) => ({ key: `c:${e.name}`, label: `:${e.name}:`, insert: `:${e.name}: `, emoji: `:${e.name}:` }));
+      return [...own, ...searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }))];
+    }
     return [...client.rooms.values()]
       .filter((r) => r.kind === "channel" && r.membership === "join" && client.roomName(r).toLowerCase().includes(q))
       .slice(0, 8)
       .map((r) => ({ key: r.id, label: `#${client.roomName(r)}`, insert: `#${client.roomName(r)} ` }));
-  }, [suggestion, people, colleagues, client, room, text, t]);
+  }, [suggestion, people, colleagues, client, room, text, t, groups, companyEmoji]);
 
   useEffect(() => setSelected(0), [suggestion?.query, suggestion?.trigger]);
 
@@ -428,7 +438,7 @@ export function Composer({
       }
     }
     if (!body) return;
-    const content = textContent(body, people);
+    const content = withGroupMentions(textContent(body, people), body, groups, client.userId);
     try {
       await client.send(room.id, content, threadRoot ? { threadRoot } : {});
       // Step 99, part E2b: replying follows the thread, as in Slack.
@@ -467,7 +477,11 @@ export function Composer({
               className={cn("flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm", i === selected ? "bg-accent" : "hover:bg-accent/60")}
             >
               {o.userId && <PersonAvatar userId={o.userId} name={o.label} size="sm" />}
-              {o.emoji && <span className="text-lg leading-none">{o.emoji}</span>}
+              {o.emoji && (
+                <span className="text-lg leading-none">
+                  <EmojiGlyph emoji={o.emoji} />
+                </span>
+              )}
               <span className="truncate font-medium">{o.label}</span>
               {o.hint && <span className="truncate text-xs text-muted-foreground">{o.hint}</span>}
             </button>

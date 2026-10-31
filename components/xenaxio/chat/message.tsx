@@ -19,7 +19,7 @@ import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { EmailCard } from "./email-card";
-import { EmojiPicker, quickReactions } from "./emoji-picker";
+import { EmojiGlyph, EmojiPicker, quickReactions } from "./emoji-picker";
 import { type MessageAction, MessageSheet, useLongPress } from "./message-sheet";
 import { RichHtml, SnippetCard } from "./code";
 import { LinkPreviewCard } from "./link-preview";
@@ -165,6 +165,7 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
     <div
       className={cn(
         "chat-body text-sm leading-relaxed break-words [&_a[href]]:text-primary [&_a[href]]:underline-offset-2 hover:[&_a[href]]:underline",
+        "[&_img.chat-emoji]:inline-block [&_img.chat-emoji]:h-5 [&_img.chat-emoji]:w-5 [&_img.chat-emoji]:align-text-bottom [&_img.chat-emoji]:object-contain",
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-1 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
         "[&_.chat-mention]:rounded [&_.chat-mention]:bg-primary/10 [&_.chat-mention]:px-0.5 [&_.chat-mention]:text-primary [&_.chat-mention]:cursor-pointer [&_.chat-mention]:font-medium",
@@ -209,7 +210,7 @@ function Reactions({ message, client }: { message: Message; client: ChatClient }
             onClick={() => void client.toggleReaction(message.roomId, message.id, key).catch(() => toast.error(t("chat.error")))}
             className={cn("inline-flex h-6 items-center gap-1 rounded-full border px-2 text-xs", mine ? "border-primary bg-primary/10 text-primary" : "border-border bg-muted/50 hover:border-foreground/30")}
           >
-            <span>{key}</span>
+            <EmojiGlyph emoji={key} size={16} />
             <span className="tabular-nums">{who.length}</span>
           </button>
         );
