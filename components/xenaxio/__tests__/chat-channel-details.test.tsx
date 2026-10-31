@@ -19,7 +19,7 @@ function power(users: Record<string, number>): PowerLevels {
 }
 
 /** A real client's rules (levels, managers) with its network calls replaced. */
-function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user" }) {
+function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user"; background?: string | null }) {
   const client = new RealClient() as ChatClient;
   client.userId = opts.me;
   const room = {
@@ -42,6 +42,7 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     tags: {},
     archived: false,
     external: false,
+    background: opts.background ?? null,
   } as unknown as Room;
   client.rooms.set(room.id, room);
   client.people.set(ANNA, { userId: ANNA, displayName: "Anna" });
@@ -52,6 +53,10 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     setRoomRules: vi.spyOn(client, "setRoomRules").mockResolvedValue(),
     kick: vi.spyOn(client, "kick").mockResolvedValue(),
     setManager: vi.spyOn(client, "setManager").mockResolvedValue(),
+    setChannelBackground: vi.spyOn(client, "setChannelBackground").mockResolvedValue(),
+    setRoomBackgrounds: vi.spyOn(client, "setRoomBackgrounds").mockImplementation(async (next) => {
+      client.roomBackgrounds = next;
+    }),
   };
   useXenaxioMeStore.setState({
     me: { user: { id: "u", email: "x@acme.de", displayName: "X", role: opts.role ?? "user", mustChangePassword: false }, tenant: { id: "t", name: "Acme", status: "active" }, edition: "cloud" } as never,
@@ -130,6 +135,54 @@ describe("channel details (step 99, part B)", () => {
       fireEvent.click(within(confirm).getByRole("button", { name: "Remove from channel" }));
     });
     expect(calls.kick).toHaveBeenCalledWith("!proj:acme.de", BEN);
+  });
+});
+
+describe("channel background (step 107)", () => {
+  beforeEach(() => api.changeChatChannel.mockClear());
+  const section = (name: string) => screen.getByRole("heading", { name }).closest("section") as HTMLElement;
+
+  it("a manager sets it for everyone, and chooses only for themselves", async () => {
+    const { calls } = setup({ me: ANNA, levels: { [ANNA]: 100 } });
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    await act(async () => {
+      fireEvent.click(within(section("Channel background")).getByRole("button", { name: "Sea" }));
+    });
+    expect(calls.setChannelBackground).toHaveBeenCalledWith("!proj:acme.de", "img-sea");
+    expect(api.changeChatChannel).not.toHaveBeenCalled();
+    await act(async () => {
+      fireEvent.click(within(section("Background for me")).getByRole("button", { name: "Default" }));
+    });
+    expect(calls.setRoomBackgrounds).toHaveBeenLastCalledWith({ hideAll: false, rooms: { "!proj:acme.de": "default" } });
+  });
+
+  it("a member cannot set it for everyone, but chooses their own and hides all", async () => {
+    const { calls, client } = setup({ me: BEN, levels: { [ANNA]: 100 }, background: "img-sea" });
+    client.roomBackgrounds = { hideAll: false, rooms: {} };
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    expect(screen.queryByRole("heading", { name: "Channel background" })).toBeNull();
+    expect(screen.getByText(/The channel has the background "Sea"/)).toBeTruthy();
+    const mine = section("Background for me");
+    expect(within(mine).getByRole("button", { name: "As in the channel (Sea)" }).getAttribute("aria-pressed")).toBe("true");
+    await act(async () => {
+      fireEvent.click(within(mine).getByRole("button", { name: "Blue" }));
+    });
+    expect(calls.setRoomBackgrounds).toHaveBeenLastCalledWith({ hideAll: false, rooms: { "!proj:acme.de": "grad-blue" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("checkbox", { name: /Hide backgrounds in all channels/ }));
+    });
+    expect(calls.setRoomBackgrounds).toHaveBeenLastCalledWith({ hideAll: true, rooms: { "!proj:acme.de": "grad-blue" } });
+    expect(calls.setChannelBackground).not.toHaveBeenCalled();
+  });
+
+  it("the company admin sets it through the platform; none removes it", async () => {
+    const { calls } = setup({ me: BEN, levels: { [ANNA]: 100 }, role: "admin", background: "img-sea" });
+    fireEvent.click(screen.getByRole("tab", { name: "Background" }));
+    await act(async () => {
+      fireEvent.click(within(section("Channel background")).getByRole("button", { name: "None" }));
+    });
+    expect(api.changeChatChannel).toHaveBeenCalledWith("!proj:acme.de", { background: null });
+    expect(calls.setChannelBackground).not.toHaveBeenCalled();
   });
 });
 

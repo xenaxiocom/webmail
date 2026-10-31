@@ -6,7 +6,7 @@
 // opens its details (name, topic, members, settings), as in Slack.
 import { IconBell, IconChevronDown, IconHash, IconLock, IconNotes, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
-import { useEffect, useState } from "react";
+import { type CSSProperties, useEffect, useState } from "react";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
 import { plainPreview } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
@@ -24,6 +24,8 @@ import { BookmarksBar, ForumView, VoiceBar } from "./channel-extras";
 import { useChatExtras } from "@/lib/xenaxio/chat/extras";
 import { ChannelDetails, type DetailsTab } from "./channel-details";
 import { SidebarExpandButton } from "./sidebar-toggle";
+// Styles of the background (room-background.css) come with chat-app.tsx, like code.css.
+import { roomBackgroundStyle, shownBackground } from "@/lib/xenaxio/chat/room-background";
 
 export function TypingLine({ room }: { room: Room }) {
   const t = useXT();
@@ -106,6 +108,8 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const joined = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).length;
   const starred = !!room.tags["m.favourite"];
   const inCall = useChatExtras((s) => s.calls.get(room.id) ?? 0);
+  // Step 107: the channel's background, or the person's own choice for it.
+  const background = shownBackground(room, client.roomBackgrounds);
   const joinCall = useJoinRoomCall(client);
   // Step 99, part H: Ctrl+Shift+H starts the call or joins it (Slack's huddle shortcut).
   useEffect(() => {
@@ -232,6 +236,14 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
         </span>
       </header>
 
+      {/* Step 107: the channel's background (or the person's own) under everything below the header. */}
+      <div className="relative isolate flex min-h-0 flex-1 flex-col" data-room-background={background?.id}>
+      {background && (
+        <>
+          <div aria-hidden className="xenaxio-room-bg pointer-events-none absolute inset-0 -z-10" style={roomBackgroundStyle(background) as CSSProperties} />
+          <div aria-hidden className="xenaxio-room-veil pointer-events-none absolute inset-0 -z-10" />
+        </>
+      )}
       {room.kind === "channel" && <BookmarksBar client={client} room={room} />}
       {room.voice && <VoiceBar client={client} room={room} />}
       {room.forum ? (
@@ -250,6 +262,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
           />
         </>
       )}
+      </div>
 
       {dragging && (
         <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 text-sm font-medium text-primary">

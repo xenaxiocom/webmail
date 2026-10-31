@@ -33,6 +33,8 @@ import { SnippetDialog } from "./snippet-dialog";
 import { PostDialog } from "./post-dialog";
 import { postOf } from "@/lib/xenaxio/chat/extras";
 import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
+import { BACKGROUND_TYPE, backgroundCodeOf } from "@/lib/xenaxio/chat/room-background";
+import { findBackground } from "@/lib/xenaxio/backgrounds";
 import { ImageViewer } from "./image-viewer";
 import { CallCard } from "@/components/xenaxio/meet/call";
 import { callOf } from "@/lib/xenaxio/meet-call";
@@ -57,7 +59,11 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
   if (message.type === "m.room.member") text = t(message.content.membership === "join" ? "chat.joined" : "chat.left", { name: who });
   else if (message.type === "m.room.name") text = t("chat.renamed", { name: who, value: String(message.content.name ?? "") });
   else if (message.type === "m.room.topic") text = t("chat.topic_changed", { name: who, value: String(message.content.topic ?? "") });
-  else text = t(message.content.archived === false ? "chat.restored_event" : "chat.archived_event", { name: who });
+  else if (message.type === BACKGROUND_TYPE) {
+    // Step 107: a background this client does not know reads as a change without its name.
+    const bg = findBackground(backgroundCodeOf(message.content));
+    text = bg ? t("chat.background_changed", { name: who, value: t(`background.names.${bg.name}`) }) : backgroundCodeOf(message.content) ? t("chat.background_changed_other", { name: who }) : t("chat.background_removed", { name: who });
+  } else text = t(message.content.archived === false ? "chat.restored_event" : "chat.archived_event", { name: who });
   return (
     <div className="flex items-baseline gap-2 px-5 py-1 text-xs text-muted-foreground" data-room={room.id}>
       <span className="w-9 shrink-0 text-right tabular-nums">{time(message.ts)}</span>

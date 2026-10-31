@@ -2,7 +2,7 @@
 
 // Step 42: a grid of background previews, as in Outlook's "Appearance".
 // Used by the person in Settings → Appearance and by the admin on
-// "Erscheinungsbild" (the company's default).
+// "Erscheinungsbild" (the company's default); step 107: in a channel's details.
 import { useState } from "react";
 import { Check } from "@/components/icons";
 import { cn } from "@/lib/utils";
@@ -14,7 +14,8 @@ import { useThemeStore } from "@/stores/theme-store";
 import { SettingsSection } from "@/components/settings/settings-section";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 
-/** A choice in the grid: a background, "none", or (for a person) "as the company". */
+/** A choice in the grid: a background, "none", or (for a person) "as the company". Step 107: also "as the channel". */
+export type BackgroundChoice = Choice;
 type Choice = { code: string | null; label: string; bg: Background | null; caption?: boolean };
 
 function Tile({ choice, selected, disabled, onSelect }: { choice: Choice; selected: boolean; disabled: boolean; onSelect: () => void }) {
