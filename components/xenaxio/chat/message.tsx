@@ -3,7 +3,7 @@
 // Step 43, part B: one message as Slack shows it — avatar and name on the
 // first of a group, text with mentions, files, reactions, the thread line and
 // a toolbar on hover.
-import { IconBookmark, IconBookmarkFilled, IconDots, IconMessageCircle, IconMoodPlus, IconPin } from "@tabler/icons-react";
+import { IconBookmark, IconBookmarkFilled, IconDots, IconDownload, IconMessageCircle, IconMoodPlus, IconPin } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useCallback, useState } from "react";
 import { mediaUrl } from "@/lib/xenaxio/chat/api";
@@ -64,7 +64,7 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
   );
 }
 
-function Attachment({ content }: { content: Record<string, unknown> }) {
+export function Attachment({ content }: { content: Record<string, unknown> }) {
   const t = useXT();
   const [viewing, setViewing] = useState(false);
   const closeViewer = useCallback(() => setViewing(false), []);
@@ -102,11 +102,26 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
       </>
     );
   }
-  if (content.msgtype === "m.video" && download) {
-    return <video controls preload="metadata" src={download} className="mt-1 max-w-sm rounded-md border border-border" />;
-  }
-  if (content.msgtype === "m.audio" && download) {
-    return <audio controls preload="metadata" src={download} className="mt-1" />;
+  // Played from the address without the file name: behind Cloudflare an address
+  // ending in ".mp4" loses the byte ranges Safari needs and the video stays black.
+  const stream = mediaUrl(url);
+  if ((content.msgtype === "m.video" || content.msgtype === "m.audio") && download && stream) {
+    return (
+      <div className="mt-1 w-fit max-w-sm">
+        {content.msgtype === "m.video" ? (
+          <video controls playsInline preload="metadata" src={stream} className="max-w-full rounded-md border border-border" />
+        ) : (
+          <audio controls preload="metadata" src={stream} />
+        )}
+        <a href={download} download={name} className="mt-1 flex items-center gap-1.5 text-xs text-muted-foreground hover:text-foreground hover:underline">
+          <IconDownload size={14} className="shrink-0" aria-hidden />
+          <span className="min-w-0 truncate">{name}</span>
+          <span className="shrink-0">
+            {info.size ? `· ${formatSize(info.size)} ` : ""}· {t("chat.download")}
+          </span>
+        </a>
+      </div>
+    );
   }
   return (
     <a href={download ?? "#"} target="_blank" rel="noopener noreferrer" className="mt-1 flex w-fit max-w-sm items-center gap-3 rounded-md border border-border px-3 py-2 hover:bg-accent">
