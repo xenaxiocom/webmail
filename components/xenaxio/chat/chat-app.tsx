@@ -39,6 +39,8 @@ import { BrowseView, DraftsView, HomeView, MentionsView, SavedView, SearchView, 
 import { LaterView, useLaterLoader } from "./later";
 import { CatchUpView } from "./channel-extras";
 import { useExtrasLoader } from "@/lib/xenaxio/chat/extras";
+import { isSidebarShortcut, useChatLayout } from "@/lib/xenaxio/chat/layout";
+import { useRoomsAccounts } from "@/lib/xenaxio/chat/rooms";
 // Step 99: colours of highlighted code in messages and snippets.
 import "./code.css";
 
@@ -83,6 +85,9 @@ function ChatInside() {
   const loadStatus = useChatStore((s) => s.loadStatus);
   const connect = useChatStore((s) => s.connect);
   const [dialog, setDialog] = useState<"jump" | "create" | "dm" | "notify" | null>(null);
+  // Step 106: the channel list folds away (not on a phone: one pane at a time there).
+  const sidebarHidden = useChatLayout((s) => s.sidebarHidden) && !isMobile;
+  const toggleSidebar = useChatLayout((s) => s.toggleSidebar);
   useChatNotifyLoader(!!client?.ready);
   // Step 99, part E2: reminders and messages sent later.
   useLaterLoader(!!client?.ready);
@@ -167,6 +172,11 @@ function ChatInside() {
   useEffect(() => {
     if (!client) return;
     const onKey = (e: KeyboardEvent) => {
+      if (isSidebarShortcut(e) && !isMobile) {
+        e.preventDefault();
+        toggleSidebar();
+        return;
+      }
       if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "k") {
         e.preventDefault();
         setDialog("jump");
@@ -185,7 +195,7 @@ function ChatInside() {
     };
     document.addEventListener("keydown", onKey);
     return () => document.removeEventListener("keydown", onKey);
-  }, [client, view, openRoom]);
+  }, [client, view, openRoom, isMobile, toggleSidebar]);
 
   if (!status && !statusError) return <Notice title={t("chat.loading")} />;
   if (statusError && !status) return <Notice title={t("chat.error")} />;
@@ -252,7 +262,7 @@ function ChatInside() {
         )
       ) : (
         <>
-          {sidebar}
+          {!sidebarHidden && sidebar}
           <main className="flex min-h-0 min-w-0 flex-1 flex-col">{main}</main>
           {/* Step 104: below 1024 px (iPad upright) the panel lies over the chat instead of squeezing it to nothing. */}
           {panel && <button type="button" aria-label={t("chat.close")} tabIndex={-1} onClick={() => setPanel(null)} className="absolute inset-0 z-20 bg-black/30 lg:hidden" data-testid="chat-panel-backdrop" />}
@@ -295,6 +305,10 @@ export function ChatApp() {
   const portal = usePortal();
   const rooms = portal?.kind === "rooms";
   const mvShell = useMountainViewShell(isEmbedded) && !rooms;
+  // Step 106: the companies' column can be hidden; on a phone they open in a sheet from the channel list.
+  const railHidden = useChatLayout((s) => s.railHidden);
+  // Step 67: the companies and the others' unread counts, wherever they are shown.
+  useRoomsAccounts(rooms && !isEmbedded && signedIn);
 
   // The chat needs only the platform session, not the mail connection (so it
   // also works on its own later); the mail session loads in the background for
@@ -325,14 +339,13 @@ export function ChatApp() {
       <AppTopBannerSlot />
       {mvShell && <MvTopBar showMenuButton={false} onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />}
       <div data-mv-card={mvShell ? "" : undefined} className={cn("flex min-h-0 flex-1 overflow-hidden", mvShell && "mx-4 mb-4 bg-background")}>
-        {rooms && !isEmbedded && !isMobile && <RoomsRail />}
+        {rooms && !isEmbedded && !isMobile && !railHidden && <RoomsRail />}
         {!rooms && !isMobile && !isEmbedded && !mvShell && (
           <div data-app-rail="" className="flex w-14 flex-shrink-0 flex-col bg-secondary" style={{ borderRight: "1px solid rgba(128, 128, 128, 0.3)" }}>
             <NavigationRail collapsed quota={quota} isPushConnected={isPushConnected} onLogout={logout} onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col">
-          {rooms && !isEmbedded && isMobile && <RoomsRail horizontal />}
           {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
           <div className={cn("flex min-h-0 flex-1", inlineApp && "hidden")}>
             <ChatDialogsProvider>

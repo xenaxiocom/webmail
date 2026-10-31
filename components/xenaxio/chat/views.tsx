@@ -11,11 +11,13 @@ import { mentionsOf, parseSearch, threadsOf } from "@/lib/xenaxio/chat/view";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
 import { PersonAvatar, useChatTime, useDisplayName } from "./common";
+import { SidebarExpandButton } from "./sidebar-toggle";
 
 function ViewFrame({ title, children }: { title: string; children: React.ReactNode }) {
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex h-14 shrink-0 items-center border-b border-border px-5">
+      <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-5">
+        <SidebarExpandButton className="-ml-2" />
         <h1 className="truncate text-base font-bold">{title}</h1>
       </header>
       <div className="flex-1 overflow-y-auto">{children}</div>
@@ -255,7 +257,8 @@ export function SearchView({ client, query }: { client: ChatClient; query: strin
 export function HomeView() {
   const t = useXT();
   return (
-    <div className="flex flex-1 items-center justify-center p-8">
+    <div className="relative flex flex-1 items-center justify-center p-8">
+      <SidebarExpandButton className="absolute left-3 top-3" />
       <div className="max-w-sm text-center">
         <h1 className="text-xl font-bold">{t("chat.home_title")}</h1>
         <p className="mt-2 text-sm text-muted-foreground">{t("chat.home_text")}</p>

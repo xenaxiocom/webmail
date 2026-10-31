@@ -23,6 +23,7 @@ import { CallButton, useJoinRoomCall } from "@/components/xenaxio/meet/call";
 import { BookmarksBar, ForumView, VoiceBar } from "./channel-extras";
 import { useChatExtras } from "@/lib/xenaxio/chat/extras";
 import { ChannelDetails, type DetailsTab } from "./channel-details";
+import { SidebarExpandButton } from "./sidebar-toggle";
 
 export function TypingLine({ room }: { room: Room }) {
   const t = useXT();
@@ -167,6 +168,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
       }}
     >
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
+        <SidebarExpandButton className="-ml-1" />
         <div className="relative min-w-0">
           <button
             type="button"

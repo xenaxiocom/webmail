@@ -22,6 +22,8 @@ import { useChatDialogs } from "./dialogs";
 import { useLongPress } from "./message-sheet";
 import { isDue, useChatLater } from "@/lib/xenaxio/chat/later";
 import { useChatExtras } from "@/lib/xenaxio/chat/extras";
+import { CompanyButton, useCompanyButtonShown } from "./rooms-rail";
+import { SidebarCollapseButton } from "./sidebar-toggle";
 
 const ROOM_DRAG = "application/x-xenaxio-room";
 
@@ -381,6 +383,8 @@ export function ChatSidebar({
   const setView = useChatStore((s) => s.setView);
   const setPanel = useChatStore((s) => s.setPanel);
   const { prompt } = useChatDialogs();
+  // Step 106: XenRooms on a phone or with its column hidden: the companies open from here.
+  const companies = useCompanyButtonShown();
   const save = useLayout(client);
   const layout = client.sidebar;
   const collapsed = new Set(layout.collapsed);
@@ -450,8 +454,9 @@ export function ChatSidebar({
 
   return (
     <nav className="flex h-full min-h-0 w-full flex-col bg-secondary/60 md:w-64 md:border-r md:border-border" aria-label={t("chat.title")}>
-      <div className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-3">
-        <span className="min-w-0 flex-1 truncate text-base font-bold">{companyName}</span>
+      <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-3">
+        {companies ? <CompanyButton name={companyName} /> : <span className="min-w-0 flex-1 truncate text-base font-bold">{companyName}</span>}
+        <SidebarCollapseButton />
         <NotifyButton onOpen={onNotify} />
         <span className="relative">
           <button type="button" onClick={() => setOptions((o) => !o)} className={cn("rounded-md p-1.5 hover:bg-accent", layout.unreadOnly && "text-primary")} title={t("chat.side_options")} aria-label={t("chat.side_options")} aria-haspopup="menu">
