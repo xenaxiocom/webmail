@@ -4,12 +4,14 @@
 // Markdown shortcuts and a small toolbar; "@" suggests people (and @channel),
 // "#" channels; files by paperclip, paste or drop; the draft of each channel
 // stays while switching. Step 62: files wait in the box (several, with text)
-// and go out together on "send".
+// and go out together on "send". Step 87: ":" and a word suggests emoji;
+// typed emoticons (":)") go out as emoji.
 import { IconBold, IconCode, IconFile, IconItalic, IconList, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { uploadFile } from "@/lib/xenaxio/chat/api";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
+import { searchEmoji } from "@/lib/xenaxio/chat/emoji";
 import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { suggestionAt } from "@/lib/xenaxio/chat/view";
@@ -78,6 +80,7 @@ export function pastesAsText(types: readonly string[], files: File[]): boolean {
 interface Suggestion {
   key: string;
   label: string;
+  emoji?: string;
   insert: string;
   userId?: string;
   hint?: string;
@@ -151,6 +154,7 @@ export function Composer({
         .map((p) => ({ key: p.userId, label: p.displayName, insert: `@${p.displayName} `, userId: p.userId, hint: colleagues.get(p.userId)?.email }));
       return [...found, ...special];
     }
+    if (suggestion.trigger === ":") return searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }));
     return [...client.rooms.values()]
       .filter((r) => r.kind === "channel" && r.membership === "join" && client.roomName(r).toLowerCase().includes(q))
       .slice(0, 8)
@@ -245,6 +249,7 @@ export function Composer({
               className={cn("flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm", i === selected ? "bg-accent" : "hover:bg-accent/60")}
             >
               {o.userId && <PersonAvatar userId={o.userId} name={o.label} size="sm" />}
+              {o.emoji && <span className="text-lg leading-none">{o.emoji}</span>}
               <span className="truncate font-medium">{o.label}</span>
               {o.hint && <span className="truncate text-xs text-muted-foreground">{o.hint}</span>}
             </button>

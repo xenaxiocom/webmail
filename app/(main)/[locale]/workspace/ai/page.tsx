@@ -4,6 +4,7 @@
 // everyone, pick the model, see this month's usage per person against the limits.
 // Step 44 (I9): or connect the company's own model (any OpenAI-compatible server).
 // Step 50: and set the limits of the assistant's scheduled tasks.
+// Step 84: the company's skills (own page) and model profiles.
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { Plus, Trash2 } from "@/components/icons";
@@ -13,6 +14,9 @@ import { Notice, PasswordField, Spinner, TextField } from "@/components/xenaxio/
 import { CustomModelCheckResult } from "@/components/xenaxio/custom-model-check";
 import { CustomModelList } from "@/components/xenaxio/custom-model-list";
 import { ScheduleSettings } from "@/components/xenaxio/schedule-settings";
+import { AnswerSettings } from "@/components/xenaxio/answer-settings";
+import { ModelProfiles } from "@/components/xenaxio/model-profiles";
+import { TranscriptionSettings } from "@/components/xenaxio/transcription-settings";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { type AiAdmin, type AiProvider, type CustomModel, type CustomModelCheck, errorText, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -351,6 +355,11 @@ function AiSettings() {
 
       <ProviderChoice data={data} busy={busy} onPick={(provider) => provider !== data.provider && change({ provider })} />
 
+      {/* Step 85: the company's limit on what AI may do, per tool. */}
+      <Link href="/workspace/ai/permissions" className="block text-sm text-primary underline underline-offset-4">
+        {t("permissions.admin_link")}
+      </Link>
+
       {!own && data.platformConfigured && (
         <section className="space-y-2 rounded-lg border border-border bg-card p-4">
           <label htmlFor="ai-model" className="font-medium">
@@ -383,6 +392,27 @@ function AiSettings() {
         }}
       />
       {data.custom && <CustomModelList custom={data.custom} platformConfigured={data.platformConfigured} onChanged={load} />}
+
+      {data.answers && <AnswerSettings value={data.answers} onSaved={load} />}
+
+      {/* Step 84: skills of the company and model profiles. */}
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <h2 className="font-medium">{t("aiadmin.skills_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("aiadmin.skills_intro")}</p>
+        <Link href="/workspace/ai/skills" className="text-sm text-primary underline underline-offset-4">
+          {t("aiadmin.skills_open")}
+        </Link>
+      </section>
+      {/* Step 91: facts every employee's assistant knows. */}
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <h2 className="font-medium">{t("memory.company_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("aiadmin.knowledge_intro")}</p>
+        <Link href="/workspace/ai/knowledge" className="text-sm text-primary underline underline-offset-4">
+          {t("aiadmin.knowledge_open")}
+        </Link>
+      </section>
+      {data.profiles && <ModelProfiles value={data.profiles} companyModel={own ? (data.custom?.model ?? "") : data.model} onSaved={load} />}
+      {data.transcription && <TranscriptionSettings value={data.transcription} hasOwnServer={!!data.custom} onSaved={load} />}
 
       {data.schedules && <ScheduleSettings value={data.schedules} onSaved={load} />}
 

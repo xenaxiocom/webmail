@@ -2,6 +2,7 @@
 
 // Step 56: the company admin switches online booking on or off and gives the
 // company's imprint and privacy policy, shown on its public booking pages.
+// Step 77: new bookings and requests can go to Salesforce as leads (Web-to-Lead).
 import { type FormEvent, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -10,11 +11,18 @@ import { errorText } from "@/lib/xenaxio/api";
 import { type AdminBooking, booking, type BookingTheme } from "@/lib/xenaxio/booking";
 import { useXT } from "@/lib/xenaxio/i18n";
 
-const view = (s: AdminBooking) => ({ enabled: s.enabled, imprintUrl: s.imprintUrl ?? "", privacyUrl: s.privacyUrl ?? "", theme: s.theme ?? "auto" });
+const view = (s: AdminBooking) => ({
+  enabled: s.enabled,
+  imprintUrl: s.imprintUrl ?? "",
+  privacyUrl: s.privacyUrl ?? "",
+  theme: s.theme ?? "auto",
+  salesforceOrgId: s.salesforceOrgId ?? "",
+  leadSource: s.leadSource ?? "",
+});
 
 export function BookingAdmin() {
   const t = useXT();
-  const [state, setState] = useState<{ enabled: boolean; imprintUrl: string; privacyUrl: string; theme: BookingTheme } | null>(null);
+  const [state, setState] = useState<ReturnType<typeof view> | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [saved, setSaved] = useState(false);
@@ -44,6 +52,11 @@ export function BookingAdmin() {
   const submit = (e: FormEvent) => {
     e.preventDefault();
     if (state) void save({ imprintUrl: state.imprintUrl.trim(), privacyUrl: state.privacyUrl.trim() });
+  };
+
+  const submitSalesforce = (e: FormEvent) => {
+    e.preventDefault();
+    if (state) void save({ salesforceOrgId: state.salesforceOrgId.trim() || null, leadSource: state.leadSource.trim() || null });
   };
 
   return (
@@ -88,6 +101,39 @@ export function BookingAdmin() {
           {state.enabled && !state.privacyUrl && <Notice kind="info">{t("booking_admin.privacy_missing")}</Notice>}
           <Button type="submit" disabled={busy}>
             {t("booking_admin.save")}
+          </Button>
+        </form>
+      )}
+      {state && (
+        <form onSubmit={submitSalesforce} className="space-y-3 border-t border-border pt-3" aria-label={t("booking_admin.salesforce")}>
+          <div>
+            <h3 className="text-sm font-medium">{t("booking_admin.salesforce")}</h3>
+            <p className="mt-1 text-xs text-muted-foreground">{t("booking_admin.salesforce_hint")}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2">
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">{t("booking_admin.salesforce_org")}</span>
+              <Input
+                placeholder="00D…"
+                maxLength={18}
+                autoComplete="off"
+                spellCheck={false}
+                value={state.salesforceOrgId}
+                onChange={(e) => setState({ ...state, salesforceOrgId: e.target.value })}
+              />
+            </label>
+            <label className="block text-sm">
+              <span className="mb-1 block font-medium">{t("booking_admin.lead_source")}</span>
+              <Input
+                placeholder={t("booking_admin.lead_source_placeholder")}
+                maxLength={100}
+                value={state.leadSource}
+                onChange={(e) => setState({ ...state, leadSource: e.target.value })}
+              />
+            </label>
+          </div>
+          <Button type="submit" disabled={busy}>
+            {t("booking_admin.salesforce_save")}
           </Button>
         </form>
       )}

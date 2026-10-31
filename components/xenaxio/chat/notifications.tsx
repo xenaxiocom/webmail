@@ -188,6 +188,7 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
         <section>
           <h3 className="font-semibold">{t("chat.notify_device")}</h3>
           {push === "unsupported" && <p className="mt-1 text-muted-foreground">{t("chat.push_unsupported")}</p>}
+          {push === "disabled" && <p className="mt-1 text-muted-foreground">{t("chat.push_disabled")}</p>}
           {push === "denied" && <p className="mt-1 text-muted-foreground">{t("chat.push_denied")}</p>}
           {(push === "on" || push === "off" || push === null) && (
             <label className="mt-1 flex items-center gap-2">

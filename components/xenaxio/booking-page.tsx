@@ -229,7 +229,18 @@ function Avatar({ person, size = 56 }: { person: PublicPerson; size?: number }) 
 }
 
 function PlaceLine({ t, kind, value, booked = false }: { t: T; kind: PublicType["locationKind"]; value: string; booked?: boolean }) {
-  const icon = kind === "video" ? <Video className="h-4 w-4" /> : kind === "phone" ? <Phone className="h-4 w-4" /> : <MapPin className="h-4 w-4" />;
+  const icon = kind === "video" || kind === "meeting" ? <Video className="h-4 w-4" /> : kind === "phone" ? <Phone className="h-4 w-4" /> : <MapPin className="h-4 w-4" />;
+  // Step 78: a booked Xenaxio Meeting shows its own link.
+  if (kind === "meeting" && booked && /^https:\/\/\S+\/meet\/[a-z0-9]{10,32}$/.test(value)) {
+    return (
+      <p className="flex items-start gap-2 text-sm text-muted-foreground">
+        <span className="mt-0.5 shrink-0">{icon}</span>
+        <a href={value} target="_blank" rel="noopener" className="text-primary underline">
+          {t("booking.place.meeting_booked")}
+        </a>
+      </p>
+    );
+  }
   // A booked video meeting shows its link instead of "you get the link with the confirmation".
   const text = kind === "address" && value ? value : booked && kind === "video" ? t("booking.place.video_booked") : t(`booking.place.${kind}`);
   return (
@@ -436,6 +447,7 @@ interface GuestDraft {
   name: string;
   email: string;
   phone: string;
+  company: string;
   message: string;
   website: string;
 }
@@ -458,6 +470,13 @@ function GuestFields({ t, type, draft, setDraft }: { t: T; type: PublicType; dra
         {label(t("booking.email"), true)}
         <Input required type="email" maxLength={254} autoComplete="email" {...field("email")} />
       </label>
+      {/* Step 77: the company goes to Salesforce as the lead's company. */}
+      {(type.askCompany ?? "off") !== "off" && (
+        <label className="block">
+          {label(t("booking.company"), type.askCompany === "required")}
+          <Input required={type.askCompany === "required"} maxLength={80} autoComplete="organization" {...field("company")} />
+        </label>
+      )}
       {type.askPhone !== "off" && (
         <label className="block">
           {label(t("booking.phone"), type.askPhone === "required")}
@@ -492,8 +511,11 @@ const guestOf = (d: GuestDraft) => ({
   name: d.name.trim(),
   email: d.email.trim(),
   ...(d.phone.trim() ? { phone: d.phone.trim() } : {}),
+  ...(d.company.trim() ? { company: d.company.trim() } : {}),
   ...(d.message.trim() ? { message: d.message.trim() } : {}),
   ...(d.website ? { website: d.website } : {}),
+  // Step 77: the booking page's address with its utm_* parameters (the lead's source).
+  page: window.location.href,
 });
 
 const primaryButton = "inline-flex items-center justify-center gap-2 rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50";
@@ -543,7 +565,7 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
   useBookingTitle(data && [data.type.title, data.person.name]);
   const [timeZone, setTimeZone] = useState("Europe/Berlin");
   const [step, setStep] = useState<Step>({ kind: "pick" });
-  const [draft, setDraft] = useState<GuestDraft>({ name: "", email: "", phone: "", message: "", website: "" });
+  const [draft, setDraft] = useState<GuestDraft>({ name: "", email: "", phone: "", company: "", message: "", website: "" });
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [reload, setReload] = useState(0);
@@ -728,7 +750,6 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
             <button type="submit" disabled={busy} className={primaryButton}>
               {busy ? t("booking.booking") : t("booking.book")}
             </button>
-            <p className="text-xs text-muted-foreground">{t("booking.privacy_note", { name: person.name })}</p>
           </form>
         )}
         {step.kind === "request" && (
@@ -768,7 +789,6 @@ function TypePage({ t, lang, user, typeSlug, details, onMeta }: { t: T; lang: La
             <button type="submit" disabled={busy} className={primaryButton}>
               {busy ? t("booking.booking") : t("booking.send_request")}
             </button>
-            <p className="text-xs text-muted-foreground">{t("booking.privacy_note", { name: person.name })}</p>
           </form>
         )}
       </section>

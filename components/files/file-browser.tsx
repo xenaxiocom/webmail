@@ -29,6 +29,7 @@ import { getDroppedFilesAndFolders } from "@/lib/webdav/drop-utils";
 import { resourceToView, useFileStore, type FileResource } from "@/stores/file-store";
 import { PluginActions, usePluginActions } from "@/components/plugins/plugin-actions";
 import { toast } from "@/stores/toast-store";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { ShareCollectionDialog } from "@/components/settings/share-collection-dialog";
 import type { IJMAPClient } from "@/lib/jmap/client-interface";
 import type { FileNodeRights } from "@/lib/jmap/types";
@@ -375,6 +376,11 @@ export function FileBrowser({
   const singleSelected = selectedList.length === 1 ? selectedList[0] : null;
   // What plugins see of the selection (file-actions, file-preview-section).
   const selectedViews = useMemo(() => selectedList.map((r) => resourceToView(r, currentPath)), [selectedList, currentPath]);
+  // Xenaxio: choosing a file opens the details panel (player, transcript), on wide screens.
+  const autoDetailsId = XENAXIO_BFF && !isNarrow && singleSelected && !singleSelected.isDirectory ? singleSelected.id : null;
+  useEffect(() => {
+    if (autoDetailsId) toggleDetails(true);
+  }, [autoDetailsId, toggleDetails]);
 
   // ---- Breadcrumbs -----------------------------------------------------------
   const crumbs: Crumb[] = useMemo(() => {
@@ -833,7 +839,11 @@ export function FileBrowser({
     onShare: (r) => setShareTargetId(r.id),
     canShare,
     dragProps: itemDragProps,
-  }), [handleSelectClick, handleToggleSelect, openResource, openItemMenu, onDownload, canShare, itemDragProps]);
+    onShowDetails: (r) => {
+      onSetSelection(new Set([r.name]));
+      toggleDetails(true);
+    },
+  }), [handleSelectClick, handleToggleSelect, openResource, openItemMenu, onDownload, canShare, itemDragProps, onSetSelection, toggleDetails]);
 
   const handleSort = useCallback((key: SortKey) => {
     if (sortKey === key) setSortDir((d) => (d === "asc" ? "desc" : "asc"));

@@ -179,6 +179,8 @@ export {
   IconPinnedOff as PinOff,
   IconPlayerPlay as Play,
   IconPlayerPlay as PlayCircle,
+  IconPlayerPause as Pause,
+  IconPlayerRecord as Record,
   IconPlus as Plus,
   IconPower as Power,
   IconPower as PowerOff,
@@ -251,3 +253,19 @@ export {
   IconZoomIn as ZoomIn,
   IconZoomOut as ZoomOut,
 } from '@tabler/icons-react';
+
+// xenaxio step 78: the meeting page (components/xenaxio/meet).
+export {
+  IconHandStop as Hand,
+  IconMicrophone as Mic,
+  IconMicrophoneOff as MicOff,
+  IconPhoneOff as PhoneOff,
+  IconScreenShare as ScreenShare,
+  IconMoodSmile as Smile,
+  IconCameraRotate as SwitchCamera,
+  IconUserX as UserX,
+  IconVideoOff as VideoOff,
+} from '@tabler/icons-react';
+
+// xenaxio step 92: the background behind one's own camera.
+export { IconBackground as MeetBackgroundIcon, IconBlur as Blur } from '@tabler/icons-react';

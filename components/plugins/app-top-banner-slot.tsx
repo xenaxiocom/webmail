@@ -3,6 +3,7 @@
 import { PluginSlot } from '@/components/plugins/plugin-slot';
 import { useAuthStore } from '@/stores/auth-store';
 import { XenaxioDomainBanner } from '@/components/xenaxio/domain-banner';
+import { XenaxioDemoStrip } from '@/components/xenaxio/demo-strip';
 import { XENAXIO_BFF } from '@/lib/xenaxio/bff';
 
 /**
@@ -18,6 +19,8 @@ export function AppTopBannerSlot() {
     <>
       {/* xenaxio: "domain not connected" notice on every app page. */}
       {XENAXIO_BFF && <XenaxioDomainBanner />}
+      {/* xenaxio step 73: a live-demo guest's time and the ways on. */}
+      {XENAXIO_BFF && <XenaxioDemoStrip />}
       <PluginSlot name="app-top-banner" extraProps={{ username, serverUrl }} />
     </>
   );

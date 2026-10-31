@@ -104,8 +104,9 @@ async function handlePush(event) {
 
 /** Step 49: one notification per scheduled task; a click opens its chat in the assistant. */
 async function showAssistant(data) {
-  const id = typeof data.conversationId === "string" ? data.conversationId : "";
-  if (!/^[0-9a-f-]{36}$/i.test(id)) return;
+  // Step 85: a connected AI chat waits for the user's confirmation; a click opens the waiting calls.
+  const id = data.waiting === true ? "waiting" : typeof data.conversationId === "string" ? data.conversationId : "";
+  if (id !== "waiting" && !/^[0-9a-f-]{36}$/i.test(id)) return;
   await self.registration.showNotification(typeof data.title === "string" && data.title ? data.title : "Assistent", {
     body: typeof data.body === "string" ? data.body : "",
     tag: `xenaxio-assistant:${id}`,

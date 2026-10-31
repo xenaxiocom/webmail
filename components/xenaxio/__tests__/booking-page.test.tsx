@@ -35,6 +35,7 @@ const type = {
   location: "",
   askPhone: "off" as const,
   askMessage: "optional" as const,
+  askCompany: "off" as const,
   allowRequests: true,
   hasHours: true,
   horizonDays: 60,
@@ -104,14 +105,65 @@ describe("step 56: public booking page", () => {
       return screen.findByRole("button", { name: hhmm(start) });
     });
     fireEvent.click(time);
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max Muster" } });
+    // Step 77: no company field when the type does not ask for it.
+    expect(screen.queryByLabelText(/^Firma/)).toBeNull();
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max Muster" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
 
     expect(await screen.findByText("Termin gebucht")).toBeTruthy();
     expect(api.book).toHaveBeenCalledWith("eugen", "demo", expect.objectContaining({ start: start.toISOString(), name: "Max Muster", email: "max@example.com", locale: "de" }));
+    expect(api.book.mock.calls[0]![2]).not.toHaveProperty("company");
     expect(screen.getByText("Eine Bestätigung mit Kalendereinladung ist an max@example.com unterwegs.")).toBeTruthy();
     expect(screen.getByRole("link", { name: "Verschieben oder absagen" }).getAttribute("href")).toContain("/book/manage/#");
+  });
+
+  it("step 77: asks for the company when required and sends it with the page address", async () => {
+    at("/book/eugen/demo?utm_source=newsletter&utm_campaign=herbst");
+    const start = new Date(Date.now() + 2 * 86_400_000);
+    start.setUTCHours(11, 0, 0, 0);
+    api.type.mockResolvedValue({ person, type: { ...type, askCompany: "required" }, legal: { imprintUrl: null, privacyUrl: null } });
+    api.slots.mockResolvedValue({ slots: [start.toISOString()] });
+    api.book.mockResolvedValue({ status: "confirmed", start: start.toISOString(), end: new Date(start.getTime() + 1_800_000).toISOString(), title: "Demo", ics: "BEGIN:VCALENDAR", manageUrl: `https://acme.test/book/manage/#${TOKEN}` });
+    render(<BookingPage />);
+    const time = await screen.findByRole("button", { name: hhmm(start) }).catch(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Nächster Monat" }));
+      return screen.findByRole("button", { name: hhmm(start) });
+    });
+    fireEvent.click(time);
+    const company = screen.getByLabelText(/^Firma/) as HTMLInputElement;
+    expect(company.required).toBe(true);
+    expect(company.maxLength).toBe(80);
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max Muster" } });
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
+    fireEvent.change(company, { target: { value: "  Muster GmbH " } });
+    fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
+    expect(await screen.findByText("Termin gebucht")).toBeTruthy();
+    expect(api.book).toHaveBeenCalledWith(
+      "eugen",
+      "demo",
+      expect.objectContaining({ company: "Muster GmbH", page: `${window.location.origin}/book/eugen/demo?utm_source=newsletter&utm_campaign=herbst` }),
+    );
+  });
+
+  it("step 77: an optional company field; the server's company_missing is explained", async () => {
+    at("/book/eugen/demo");
+    const start = new Date(Date.now() + 2 * 86_400_000);
+    start.setUTCHours(12, 0, 0, 0);
+    api.type.mockResolvedValue({ person, type: { ...type, askCompany: "optional" }, legal: { imprintUrl: null, privacyUrl: null } });
+    api.slots.mockResolvedValue({ slots: [start.toISOString()] });
+    api.book.mockRejectedValue(new XenaxioApiError(400, "company_missing"));
+    render(<BookingPage />);
+    const time = await screen.findByRole("button", { name: hhmm(start) }).catch(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Nächster Monat" }));
+      return screen.findByRole("button", { name: hhmm(start) });
+    });
+    fireEvent.click(time);
+    expect((screen.getByLabelText(/^Firma/) as HTMLInputElement).required).toBe(false);
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
+    expect(await screen.findByText("Bitte geben Sie Ihre Firma an.")).toBeTruthy();
   });
 
   it("goes back to the times when the slot was just taken", async () => {
@@ -127,7 +179,7 @@ describe("step 56: public booking page", () => {
       return screen.findByRole("button", { name: hhmm(start) });
     });
     fireEvent.click(time);
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Termin buchen" }));
     expect(await screen.findByText("Diese Zeit wurde gerade vergeben. Bitte wählen Sie eine andere.")).toBeTruthy();
@@ -136,17 +188,22 @@ describe("step 56: public booking page", () => {
 
   it("without free time: asks for a time", async () => {
     at("/book/eugen/demo");
-    api.type.mockResolvedValue({ person, type: { ...type, hasHours: false }, legal: { imprintUrl: null, privacyUrl: null } });
+    api.type.mockResolvedValue({ person, type: { ...type, hasHours: false, askCompany: "optional" }, legal: { imprintUrl: null, privacyUrl: null } });
     api.request.mockResolvedValue({ status: "requested", proposals: ["2026-12-01T09:00:00.000Z"] });
     render(<BookingPage />);
     fireEvent.click(await screen.findByRole("button", { name: "Wunschtermin anfragen" }));
     fireEvent.change(screen.getByLabelText("Datum, Vorschlag 1"), { target: { value: "2026-12-01" } });
     fireEvent.change(screen.getByLabelText("Uhrzeit, Vorschlag 1"), { target: { value: "10:00" } });
-    fireEvent.change(screen.getByLabelText(/^Name/), { target: { value: "Max" } });
+    fireEvent.change(screen.getByLabelText(/^(Vor- und Nachname|First and last name)/), { target: { value: "Max" } });
     fireEvent.change(screen.getByLabelText(/^E-Mail/), { target: { value: "max@example.com" } });
+    fireEvent.change(screen.getByLabelText(/^Firma/), { target: { value: "Muster GmbH" } });
     fireEvent.click(screen.getByRole("button", { name: "Anfrage senden" }));
     expect(await screen.findByText("Anfrage gesendet")).toBeTruthy();
-    expect(api.request).toHaveBeenCalledWith("eugen", "demo", expect.objectContaining({ proposals: [expect.any(String)], name: "Max" }));
+    expect(api.request).toHaveBeenCalledWith(
+      "eugen",
+      "demo",
+      expect.objectContaining({ proposals: [expect.any(String)], name: "Max", company: "Muster GmbH", page: `${window.location.origin}/book/eugen/demo` }),
+    );
   });
 
   it("the visitor's link: shows the meeting and cancels it", async () => {

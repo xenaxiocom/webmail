@@ -6,7 +6,7 @@
 // has the assistant configured and enabled for the user. Step 33: files and
 // pictures go into the chat (paperclip, paste, drop) and are kept in Files.
 import { type ClipboardEvent, type DragEvent, Fragment, type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
-import { useLocale } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Brain, CalendarClock, CalendarDays, Check, File as FileIcon, FileText, FolderOpen, Image as ImageIcon, Loader2, MessageSquare, Paperclip, PenLine, Plus, RotateCcw, Send, Sparkles, Square, Trash2, Upload, X } from "@/components/icons";
@@ -15,7 +15,7 @@ import type { FileNode } from "@/lib/jmap/types";
 import { useAuthStore } from "@/stores/auth-store";
 import { useEmailStore } from "@/stores/email-store";
 import { cn, formatFileSize } from "@/lib/utils";
-import { errorKey, XenaxioApiError } from "@/lib/xenaxio/api";
+import { errorKey, xenaxio, XenaxioApiError } from "@/lib/xenaxio/api";
 import {
   assistant,
   assistantAvailable,
@@ -26,6 +26,7 @@ import {
   assistantIds,
   type AttachedFile,
   ASSISTANT_OPEN_PARAM,
+  ASSISTANT_WAITING,
   type ConversationInfo,
   attachedFileLink,
   chatFileProblem,
@@ -34,6 +35,7 @@ import {
   messageRouteId,
   pastedName,
   OPEN_DRAFT_EVENT,
+  type PlanItem,
   type ProposalSummary,
   type SourceEmail,
 } from "@/lib/xenaxio/assistant";
@@ -42,10 +44,15 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { TaskCard } from "@/components/xenaxio/task-card";
 import { ScheduleCard } from "@/components/xenaxio/schedule-card";
 import { showCalendar } from "@/lib/xenaxio/calendar-visibility";
+import { DraftDeleteCard } from "./draft-card";
 import { ProposalSeriesNote, ProposalSeriesRows } from "./proposal-series";
 import { AssistantButton, useAssistantDevice, useAssistantPositions } from "./assistant-button";
 import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
 import { toast } from "@/stores/toast-store";
+import { useToolLabel } from "./tool-permissions";
+import { isSettingProposal, SettingCard } from "./setting-card";
+import { useAssistantScreen } from "./use-assistant-screen";
+import { type Screen, screenSuggestions } from "@/lib/xenaxio/assistant-screen";
 
 type ProposalState = "pending" | "running" | "done" | "done_invited" | "invite_failed" | "rejected" | "expired" | "already" | "failed" | "memory_full" | "memory_off" | "schedule_limit";
 
@@ -54,6 +61,8 @@ interface Proposal {
   tool: string;
   summary: ProposalSummary;
   state: ProposalState;
+  /** Step 85: the connected AI chat that asked (waiting calls only). */
+  client?: string | null;
 }
 
 interface Turn {
@@ -70,6 +79,37 @@ interface Turn {
   /** Step 45: a note about the answer (it came from the fallback model). */
   notice?: string;
   title?: string;
+  /** Step 83: the plan of a longer task, as a checklist. */
+  plan?: PlanItem[];
+  /** Step 83: the answer stopped at the company's limit; "Weiter" goes on. */
+  budget?: boolean;
+  /** Step 84: skills the answer followed. */
+  skills?: string[];
+  /** Step 91: facts the assistant kept in this answer; `undone` once the user took one back. */
+  memory?: { id: string; text: string; undone?: boolean }[];
+}
+
+/** Step 83: the assistant's plan for a longer task. */
+function PlanList({ items, title }: { items: PlanItem[]; title: string }) {
+  return (
+    <div className="rounded-md border border-border px-2 py-1.5">
+      <p className="mb-1 text-xs font-medium text-muted-foreground">{title}</p>
+      <ul className="space-y-0.5">
+        {items.map((item, n) => (
+          <li key={n} className={cn("flex items-start gap-1.5 text-xs", item.status === "done" && "text-muted-foreground line-through")}>
+            {item.status === "done" ? (
+              <Check className="mt-0.5 h-3 w-3 shrink-0 text-green-700 dark:text-green-400" aria-hidden />
+            ) : item.status === "doing" ? (
+              <Loader2 className="mt-0.5 h-3 w-3 shrink-0 animate-spin text-primary" aria-hidden />
+            ) : (
+              <span className="mt-1 h-2 w-2 shrink-0 rounded-full border border-muted-foreground" aria-hidden />
+            )}
+            <span>{item.text}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  );
 }
 
 /** A file waiting under the input: uploading, ready to send, or refused. */
@@ -136,9 +176,12 @@ function FileChip({ name, size, type, preview, href, deleted, busy, error, onOpe
   );
 }
 
+/** Step 73c: the live demo's one-click questions (texts in demo.prompt_*). */
+const DEMO_PROMPTS = ["price", "unread", "rooms", "tasks", "slot"] as const;
+
 // Step 61: everywhere after sign-in; not on the sign-in and setup pages, public
 // booking pages, the AI chat consent screen and the operator console.
-const HIDDEN = /^\/(login|onboarding|auth|book|connect|operator|plugins|pro)(\/|$)/;
+const HIDDEN = /^\/(login|onboarding|auth|book|connect|operator|plugins|pro|demo)(\/|$)/;
 /** Per-tab only; cleared with the tab and on sign-out. Holds the visible chat, nothing else. */
 const STORAGE_KEY = ASSISTANT_STORAGE_KEY;
 
@@ -198,6 +241,48 @@ function MemoryCard({ proposal, onDecide }: { proposal: Proposal; onDecide: (p: 
   );
 }
 
+/** Step 85: a value of a tool's input, short enough for the card. */
+function inputText(value: unknown): string {
+  const text = typeof value === "string" ? value : Array.isArray(value) && value.every((v) => typeof v === "string") ? value.join(", ") : JSON.stringify(value);
+  return text.length > 300 ? `${text.slice(0, 300)}…` : text;
+}
+
+/** Step 85: a tool that waits only because the user wants to be asked: its name and input as they will run. */
+function GenericCard({ proposal, onDecide }: { proposal: Proposal; onDecide: (p: Proposal, confirm: boolean) => void }) {
+  const t = useXT();
+  const toolLabel = useToolLabel();
+  const input = proposal.summary.input ?? {};
+  const settled = proposal.state !== "pending" && proposal.state !== "running";
+  return (
+    <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
+      <p className="font-medium text-sm">{t("assistant.waiting.action", { tool: toolLabel(proposal.tool) })}</p>
+      <dl className="grid grid-cols-[auto_1fr] gap-x-2 gap-y-1">
+        {Object.entries(input).map(([key, value]) => (
+          <Fragment key={key}>
+            <dt className="text-muted-foreground">{key}</dt>
+            <dd className="break-words whitespace-pre-wrap">{inputText(value)}</dd>
+          </Fragment>
+        ))}
+      </dl>
+      {settled ? (
+        <p className={cn(proposal.state === "done" ? "text-primary" : "text-muted-foreground", "flex items-center gap-1")}>
+          {proposal.state === "done" && <Check className="h-3.5 w-3.5" />}
+          {proposal.state === "done" ? t("assistant.waiting.done") : proposal.state === "failed" ? t("assistant.tool_error") : t(`assistant.proposal.${proposal.state}`)}
+        </p>
+      ) : (
+        <div className="flex gap-2">
+          <Button size="sm" disabled={proposal.state === "running"} onClick={() => onDecide(proposal, true)}>
+            {t("assistant.proposal.confirm")}
+          </Button>
+          <Button size="sm" variant="outline" disabled={proposal.state === "running"} onClick={() => onDecide(proposal, false)}>
+            {t("assistant.proposal.reject")}
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 function ProposalCard({ proposal, locale, onDecide }: { proposal: Proposal; locale: string; onDecide: (p: Proposal, confirm: boolean) => void }) {
   const t = useXT();
   const s = proposal.summary;
@@ -234,6 +319,18 @@ function ProposalCard({ proposal, locale, onDecide }: { proposal: Proposal; loca
               {s.location}
               {changed("location") && was(s.before?.location)}
             </dd>
+          </>
+        ) : null}
+        {s.meeting ? (
+          <>
+            <dt className="text-muted-foreground">{t("assistant.proposal.video")}</dt>
+            <dd>{t("assistant.proposal.meeting")}</dd>
+          </>
+        ) : null}
+        {s.webinar ? (
+          <>
+            <dt className="text-muted-foreground">{t("assistant.proposal.video")}</dt>
+            <dd>{t(s.registration === false ? "assistant.proposal.webinar_open" : "assistant.proposal.webinar")}</dd>
           </>
         ) : null}
         {attendees.length > 0 ? (
@@ -319,12 +416,41 @@ function Formatted({ text, sources, onOpen }: { text: string; sources: SourceEma
   return <div className="space-y-2 break-words">{blocks}</div>;
 }
 
+/** Step 89: the screen in words for the panel, e.g. "Kalender · Jour fixe". */
+function useScreenLabel(screen: Screen): string | null {
+  const t = useXT();
+  const tSettings = useTranslations("settings");
+  if (!screen.page) return null;
+  const page = t(`assistant.screen.page_${screen.page}`);
+  const l = screen.label;
+  if (!l) return page;
+  let name = l.name;
+  if (l.kind === "emails") name = t("assistant.screen.emails", { count: l.name });
+  else if (l.kind === "view") name = t(`assistant.screen.view_${l.name}`);
+  else if (l.kind === "thread") name = name ? t("assistant.screen.thread_in", { room: name }) : t("assistant.screen.kind_thread");
+  else if (l.kind === "page") {
+    const [, area, tab, sub] = l.name.split("/");
+    if (area === "settings" && tab) name = tSettings.has(`tabs.${tab}`) ? tSettings(`tabs.${tab}`) : "";
+    else if (tab) {
+      const key = `workspace.${tab === "shared-mailboxes" ? "shared" : tab.replace(/-/g, "_")}`;
+      const label = t(key);
+      name = label === key ? "" : sub === "permissions" ? `${label} · ${t("workspace.permissions")}` : label;
+    }
+  } else if (!name && l.kind !== "folder") name = t(`assistant.screen.kind_${l.kind}`);
+  return name ? `${page} · ${name}` : page;
+}
+
 export function AssistantPanel() {
   const t = useXT();
   const locale = useLocale();
   const router = useRouter();
   const pathname = usePathname();
   const selectedEmail = useEmailStore((s) => s.selectedEmail);
+  // Step 89: what is open on the screen; "×" asks the next question without it.
+  const screen = useAssistantScreen();
+  const [noScreen, setNoScreen] = useState(false);
+  const screenKey = JSON.stringify(screen.context);
+  useEffect(() => setNoScreen(false), [screenKey]);
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
@@ -335,6 +461,8 @@ export function AssistantPanel() {
   const [history, setHistory] = useState<ConversationInfo[] | null>(null);
   // Step 49: results of scheduled tasks not opened yet (a dot on the button and in the history).
   const [unread, setUnread] = useState(0);
+  // Step 85: calls of connected AI chats waiting for the user's confirmation.
+  const [waiting, setWaiting] = useState(0);
   const abort = useRef<AbortController | null>(null);
   const endRef = useRef<HTMLDivElement>(null);
   const restored = useRef(false);
@@ -348,6 +476,8 @@ export function AssistantPanel() {
   const device = useAssistantDevice();
   const moved = !!useAssistantPositions()[device];
   const resetPosition = useXenaxioMeStore((s) => s.setAssistantPosition);
+  // Step 73c: a live-demo guest gets one-click questions that show what the assistant can do.
+  const inDemo = useXenaxioMeStore((s) => !!s.me?.demo);
 
   // Keep the panel and the current chat across page changes (e.g. opening a source).
   useEffect(() => {
@@ -388,7 +518,11 @@ export function AssistantPanel() {
   // Step 49: new results of scheduled tasks, checked every two minutes while the page is open.
   useEffect(() => {
     if (!available) return;
-    const check = () => void assistant.status().then((s) => setUnread(s.unread ?? 0), () => undefined);
+    const check = () =>
+      void assistant.status().then((s) => {
+        setUnread(s.unread ?? 0);
+        setWaiting(s.waiting ?? 0);
+      }, () => undefined);
     check();
     const timer = window.setInterval(check, 120_000);
     return () => window.clearInterval(timer);
@@ -425,6 +559,10 @@ export function AssistantPanel() {
           else if (e.type === "proposal") update((turn) => ({ ...turn, proposals: [...(turn.proposals ?? []), { id: e.id, tool: e.tool, summary: e.summary, state: "pending" }] }));
           else if (e.type === "error") update((turn) => ({ ...turn, error: t(`assistant.errors.${e.code}`) }));
           else if (e.type === "notice") update((turn) => ({ ...turn, notice: t(`assistant.notice_${e.code}`) }));
+          else if (e.type === "plan") update((turn) => ({ ...turn, plan: e.items }));
+          else if (e.type === "budget") update((turn) => ({ ...turn, budget: true }));
+          else if (e.type === "skill") update((turn) => ({ ...turn, skills: [...new Set([...(turn.skills ?? []), e.name])] }));
+          else if (e.type === "memory") update((turn) => ({ ...turn, memory: [...(turn.memory ?? []), ...e.items] }));
         }
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
@@ -441,6 +579,21 @@ export function AssistantPanel() {
   );
 
   /** I5: the user confirms or discards a proposal; the platform runs it exactly as shown. */
+  // Step 91: takes back a fact the assistant kept in this answer.
+  const undoMemory = useCallback(
+    async (turnIndex: number, id: string) => {
+      try {
+        await xenaxio.deleteMemory(id);
+      } catch (err) {
+        // Not among the user's own facts: a fact kept for the whole company, which the admin deletes.
+        setNotice(err instanceof XenaxioApiError && err.status === 404 ? t("assistant.remembered_company") : t(errorKey(err)));
+        return;
+      }
+      setTurns((prev) => prev.map((turn, n) => (n === turnIndex ? { ...turn, memory: turn.memory?.map((m) => (m.id === id ? { ...m, undone: true } : m)) } : turn)));
+    },
+    [t],
+  );
+
   const decide = useCallback(async (proposal: Proposal, confirm: boolean) => {
     const set = (state: ProposalState) =>
       setTurns((prev) => prev.map((turn) => (turn.proposals?.some((p) => p.id === proposal.id) ? { ...turn, proposals: turn.proposals.map((p) => (p.id === proposal.id ? { ...p, state } : p)) } : turn)));
@@ -462,11 +615,16 @@ export function AssistantPanel() {
       if (code === "memory_full" || code === "memory_off" || code === "schedule_limit") return set(code);
       set(status === 410 ? "expired" : status === 409 ? "already" : status === 0 ? "pending" : "failed");
       if (status === 0) setNotice(t("errors.network"));
+    } finally {
+      // Step 85: one fewer may be waiting now.
+      if (proposal.client !== undefined) void assistant.status().then((s) => setWaiting(s.waiting ?? 0), () => undefined);
     }
   }, [t]);
 
   // Step 31: mail of a shared mailbox is named with its account.
-  const context = selectedEmail ? assistantIds(selectedEmail) : {};
+  // Step 84: and the page the person is on; step 89: and what is open there.
+  const context = noScreen ? {} : screen.context;
+  const where = useScreenLabel(screen);
 
   // Step 33: files wait under the input until the message is sent.
   const ready = pending.filter((p) => p.file).map((p) => p.file as AttachedFile);
@@ -537,6 +695,7 @@ export function AssistantPanel() {
     for (const p of pending) if (p.preview) URL.revokeObjectURL(p.preview);
     setPending([]);
     void run((signal) => assistant.chat(text, conversationId, context, signal, files.map((f) => f.id)), text, undefined, files);
+    setNoScreen(false);
   };
 
   const summarize = useCallback(
@@ -570,6 +729,7 @@ export function AssistantPanel() {
   const ask = (text: string) => {
     setOpen(true);
     void run((signal) => assistant.chat(text, conversationId, context, signal, []), text);
+    setNoScreen(false);
   };
   const askRef = useRef(ask);
   askRef.current = ask;
@@ -617,29 +777,49 @@ export function AssistantPanel() {
     void assistant.status().then((s) => setUnread(s.unread ?? 0), () => undefined);
   }, []);
 
+  // Step 85: what connected AI chats wait for, as cards in a view of its own.
+  const loadWaiting = useCallback(async () => {
+    abort.current?.abort();
+    const actions = await assistant.waiting();
+    setTurns([
+      {
+        role: "assistant",
+        text: actions.length ? t("assistant.waiting.title") : t("assistant.waiting.empty"),
+        ...(actions.length ? { proposals: actions.map((a) => ({ id: a.id, tool: a.tool, summary: a.summary, client: a.client, state: "pending" as const })) } : {}),
+      },
+    ]);
+    setConversationId(undefined);
+    setHistory(null);
+    setWaiting(actions.length);
+  }, [t]);
+
   // Step 49: a link from a notification or the email copy (?assistant=<chat>) opens that chat.
+  // Step 85: ?assistant=waiting opens what connected AI chats wait for.
   useEffect(() => {
     if (!available) return;
     const params = new URLSearchParams(window.location.search);
     const id = params.get(ASSISTANT_OPEN_PARAM);
-    if (!id || !/^[0-9a-f-]{36}$/i.test(id)) return;
+    if (!id || (id !== ASSISTANT_WAITING && !/^[0-9a-f-]{36}$/i.test(id))) return;
     params.delete(ASSISTANT_OPEN_PARAM);
     const rest = params.toString();
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
     setOpen(true);
-    void loadConversation(id);
-  }, [available, loadConversation, pathname]);
+    void (id === ASSISTANT_WAITING ? loadWaiting() : loadConversation(id));
+  }, [available, loadConversation, loadWaiting, pathname]);
 
   if (!available || HIDDEN.test(pathname)) return null;
 
   if (!open) {
-    return <AssistantButton label={unread ? t("assistant.open_unread", { count: unread }) : t("assistant.open")} unread={unread > 0} onOpen={() => setOpen(true)} />;
+    const dot = unread + waiting;
+    return <AssistantButton label={dot ? t("assistant.open_unread", { count: dot }) : t("assistant.open")} unread={dot > 0} onOpen={() => setOpen(true)} />;
   }
 
   return (
+    // Full height under viewport-fit=cover: in the installed app (PWA) the top
+    // would sit under the iOS status bar and hide the close button.
     <aside
       data-xenaxio-glass=""
-      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background text-foreground shadow-xl sm:w-[400px]"
+      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] text-foreground shadow-xl sm:w-[400px]"
       aria-label={t("assistant.title")}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("Files")) return;
@@ -686,20 +866,46 @@ export function AssistantPanel() {
         </div>
       </header>
 
-      {selectedEmail && (
+      {/* Step 89: what the assistant looks at first; "×" asks the next question without it. */}
+      {where && (
         <div className="border-b border-border px-3 py-2 space-y-2">
-          <p className="truncate text-xs text-muted-foreground">{t("assistant.context", { subject: selectedEmail.subject || "—" })}</p>
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" size="sm" disabled={busy} onClick={() => summarize(selectedEmail.threadId, selectedEmail.subject ?? "")}>
-              <FileText className="mr-1.5 h-4 w-4" />
-              {t("assistant.summarize")}
-            </Button>
-            <Button variant="outline" size="sm" disabled={busy} onClick={draftReply}>
-              <PenLine className="mr-1.5 h-4 w-4" />
-              {t("assistant.reply")}
+          <div className="flex items-center gap-1">
+            <p className={cn("min-w-0 flex-1 truncate text-xs text-muted-foreground", noScreen && "line-through")} title={where}>
+              {t("assistant.screen.context", { where })}
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              className="h-6 w-6 shrink-0 p-0"
+              onClick={() => setNoScreen((v) => !v)}
+              title={t("assistant.screen.context_off")}
+              aria-label={t("assistant.screen.context_off")}
+              aria-pressed={noScreen}
+            >
+              <X className="h-3.5 w-3.5" />
             </Button>
           </div>
+          {noScreen && <p className="text-[11px] text-muted-foreground">{t("assistant.screen.context_dropped")}</p>}
+          {screen.label?.kind === "email" && selectedEmail && !noScreen && (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" size="sm" disabled={busy} onClick={() => summarize(selectedEmail.threadId, selectedEmail.subject ?? "")}>
+                <FileText className="mr-1.5 h-4 w-4" />
+                {t("assistant.summarize")}
+              </Button>
+              <Button variant="outline" size="sm" disabled={busy} onClick={draftReply}>
+                <PenLine className="mr-1.5 h-4 w-4" />
+                {t("assistant.reply")}
+              </Button>
+            </div>
+          )}
         </div>
+      )}
+
+      {/* Step 85: calls of connected AI chats waiting for the user. */}
+      {waiting > 0 && (
+        <button type="button" onClick={() => void loadWaiting()} className="border-b border-border bg-primary/5 px-3 py-2 text-left text-xs font-medium text-primary hover:bg-primary/10">
+          {t("assistant.waiting.open", { count: waiting })}
+        </button>
       )}
 
       <div className="flex-1 overflow-y-auto px-3 py-3 text-sm space-y-4">
@@ -745,11 +951,43 @@ export function AssistantPanel() {
           <div className="space-y-2 text-muted-foreground">
             <p>{t("assistant.empty")}</p>
             <p className="text-xs">{t("assistant.not_sent")}</p>
+            {/* Step 89: questions that fit the screen, one click each. */}
+            {!inDemo && !noScreen && screenSuggestions(screen).length > 0 && (
+              <div className="flex flex-col items-start gap-1.5 pt-2" aria-label={t("assistant.screen.suggestions")}>
+                {screenSuggestions(screen).map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="rounded-full border border-border px-3 py-1 text-left text-xs text-foreground hover:bg-accent"
+                    onClick={() => askRef.current(t(`assistant.screen.ask_${key}`))}
+                    disabled={busy}
+                  >
+                    {t(`assistant.screen.ask_${key}`)}
+                  </button>
+                ))}
+              </div>
+            )}
+            {inDemo && (
+              <div className="flex flex-col items-start gap-1.5 pt-2" aria-label={t("demo.prompts_label")}>
+                {DEMO_PROMPTS.map((key) => (
+                  <button
+                    key={key}
+                    type="button"
+                    className="rounded-full border border-border px-3 py-1 text-left text-xs text-foreground hover:bg-accent"
+                    onClick={() => askRef.current(t(`demo.prompt_${key}`))}
+                    disabled={busy}
+                  >
+                    {t(`demo.prompt_${key}`)}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         ) : (
           turns.map((turn, i) => (
             <div key={i} className={cn("space-y-2", turn.role === "user" && "ml-8 rounded-lg bg-primary/10 px-3 py-2")}>
               {turn.title && <p className="text-xs font-medium text-muted-foreground">{turn.title}</p>}
+              {turn.plan && <PlanList items={turn.plan} title={t("assistant.plan_title")} />}
               {turn.files?.map((f) => (
                 <FileChip key={f.id} name={f.name} size={f.size} type={f.type} href={attachedFileLink(f)} deleted={f.deleted} deletedLabel={t("assistant.file_deleted")} onOpen={(href) => router.push(href)} />
               ))}
@@ -757,20 +995,50 @@ export function AssistantPanel() {
               {turn.tool && <p className="animate-pulse text-xs text-muted-foreground">{t(`assistant.tool_${turn.tool}`)}</p>}
               {turn.role === "assistant" && !turn.text && !turn.tool && busy && i === turns.length - 1 && <p className="animate-pulse text-xs text-muted-foreground">…</p>}
               {turn.notice && <p className="text-xs text-amber-700 dark:text-amber-400">{turn.notice}</p>}
+              {turn.skills && turn.skills.length > 0 && <p className="text-xs text-muted-foreground">{t("assistant.skill_used", { names: turn.skills.join(", ") })}</p>}
+              {/* Step 91: what the assistant kept, with undo. */}
+              {turn.memory?.map((m) => (
+                <p key={m.id} className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span className={m.undone ? "line-through" : ""}>{t("assistant.remembered", { text: m.text })}</span>
+                  {!m.undone && (
+                    <button type="button" className="text-primary underline underline-offset-2" onClick={() => void undoMemory(i, m.id)}>
+                      {t("assistant.remembered_undo")}
+                    </button>
+                  )}
+                </p>
+              ))}
+              {/* Step 83: the answer stopped at the company's limit; the next answer picks up from the plan and what was found. */}
+              {turn.budget && i === turns.length - 1 && !busy && (
+                <div className="flex flex-wrap items-center gap-2">
+                  <p className="text-xs text-muted-foreground">{t("assistant.budget_reached")}</p>
+                  <Button type="button" size="sm" variant="outline" onClick={() => askRef.current(t("assistant.continue_message"))}>
+                    {t("assistant.continue")}
+                  </Button>
+                </div>
+              )}
               {turn.error && <p className="text-xs text-destructive">{turn.error}</p>}
               {/* The model usually recovers from a failed step; warn only when no answer came. */}
               {turn.toolFailed && !turn.error && !turn.text.trim() && !(busy && i === turns.length - 1) && <p className="text-xs text-destructive">{t("assistant.tool_error")}</p>}
-              {turn.proposals?.map((p) =>
-                p.tool === "remember" || p.tool === "forget" ? (
-                  <MemoryCard key={p.id} proposal={p} onDecide={decide} />
-                ) : p.tool === "schedule_task" || p.tool === "update_schedule" || p.tool === "delete_schedule" ? (
-                  <ScheduleCard key={p.id} proposal={p} locale={locale} onDecide={(_card, confirm) => decide(p, confirm)} />
-                ) : p.tool === "create_task" || p.tool === "update_task" ? (
-                  <TaskCard key={p.id} proposal={p} locale={locale} onDecide={(_task, confirm) => decide(p, confirm)} />
-                ) : (
-                  <ProposalCard key={p.id} proposal={p} locale={locale} onDecide={decide} />
-                ),
-              )}
+              {turn.proposals?.map((p) => (
+                <Fragment key={p.id}>
+                  {p.client !== undefined && <p className="text-xs text-muted-foreground">{p.client ? t("assistant.waiting.from", { client: p.client }) : t("assistant.waiting.from_unknown")}</p>}
+                  {p.summary.tool && p.summary.input ? (
+                    <GenericCard proposal={p} onDecide={decide} />
+                  ) : isSettingProposal(p.summary) ? (
+                    <SettingCard proposal={p} locale={locale} onDecide={(confirm) => decide(p, confirm)} />
+                  ) : p.tool === "remember" || p.tool === "forget" ? (
+                    <MemoryCard key={p.id} proposal={p} onDecide={decide} />
+                  ) : p.tool === "schedule_task" || p.tool === "update_schedule" || p.tool === "delete_schedule" ? (
+                    <ScheduleCard key={p.id} proposal={p} locale={locale} onDecide={(_card, confirm) => decide(p, confirm)} />
+                  ) : p.tool === "delete_draft" ? (
+                    <DraftDeleteCard key={p.id} proposal={p} onDecide={(_draft, confirm) => decide(p, confirm)} />
+                  ) : p.tool === "create_task" || p.tool === "update_task" ? (
+                    <TaskCard key={p.id} proposal={p} locale={locale} onDecide={(_task, confirm) => decide(p, confirm)} />
+                  ) : (
+                    <ProposalCard key={p.id} proposal={p} locale={locale} onDecide={decide} />
+                  )}
+                </Fragment>
+              ))}
               {turn.sources && turn.sources.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">{t("assistant.sources")}</p>
@@ -813,7 +1081,7 @@ export function AssistantPanel() {
           <p className="text-[11px] text-muted-foreground">{uploading ? t("assistant.attach_uploading") : t("assistant.attach_saved")}</p>
         </div>
       )}
-      <form onSubmit={send} className="relative flex items-end gap-2 border-t border-border p-3">
+      <form onSubmit={send} className="relative flex items-end gap-2 border-t border-border p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">
         <input
           ref={fileInput}
           type="file"

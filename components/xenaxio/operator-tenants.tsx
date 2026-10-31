@@ -5,7 +5,7 @@
 import { type FormEvent, useCallback, useEffect, useState } from "react";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Notice, Spinner, TextField } from "@/components/xenaxio/ui";
+import { Field, Notice, Spinner, TextField } from "@/components/xenaxio/ui";
 import { errorKey, type OperatorReport, type OperatorTenant, xenaxio } from "@/lib/xenaxio/api";
 import { withBasePath } from "@/lib/browser-navigation";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -29,6 +29,19 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
     mailboxQuotaMb: String(Math.round(tenant.mailboxQuotaBytes / MB)),
     aiUser: tenant.aiUserMonthlyTokens ? String(tenant.aiUserMonthlyTokens) : "",
     aiTenant: tenant.aiTenantMonthlyTokens ? String(tenant.aiTenantMonthlyTokens) : "",
+    // Step 82: which agent engine answers the company's assistant.
+    aiEngine: tenant.aiEngine ?? "classic",
+    // Step 78: meetings; empty = the installation's default.
+    meetingsAllowed: tenant.meetingsAllowed ?? true,
+    meetingsMax: tenant.meetingsMaxParticipants ? String(tenant.meetingsMaxParticipants) : "",
+    meetingsHours: tenant.meetingsMaxHours ? String(tenant.meetingsMaxHours) : "",
+    // Step 79: webinars, off until the company has a media server of its own.
+    webinarsAllowed: tenant.webinarsAllowed ?? false,
+    webinarsMax: tenant.webinarsMaxViewers ? String(tenant.webinarsMaxViewers) : "",
+    // Step 90: recording meetings' sound (allowed unless the operator blocks it).
+    recordingAllowed: tenant.meetingsRecordingAllowed ?? true,
+    // Step F1: Xenaxio Agent Flows for the company.
+    flowsEnabled: tenant.flowsEnabled ?? false,
   });
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
   const save = async (e: FormEvent) => {
@@ -43,6 +56,14 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         mailboxQuotaMb: Number(form.mailboxQuotaMb),
         aiUserMonthlyTokens: form.aiUser ? Number(form.aiUser) : null,
         aiTenantMonthlyTokens: form.aiTenant ? Number(form.aiTenant) : null,
+        aiEngine: form.aiEngine,
+        meetingsAllowed: form.meetingsAllowed,
+        meetingsMaxParticipants: form.meetingsMax ? Number(form.meetingsMax) : null,
+        meetingsMaxHours: form.meetingsHours ? Number(form.meetingsHours) : null,
+        webinarsAllowed: form.webinarsAllowed,
+        webinarsMaxViewers: form.webinarsMax ? Number(form.webinarsMax) : null,
+        meetingsRecordingAllowed: form.recordingAllowed,
+        flowsEnabled: form.flowsEnabled,
       });
       setMessage({ kind: "success", text: t("operator.saved") });
       await onSaved();
@@ -50,7 +71,7 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
       setMessage({ kind: "error", text: t(errorKey(err)) });
     }
   };
-  const set = (k: keyof typeof form) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
+  const set = (k: Exclude<keyof typeof form, "meetingsAllowed" | "webinarsAllowed" | "recordingAllowed" | "aiEngine" | "flowsEnabled">) => (e: { target: { value: string } }) => setForm({ ...form, [k]: e.target.value });
   return (
     <form onSubmit={save} className="grid gap-3 rounded-md bg-muted/50 p-3 sm:grid-cols-2" noValidate>
       <TextField label={t("operator.max_mailboxes")} type="number" min={1} value={form.maxMailboxes} onChange={set("maxMailboxes")} />
@@ -74,6 +95,36 @@ function Limits({ tenant, defaults, onSaved }: { tenant: OperatorTenant; default
         value={form.aiTenant}
         onChange={set("aiTenant")}
       />
+      <Field label={t("operator.ai_engine")} hint={t("operator.ai_engine_hint")} htmlFor={`engine-${tenant.id}`}>
+        <select
+          id={`engine-${tenant.id}`}
+          className="h-9 w-full rounded-md border border-border bg-background px-2 text-sm"
+          value={form.aiEngine}
+          onChange={(e) => setForm({ ...form, aiEngine: e.target.value === "xenacore" ? "xenacore" : "classic" })}
+        >
+          <option value="classic">{t("operator.ai_engine_classic")}</option>
+          <option value="xenacore">{t("operator.ai_engine_xenacore")}</option>
+        </select>
+      </Field>
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.meetingsAllowed} onChange={(e) => setForm({ ...form, meetingsAllowed: e.target.checked })} />
+        {t("operator.meetings_allowed")}
+      </label>
+      <TextField label={t("operator.meetings_max")} type="number" min={2} max={500} hint={t("operator.default_hint", { value: 25 })} value={form.meetingsMax} onChange={set("meetingsMax")} />
+      <TextField label={t("operator.meetings_hours")} type="number" min={1} max={24} hint={t("operator.default_hint", { value: 8 })} value={form.meetingsHours} onChange={set("meetingsHours")} />
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.webinarsAllowed} onChange={(e) => setForm({ ...form, webinarsAllowed: e.target.checked })} />
+        {t("operator.webinars_allowed")}
+      </label>
+      <TextField label={t("operator.webinars_max")} type="number" min={1} max={300} hint={t("operator.default_hint", { value: 100 })} value={form.webinarsMax} onChange={set("webinarsMax")} />
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.recordingAllowed} onChange={(e) => setForm({ ...form, recordingAllowed: e.target.checked })} />
+        {t("operator.recording_allowed")}
+      </label>
+      <label className="flex items-center gap-2 text-sm sm:col-span-2">
+        <input type="checkbox" className="h-4 w-4" checked={form.flowsEnabled} onChange={(e) => setForm({ ...form, flowsEnabled: e.target.checked })} />
+        {t("operator.flows_enabled")}
+      </label>
       <div className="flex items-center gap-3 sm:col-span-2">
         <Button type="submit" size="sm">
           {t("operator.save")}

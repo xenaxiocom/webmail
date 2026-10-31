@@ -10,6 +10,7 @@ import { mediaUrl } from "@/lib/xenaxio/chat/api";
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
 import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { reportMessage } from "@/lib/xenaxio/chat/api";
+import { isJumboEmoji } from "@/lib/xenaxio/chat/emoji";
 import { appOf, messageHtml, mentionsUser, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatDialogs } from "./dialogs";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
@@ -19,6 +20,9 @@ import { cn } from "@/lib/utils";
 import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
+import { ImageViewer } from "./image-viewer";
+import { CallCard } from "@/components/xenaxio/meet/call";
+import { callOf } from "@/lib/xenaxio/meet-call";
 
 interface Props {
   message: Message;
@@ -51,6 +55,8 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
 
 function Attachment({ content }: { content: Record<string, unknown> }) {
   const t = useXT();
+  const [viewing, setViewing] = useState(false);
+  const closeViewer = useCallback(() => setViewing(false), []);
   const info = (content.info ?? {}) as { w?: number; h?: number; size?: number; mimetype?: string };
   const name = String(content.filename ?? content.body ?? t("chat.file"));
   const url = typeof content.url === "string" ? content.url : null;
@@ -60,17 +66,29 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
     const h = info.h ?? 240;
     const scale = Math.min(1, 360 / w, 300 / h);
     return (
-      <a href={download ?? "#"} target="_blank" rel="noopener noreferrer" className="block mt-1 w-fit">
-        {/* Thumbnails come from the chat server through the platform (cookie). */}
-        <img
-          src={mediaUrl(url, { thumbnail: { width: 720, height: 600 } }) ?? ""}
-          alt={name}
-          width={Math.round(w * scale)}
-          height={Math.round(h * scale)}
-          loading="lazy"
-          className="rounded-md border border-border object-cover bg-muted max-w-full"
-        />
-      </a>
+      <>
+        <a
+          href={download ?? "#"}
+          className="block mt-1 w-fit"
+          onClick={(e) => {
+            // A plain click opens the viewer; Ctrl/Cmd-click still opens a tab.
+            if (e.ctrlKey || e.metaKey || e.shiftKey || e.button !== 0) return;
+            e.preventDefault();
+            setViewing(true);
+          }}
+        >
+          {/* Thumbnails come from the chat server through the platform (cookie). */}
+          <img
+            src={mediaUrl(url, { thumbnail: { width: 720, height: 600 } }) ?? ""}
+            alt={name}
+            width={Math.round(w * scale)}
+            height={Math.round(h * scale)}
+            loading="lazy"
+            className="rounded-md border border-border object-cover bg-muted max-w-full"
+          />
+        </a>
+        {viewing && download && <ImageViewer src={download} name={name} download={download} onClose={closeViewer} />}
+      </>
     );
   }
   if (content.msgtype === "m.video" && download) {
@@ -95,12 +113,18 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
 function Body({ message, me, onMention }: { message: Message; me: string; onMention: (userId: string) => void }) {
   const t = useXT();
   const name = useDisplayName();
+  const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
+  // Step 78, part D: a call in the room: its card, live.
+  const call = callOf(c);
+  if (call) return <CallCard code={call.code} roomId={message.roomId} title="" dm={dm} mine={message.sender === me} />;
   // An e-mail shared into the chat: what the person wrote, then the card.
   const email = sharedEmailOf(c);
   const html = email ? (email.note ? messageHtml({ body: email.note }) : "") : messageHtml(c);
+  // Step 87: a few emoji alone are shown large.
+  const jumbo = !email && c.msgtype === "m.text" && typeof c.body === "string" && isJumboEmoji(c.body);
   return (
     <div
       className={cn(
@@ -110,6 +134,7 @@ function Body({ message, me, onMention }: { message: Message; me: string; onMent
         "[&_.chat-mention]:rounded [&_.chat-mention]:bg-primary/10 [&_.chat-mention]:px-0.5 [&_.chat-mention]:text-primary [&_.chat-mention]:cursor-pointer [&_.chat-mention]:font-medium",
         mentionsUser(c, me) && "[&_.chat-mention]:bg-amber-200/60 dark:[&_.chat-mention]:bg-amber-500/30",
         c.msgtype === "m.emote" && "italic",
+        jumbo && "text-4xl leading-tight",
       )}
       onClick={(e) => {
         const el = (e.target as HTMLElement).closest("[data-mention]");

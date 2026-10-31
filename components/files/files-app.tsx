@@ -25,11 +25,14 @@ import { ImagePreviewModal } from "@/components/files/image-preview-modal";
 import { FilePreviewModal } from "@/components/files/file-preview-modal";
 import { WopiEditor } from "@/components/files/wopi-editor";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { useXT } from "@/lib/xenaxio/i18n";
+import { fileOpenKind, linkedFileState, revealRecentFile } from "@/lib/xenaxio/file-open";
+import { useAudioPlayer } from "@/lib/xenaxio/audio-player";
+import { isAudioResource } from "@/lib/xenaxio/transcripts";
+import { useTranscriptLookup } from "@/components/xenaxio/files-audio";
 import { useWopiStatus, canWopiOpen } from "@/hooks/use-wopi-status";
 import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { AlertTriangle, Loader2 } from "@/components/icons";
-import { isFilePreviewable } from "@/lib/file-preview";
-import { isImageFile } from "@/components/files/file-icons";
 import { appPath, buildFilesPath, parseFilesPath, type FilesDeepLink } from "@/lib/deep-links";
 import { consumePendingDeepLinkEntry, subscribePendingDeepLink } from "@/lib/deep-link-handoff";
 import { useDeepLinkUrl } from "@/hooks/use-deep-link-url";
@@ -38,6 +41,7 @@ import { useLiteLinkSegments } from "@/hooks/use-lite-link-segments";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
+import { useAssistantScreenItem } from "@/lib/xenaxio/assistant-screen";
 
 export interface FilesAppProps {
   /** Path segments after `/files` - the folder path, one segment per level. */
@@ -51,6 +55,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   const tSidebar = useTranslations("sidebar");
   useDocumentTitle(tSidebar("files"));
   const tDeepLink = useTranslations("deep_link");
+  const xt = useXT();
   const filesEnabled = usePolicyStore((s) => s.isFeatureEnabled('filesEnabled'));
   const { isAuthenticated, logout, checkAuth, isLoading: authLoading, client } = useAuthStore();
   const activeAccountId = useAuthStore((s) => s.activeAccountId);
@@ -127,6 +132,10 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   const [editFile, setEditFile] = useState<string | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
   const isOfficeEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
+  // Xenaxio (step 89): the file open (or the one file selected) is what the assistant looks at first.
+  const screenName = editFile ?? previewFile ?? previewImage ?? (selectedResources.size === 1 ? [...selectedResources][0] : null);
+  const screenFile = screenName ? resources.find((r) => r.name === screenName && !r.isDirectory) : undefined;
+  useAssistantScreenItem("file", screenFile ? { id: screenFile.id, name: screenFile.name } : null);
 
   // Check auth on mount – skip when already authenticated so that navigating
   // between routes doesn't retrigger checkAuth's transient `{ client: null,
@@ -191,6 +200,27 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   // for when the store already knows files are supported.
   const filesLinkRef = useRef<FilesDeepLink | null>(null);
   const pendingPreviewRef = useRef<string | null>(null);
+
+  // Xenaxio step 88: a search hit, a link and a recent file open the way a
+  // double click does; a file the app cannot show is selected in its folder.
+  const openFileByName = useCallback((name: string) => {
+    const kind = fileOpenKind(name, isOfficeEditable);
+    if (kind === 'edit') setEditFile(name);
+    else if (kind === 'image') setPreviewImage(name);
+    else if (kind === 'preview') setPreviewFile(name);
+    else setSelection(new Set([name]));
+  }, [isOfficeEditable, setSelection]);
+
+  // Xenaxio step 88: once the linked folder is listed, a file the link names
+  // but the folder lacks is reported by name rather than waited for forever.
+  const settlePendingPreview = useCallback(() => {
+    const pending = pendingPreviewRef.current;
+    if (!pending) return;
+    const state = linkedFileState(pending, useFileStore.getState());
+    if (state === 'wait') return;
+    pendingPreviewRef.current = null;
+    if (state === 'missing') toast.error(tDeepLink('file_not_found'), pending);
+  }, [tDeepLink]);
   useEffect(() => {
     // Inside the Pro shell the route is /pro, so the segments arrive through
     // the handoff the redirect parked rather than as route params.
@@ -223,9 +253,9 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       const link = parseFilesPath(segments, new URLSearchParams(search ?? window.location.search));
       if (!link) return;
       if (link.preview) pendingPreviewRef.current = link.preview;
-      void navigateByPathRef.current(link.path);
+      void navigateByPathRef.current(link.path).then(settlePendingPreview);
     });
-  }, [isEmbedded]);
+  }, [isEmbedded, settlePendingPreview]);
 
   // Check support and load the first listing after the client is initialized.
   // One effect, run once: `checkSupport` publishes `supportsFiles` before it
@@ -255,8 +285,10 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       const link = takeFilesLink();
       if (link && link.path !== '/') await navigateByPath(link.path);
       else if (firstCheck) await navigate(null);
+      else return;
+      settlePendingPreview();
     })();
-  }, [storeClient, supportsFiles, checkSupport, migrateLegacyFlatNodes, navigate, navigateByPath, takeFilesLink]);
+  }, [storeClient, supportsFiles, checkSupport, migrateLegacyFlatNodes, navigate, navigateByPath, takeFilesLink, settlePendingPreview]);
 
   // The preview waits for the folder listing: the modal is keyed by file name
   // and can only render once that name is in `resources`.
@@ -266,12 +298,8 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     const resource = resources.find((r) => r.name === pending);
     if (!resource) return;
     pendingPreviewRef.current = null;
-    if (isFilePreviewable(pending)) {
-      setPreviewFile(pending);
-    } else {
-      toast.error(tDeepLink('file_not_found'));
-    }
-  }, [resources, tDeepLink]);
+    openFileByName(pending);
+  }, [resources, openFileByName]);
 
   const handleNavigate = useCallback((path: string, resourceId?: string | null) => {
     // Pro shell only: the Account breadcrumb segment signals "go to this
@@ -479,10 +507,14 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     addRecentFile(name, findResourceId(name));
   }, [addRecentFile, findResourceId]);
 
+  // Xenaxio step 86: an audio file plays in its row instead of the preview window.
+  useTranscriptLookup(resources);
   const handlePreviewFile = useCallback((name: string) => {
-    setPreviewFile(name);
+    const audioFile = XENAXIO_BFF ? resources.find((r) => r.name === name && isAudioResource(r)) : undefined;
+    if (audioFile) void useAudioPlayer.getState().toggle(audioFile.id, name, async () => (await getFileContent(name)).blob);
+    else setPreviewFile(name);
     addRecentFile(name, findResourceId(name));
-  }, [addRecentFile, findResourceId]);
+  }, [addRecentFile, findResourceId, resources, getFileContent]);
 
   const handleRenameNode = useCallback(async (id: string, newName: string) => {
     try {
@@ -522,22 +554,27 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     }
   }, [downloadNode, t]);
 
+  // Xenaxio step 88: says which recent file is gone and drops it from the list.
+  const revealRecent = useCallback((id: string) => revealRecentFile(id, {
+    revealNode,
+    recentFiles,
+    removeRecentFile,
+    showError: (title, detail) => toast.error(title, detail),
+    notFoundTitle: tDeepLink("file_not_found"),
+    loadFailedTitle: xt("files_open.load_failed"),
+  }), [revealNode, recentFiles, removeRecentFile, tDeepLink, xt]);
+
   const handleRevealNode = useCallback(async (id: string) => {
-    if (!await revealNode(id)) toast.error(tDeepLink("file_not_found"));
-  }, [revealNode, tDeepLink]);
+    await revealRecent(id);
+  }, [revealRecent]);
 
   // Recent files can live in any folder: open that folder, then the file.
   const handleOpenRecent = useCallback(async (id: string) => {
-    const name = await revealNode(id);
-    if (!name) {
-      toast.error(tDeepLink("file_not_found"));
-      return;
-    }
+    const name = await revealRecent(id);
+    if (!name) return;
     addRecentFile(name, id);
-    if (isOfficeEditable(name)) setEditFile(name);
-    else if (isImageFile(name)) setPreviewImage(name);
-    else if (isFilePreviewable(name)) setPreviewFile(name);
-  }, [revealNode, addRecentFile, isOfficeEditable, tDeepLink]);
+    openFileByName(name);
+  }, [revealRecent, addRecentFile, openFileByName]);
 
   // The permalink for the folder on screen. In the Pro shell only the focused
   // tab writes the address bar; the standard instance that renders while Pro

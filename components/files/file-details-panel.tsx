@@ -11,6 +11,9 @@ import { PluginSlot } from "@/components/plugins/plugin-slot";
 import {
   ResourceIcon, Thumbnail, canShowThumbnail, formatFullDate, type IconOptions,
 } from "@/components/files/file-item-parts";
+import { AudioDetails } from "@/components/xenaxio/files-audio";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { isAudioResource } from "@/lib/xenaxio/transcripts";
 
 interface FileDetailsPanelProps {
   /** The one selected item, or null. */
@@ -105,6 +108,8 @@ export function FileDetailsPanel({
     ? (resource.ownerName ? t("shared_by", { name: resource.ownerName }) : t("shared_with_me"))
     : sharedWith > 0 ? t("shared_with_count", { count: sharedWith }) : t("only_you");
   const bigIcon = <ResourceIcon resource={resource} size="xl" options={{ showIcons: true, coloredIcons: iconOptions.coloredIcons }} />;
+  // Xenaxio step 86: an audio file plays and shows its transcript here.
+  const audio = XENAXIO_BFF && isAudioResource(resource);
 
   return shell(
     <div className="p-4 space-y-5">
@@ -123,6 +128,7 @@ export function FileDetailsPanel({
         <p className="font-medium break-words">{resource.name}</p>
         <p className="text-sm text-muted-foreground">{kindOf(resource, t)}</p>
       </div>
+      {audio && <AudioDetails resource={resource} onToggle={onOpen} />}
       <div className="flex flex-wrap gap-2">
         {resource.isDirectory ? (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onOpen}>
@@ -132,7 +138,7 @@ export function FileDetailsPanel({
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onEdit}>
             <SquarePen className="w-4 h-4" />{t("office_edit")}
           </Button>
-        ) : canPreview ? (
+        ) : canPreview && !audio ? (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onOpen}>
             <Eye className="w-4 h-4" />{t("preview")}
           </Button>
