@@ -49,6 +49,8 @@ export const ROOMS_NAME = "XenRooms";
 export const ROOMS_ICON = "/xenrooms/apple-touch-icon.png";
 /** The XenRooms logo on its sign-in page and switcher. */
 export const ROOMS_LOGO = "/xenrooms/icon-192.png";
+/** Step 98: the XenRooms wordmark (transparent PNG; the original is wordmark-original.png). */
+export const ROOMS_WORDMARK = "/xenrooms/wordmark.png";
 
 /**
  * Pages XenRooms has: the chat, sign-in and the forced password change; anything else goes to the chat.
