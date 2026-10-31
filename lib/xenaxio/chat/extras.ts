@@ -37,6 +37,26 @@ export function postOf(content: Record<string, unknown>): ForumPost | null {
   return { title: p.title.trim().slice(0, 200), tags: (Array.isArray(p.tags) ? p.tags : []).filter((t): t is string => typeof t === "string").map((t) => t.slice(0, 40)).slice(0, 5) };
 }
 
+/** The body of a post: the title in bold on the first line, then the text (readable in any Matrix client). */
+export function postBody(title: string, text: string): string {
+  return `**${title.trim()}**${text.trim() ? `\n${text.trim()}` : ""}`;
+}
+
+/** Step 105: the text of a post without its bold title line, for the forum list and the edit dialog. */
+export function postText(content: Record<string, unknown>): string {
+  const body = typeof content.body === "string" ? content.body : "";
+  return /^\*\*[^\n]*\*\*(\n|$)/.test(body) ? body.replace(/^\*\*[^\n]*\*\*\n?/, "") : body;
+}
+
+/**
+ * Step 105: an edit keeps the post's title and tags when the new content has
+ * none (an edit from an older client or another Matrix app); before, the post
+ * vanished from the forum after an edit.
+ */
+export function keepPost(next: Record<string, unknown>, previous: Record<string, unknown>): Record<string, unknown> {
+  return next[POST_FIELD] === undefined && previous[POST_FIELD] !== undefined ? { ...next, [POST_FIELD]: previous[POST_FIELD] } : next;
+}
+
 /** Bookmarks from room state: https links only. */
 export function bookmarksOf(content: Record<string, unknown> | undefined): Bookmark[] {
   const items = (content?.items ?? []) as unknown;

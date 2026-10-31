@@ -16,6 +16,7 @@ const { messageHtml, setCompanyEmoji, withGroupMentions } = await import("@/lib/
 const { useChatStore } = await import("@/lib/xenaxio/chat/store");
 const { ChatDialogsProvider } = await import("../chat/dialogs");
 const { BookmarksBar, CatchUpView, ForumView } = await import("../chat/channel-extras");
+const { ChatMessage } = await import("../chat/message");
 
 const R = "!f:x";
 const st = (type: string, content: Record<string, unknown>) => ({ type, state_key: "", sender: "@a:x", origin_server_ts: 1, content });
@@ -108,5 +109,57 @@ describe("from Slack and Discord (step 99, part H)", () => {
     expect(screen.getByText("#fragen")).toBeTruthy();
     fireEvent.click(screen.getByRole("button", { name: "Read, next" }));
     expect(markRead).toHaveBeenCalledWith(R);
+  });
+});
+
+describe("forum posts after an edit (step 105)", () => {
+  const mine = (id: string, title: string) => ({ ...post(id, 30, title, ["Idee"]), sender: "@max:x" });
+  const sync = (c: InstanceType<typeof ChatClient>, events: unknown[]) => c.processSync({ next_batch: "s2", rooms: { join: { [R]: { timeline: { events } } } } } as never, false);
+
+  it("the list shows the post's text without the ** of the title", () => {
+    const c = client();
+    render(
+      <ChatDialogsProvider>
+        <ForumView client={c} room={c.rooms.get(R)!} />
+      </ChatDialogsProvider>,
+    );
+    expect(screen.queryByText(/\*\*/)).toBeNull();
+    expect(screen.getAllByText("Text")).toHaveLength(2);
+  });
+
+  it("an edit without the post field keeps the post: ours and one that comes from another app", async () => {
+    const c = client();
+    sync(c, [mine("$p3", "Mein Beitrag")]);
+    calls.length = 0;
+    await c.edit(R, "$p3", { msgtype: "m.text", body: "**Mein Beitrag**\nNeuer Text" });
+    const sent = calls[0]!.body as Record<string, Record<string, unknown>>;
+    expect(sent["m.new_content"]![POST_FIELD]).toEqual({ title: "Mein Beitrag", tags: ["Idee"] });
+    sync(c, [{ event_id: "$e1", type: "m.room.message", sender: "@a:x", origin_server_ts: 40, content: { msgtype: "m.text", body: "* x", "m.new_content": { msgtype: "m.text", body: "**Alte Frage**\nAnders" }, "m.relates_to": { rel_type: "m.replace", event_id: "$p1" } } }]);
+    const room = c.rooms.get(R)!;
+    expect(postOf(room.byId.get("$p1")!.content)).toEqual({ title: "Alte Frage", tags: ["Frage"] });
+    expect(postOf(room.byId.get("$p3")!.content)?.title).toBe("Mein Beitrag");
+  });
+
+  it("editing a post opens the post dialog: title and text apart, the new title is saved", async () => {
+    const c = client();
+    sync(c, [mine("$p3", "Mein Beitrag")]);
+    const room = c.rooms.get(R)!;
+    useChatStore.setState({ editing: "$p3" });
+    calls.length = 0;
+    render(
+      <ChatDialogsProvider>
+        <ChatMessage message={room.byId.get("$p3")!} room={room} client={c} continued={false} inThread />
+      </ChatDialogsProvider>,
+    );
+    expect((screen.getByLabelText("Title") as HTMLInputElement).value).toBe("Mein Beitrag");
+    expect((screen.getByLabelText("Text") as HTMLTextAreaElement).value).toBe("Text");
+    fireEvent.change(screen.getByLabelText("Title"), { target: { value: "Neuer Titel" } });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: "Save" }));
+    });
+    const sent = calls.find((x) => x.method === "PUT")!.body as Record<string, Record<string, unknown>>;
+    expect(sent["m.new_content"]).toMatchObject({ body: "**Neuer Titel**\nText", [POST_FIELD]: { title: "Neuer Titel", tags: ["Idee"] } });
+    expect(postOf(room.byId.get("$p3")!.content)?.title).toBe("Neuer Titel");
+    expect(useChatStore.getState().editing).toBeNull();
   });
 });
