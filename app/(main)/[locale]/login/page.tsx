@@ -147,11 +147,20 @@ function LoginForm() {
   // Step 96: a person without a mailbox signs in on XenRooms.
   const [roomsOrigin, setRoomsOrigin] = useState<string | null>(null);
   const [forgot, setForgot] = useState(false);
+  // Step 97: whether XenRooms takes sign-ups (the link under the form).
+  const [signupOpen, setSignupOpen] = useState(false);
   const portal = usePortal();
   const company = portal?.kind === "tenant" ? portal : null;
   // Step 67: XenRooms — the chat for all of a person's companies, always here.
   const rooms = portal?.kind === "rooms";
   const home = rooms ? roomsStart(locale) : `/${locale}/`;
+  useEffect(() => {
+    if (!rooms) return;
+    void xenaxio
+      .roomsSignupOpen()
+      .then((r) => setSignupOpen(r.open))
+      .catch(() => setSignupOpen(false));
+  }, [rooms]);
   const title = rooms ? t(add ? "rooms.add_title" : "rooms.login_title") : add ? t("login.add_title") : t("login.title");
   useDocumentTitle(title, { withAccount: false });
 
@@ -246,6 +255,15 @@ function LoginForm() {
           <button type="button" className="block w-full text-center text-sm text-muted-foreground hover:text-foreground hover:underline" onClick={() => setForgot(true)}>
             {t("rooms.forgot_link")}
           </button>
+        )}
+        {/* Step 97: XenRooms Free without the operator. */}
+        {rooms && !add && signupOpen && (
+          <p className="text-center text-sm text-muted-foreground">
+            {t("rooms.signup_no_account")}{" "}
+            <a className="font-medium text-primary hover:underline" href={withBasePath(`/${locale}/start/`)}>
+              {t("rooms.signup_link")}
+            </a>
+          </p>
         )}
         {add && (
           <Button type="button" variant="ghost" className="w-full" onClick={() => window.location.assign(withBasePath(home))}>

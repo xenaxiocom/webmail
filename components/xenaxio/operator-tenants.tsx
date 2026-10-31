@@ -207,6 +207,26 @@ export function OperatorTenants() {
     }
   };
 
+  // Step 97: XenRooms Free or paid; "reviewed" opens chat with other companies for a new Free company.
+  const setPlan = async (tenant: OperatorTenant, plan: "free" | "paid") => {
+    setError(null);
+    try {
+      await xenaxio.operator.setTenantPlan(tenant.id, plan);
+      await load();
+    } catch (err) {
+      setError(t(errorKey(err)));
+    }
+  };
+  const review = async (tenant: OperatorTenant) => {
+    setError(null);
+    try {
+      await xenaxio.operator.reviewTenant(tenant.id);
+      await load();
+    } catch (err) {
+      setError(t(errorKey(err)));
+    }
+  };
+
   // Step 26: blocked, and the domain leaves the mail server; confirmed by typing the name.
   const deactivate = async (tenant: OperatorTenant) => {
     const typed = window.prompt(t("operator.deactivate_prompt", { name: tenant.name, domain: tenant.domain ?? "—" }));
@@ -256,6 +276,11 @@ export function OperatorTenants() {
                   >
                     {t(`operator.status_${tenant.status}`)}
                   </span>
+                  {tenant.product === "rooms" && (
+                    <span className="ml-1 rounded-full bg-muted px-2 py-0.5 text-xs">
+                      XenRooms {tenant.plan === "free" ? "Free" : t("operator.plan_paid")}
+                    </span>
+                  )}
                 </p>
                 {/* Step 28: every domain of the company, the primary one first. */}
                 <p className="text-sm text-muted-foreground break-all">
@@ -283,6 +308,16 @@ export function OperatorTenants() {
                 <Button size="sm" variant="outline" onClick={() => setOpen(open === tenant.id ? null : tenant.id)} aria-expanded={open === tenant.id}>
                   {t("operator.limits")}
                 </Button>
+                {tenant.product === "rooms" && (
+                  <Button size="sm" variant="outline" onClick={() => void setPlan(tenant, tenant.plan === "free" ? "paid" : "free")}>
+                    {tenant.plan === "free" ? t("operator.plan_to_paid") : t("operator.plan_to_free")}
+                  </Button>
+                )}
+                {tenant.plan === "free" && tenant.federationAfter && (
+                  <Button size="sm" variant="outline" onClick={() => void review(tenant)}>
+                    {t("operator.plan_review")}
+                  </Button>
+                )}
                 {data.baseDomain && (
                   <Button size="sm" variant="outline" onClick={() => setOpen(open === `slug:${tenant.id}` ? null : `slug:${tenant.id}`)} aria-expanded={open === `slug:${tenant.id}`}>
                     {t("operator.address")}

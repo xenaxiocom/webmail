@@ -9,8 +9,11 @@ import { Button } from "@/components/ui/button";
 import { Plus } from "@/components/icons";
 import { Notice, TextField } from "@/components/xenaxio/ui";
 import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
-import { errorText, type RoomsPerson, xenaxio } from "@/lib/xenaxio/api";
+import { errorText, type RoomsPerson, type RoomsPlanInfo, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
+
+/** Gigabytes with one decimal (Free: 5 GB). */
+const gb = (bytes: number) => (bytes / 1024 ** 3).toLocaleString(undefined, { maximumFractionDigits: 1 });
 
 function Person({ person, isSelf, onChanged, onMessage }: {
   person: RoomsPerson;
@@ -86,7 +89,7 @@ function Person({ person, isSelf, onChanged, onMessage }: {
 function People() {
   const t = useXT();
   const me = useMe();
-  const [data, setData] = useState<{ people: RoomsPerson[]; limit: number | null; chatDomain: string | null } | null>(null);
+  const [data, setData] = useState<{ people: RoomsPerson[]; limit: number | null; chatDomain: string | null; plan?: RoomsPlanInfo | null } | null>(null);
   const [form, setForm] = useState({ email: "", displayName: "", admin: false });
   const [busy, setBusy] = useState(false);
   const [message, setMessage] = useState<{ kind: "error" | "success"; text: string } | null>(null);
@@ -132,6 +135,26 @@ function People() {
         )}
       </p>
       {message && <Notice kind={message.kind}>{message.text}</Notice>}
+      {/* Step 97: XenRooms Free — what is used, and the way to more. */}
+      {data?.plan?.plan === "free" && (
+        <section className="rounded-lg border border-border bg-card p-4 text-sm">
+          <h2 className="font-medium">{t("rooms.plan_free_title")}</h2>
+          <p className="mt-1 text-muted-foreground">
+            {t("rooms.plan_free_usage", {
+              people: data.people.length,
+              maxPeople: data.plan.maxPeople ?? 0,
+              used: gb(data.plan.usedBytes),
+              storage: gb(data.plan.storageBytes ?? 0),
+            })}
+          </p>
+          {data.plan.federationAfter && <p className="mt-1 text-muted-foreground">{t("rooms.plan_free_federation", { date: new Date(data.plan.federationAfter).toLocaleDateString() })}</p>}
+          <p className="mt-2">
+            <a className="text-primary hover:underline" href="https://xenrooms.com/request-access/" target="_blank" rel="noopener">
+              {t("rooms.plan_free_more")} →
+            </a>
+          </p>
+        </section>
+      )}
       <section className="rounded-lg border border-border bg-card p-4">
         <h2 className="mb-3 font-medium">{t("rooms.people_invite")}</h2>
         <form onSubmit={invite} className="grid gap-3 sm:grid-cols-2">

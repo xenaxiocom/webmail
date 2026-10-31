@@ -82,7 +82,7 @@ function StartForm() {
     setError(null);
     setFieldErrors({});
     try {
-      await xenaxio.roomsOnboard({ token, ...form, email: form.email.trim(), slug, locale: locale === "en" ? "en" : "de" });
+      await xenaxio.roomsOnboard({ token, ...form, email: form.email.trim(), slug, locale: locale === "de" ? "de" : "en" });
       setForm((f) => ({ ...f, password: "" }));
       window.location.assign(withBasePath(roomsStart(locale)));
     } catch (err) {

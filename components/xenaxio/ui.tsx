@@ -10,7 +10,7 @@ import { withBasePath } from "@/lib/browser-navigation";
 import { cn } from "@/lib/utils";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { safeHttpUrl } from "@/lib/xenaxio/brand";
-import { ROOMS_LOGO, ROOMS_NAME, usePortal } from "@/lib/xenaxio/portal";
+import { ROOMS_LOGO, ROOMS_NAME, ROOMS_WORDMARK, usePortal } from "@/lib/xenaxio/portal";
 
 /** Centered card for sign-in, password and onboarding pages. */
 export function AuthCard({ title, subtitle, children }: { title: string; subtitle?: string; children: ReactNode }) {
@@ -38,7 +38,8 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
   const brand = portal?.kind === "rooms" ? (
     <>
       <img src={withBasePath(ROOMS_LOGO)} alt="" className="h-14 w-14" />
-      <p className="text-center text-xl font-semibold">{ROOMS_NAME}</p>
+      {/* Step 98: the XenRooms wordmark (transparent, reads on light and dark). */}
+      <img src={withBasePath(ROOMS_WORDMARK)} alt={ROOMS_NAME} width={720} height={84} className="h-7 w-auto" />
       <p className="-mt-1 text-center text-xs text-muted-foreground">{t("rooms.by")}</p>
     </>
   ) : company ? (
