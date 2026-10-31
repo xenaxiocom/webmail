@@ -7,6 +7,7 @@ import { ChatError, mx, newTxnId, paths } from "./api";
 import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
 import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, keepPost, VOICE_TYPE } from "./extras";
 import type { ChannelRef } from "./format";
+import { BACKGROUND_TYPE, backgroundCodeOf, backgroundImageOf, NO_ROOM_BACKGROUNDS, parseRoomBackgrounds, ROOM_BACKGROUNDS_TYPE, type RoomBackgrounds } from "./room-background";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
 /** A stable rule id per keyword (ids allow only a few characters). */
@@ -119,6 +120,10 @@ export interface Room {
   keepUnread?: boolean;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
   external: boolean;
+  /** Step 109: the room's background (a code of lib/xenaxio/backgrounds.ts), or none. */
+  background: string | null;
+  /** Step 109: or a picture uploaded for it ("mxc://…"). */
+  backgroundImage: string | null;
 }
 
 export interface PowerLevels {
@@ -302,7 +307,7 @@ export function isVisible(m: Pick<Message, "type" | "content" | "prevContent" | 
     // Joins and leaves; name and picture changes are not news.
     return now !== before && (now === "join" || now === "leave" || now === "ban");
   }
-  return m.type === "m.room.name" || m.type === "m.room.topic" || m.type === ARCHIVED_TYPE;
+  return m.type === "m.room.name" || m.type === "m.room.topic" || m.type === ARCHIVED_TYPE || m.type === BACKGROUND_TYPE;
 }
 
 function relation(content: Record<string, unknown>): { relType?: string; eventId?: string; key?: string } {
@@ -373,6 +378,8 @@ function newRoom(id: string): Room {
     forum: null,
     canvas: null,
     bookmarks: [],
+    background: null,
+    backgroundImage: null,
   };
 }
 
@@ -390,6 +397,8 @@ export class ChatClient {
   saved: SavedItem[] = [];
   /** Step 99, part C: own sections, folded sections, order and filter of the sidebar. */
   sidebar: SidebarLayout = EMPTY_LAYOUT;
+  /** Step 109: the person's own view of channel backgrounds (account data). */
+  roomBackgrounds: RoomBackgrounds = NO_ROOM_BACKGROUNDS;
   /** Step 99, part E: drafts per channel and thread ("roomId|threadRoot"). */
   drafts: Record<string, Draft> = {};
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
@@ -576,6 +585,8 @@ export class ChatClient {
       this.drafts = { ...parseDrafts(ev.content), ...(this.draftTimer ? this.drafts : {}) };
     } else if (ev.type === SIDEBAR_TYPE) {
       this.sidebar = parseLayout(ev.content);
+    } else if (ev.type === ROOM_BACKGROUNDS_TYPE) {
+      this.roomBackgrounds = parseRoomBackgrounds(ev.content);
     } else if (ev.type === "m.push_rules") {
       this.roomLevels = roomLevelsOf(ev.content);
       this.defaultLevel = defaultLevelOf(ev.content);
@@ -639,6 +650,10 @@ export class ChatClient {
         break;
       case BOOKMARKS_TYPE:
         room.bookmarks = bookmarksOf(c);
+        break;
+      case BACKGROUND_TYPE:
+        room.background = backgroundCodeOf(c);
+        room.backgroundImage = backgroundImageOf(c);
         break;
       case DESCRIPTION_TYPE:
         room.description = typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 1000) : null;
@@ -1174,6 +1189,28 @@ export class ChatClient {
   /** Step 99, part H: the links under the channel's name (Slack's bookmarks). */
   async setBookmarks(roomId: string, items: Bookmark[]): Promise<void> {
     await mx("PUT", paths.state(roomId, BOOKMARKS_TYPE), { items: items.slice(0, 20) });
+  }
+
+  /**
+   * Step 109: the room's background for everyone in it (a channel's managers,
+   * anyone in a direct conversation): a code, null (none), or an uploaded picture.
+   */
+  async setChannelBackground(roomId: string, value: { background: string | null } | { image: string }): Promise<void> {
+    await mx("PUT", paths.state(roomId, BACKGROUND_TYPE), value);
+  }
+
+  /** Step 109: the person's own view of channel backgrounds, kept on the server for every device. */
+  async setRoomBackgrounds(next: RoomBackgrounds): Promise<void> {
+    const previous = this.roomBackgrounds;
+    this.roomBackgrounds = next;
+    this.changed();
+    try {
+      await mx("PUT", paths.accountData(this.userId, ROOM_BACKGROUNDS_TYPE), next);
+    } catch (err) {
+      this.roomBackgrounds = previous;
+      this.changed();
+      throw err;
+    }
   }
 
   /** May this person change a kind of room state (canvas, bookmarks)? */

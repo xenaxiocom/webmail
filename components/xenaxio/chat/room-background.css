@@ -1,0 +1,21 @@
+/* Step 109: a channel's background under its timeline and message box
+   (lib/xenaxio/chat/room-background.ts). The picture or gradient of the
+   colour mode, and a veil of the theme's colour over it so that messages read
+   as before; with "reduce transparency" the veil is almost solid. On phones
+   too: there the timeline fills the screen, like a chat wallpaper. */
+
+.xenaxio-room-bg {
+  background: var(--xenaxio-room-bg-light);
+}
+html.dark .xenaxio-room-bg {
+  background: var(--xenaxio-room-bg-dark);
+}
+
+.xenaxio-room-veil {
+  background: color-mix(in srgb, var(--color-background) 60%, transparent);
+}
+@media (prefers-reduced-transparency: reduce) {
+  .xenaxio-room-veil {
+    background: color-mix(in srgb, var(--color-background) 92%, transparent);
+  }
+}

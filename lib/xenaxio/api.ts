@@ -333,10 +333,13 @@ export interface ChatChannelAdmin {
   external: boolean;
   /** The company's "Alle" (cannot be archived). */
   general: boolean;
+  /** Step 109: the channel's background (a code of lib/xenaxio/backgrounds.ts), or none. */
+  background?: string | null;
+  backgroundImage?: string | null;
 }
 
-/** Step 63; step 99 adds description, privacy, who writes and who may @channel. */
-export type ChatChannelChange = { name?: string; topic?: string; archived?: boolean; description?: string; isPublic?: boolean; posting?: "everyone" | "managers"; channelMentions?: "everyone" | "managers" };
+/** Step 63; step 99 adds description, privacy, who writes and who may @channel; step 109 the background (null removes it). */
+export type ChatChannelChange = { name?: string; topic?: string; archived?: boolean; description?: string; isPublic?: boolean; posting?: "everyone" | "managers"; channelMentions?: "everyone" | "managers"; background?: string | null; backgroundImage?: string | null };
 
 /** Step 44: result of the connection test of a company's own model. */
 export interface CustomModelCheck {

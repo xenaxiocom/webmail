@@ -20,8 +20,9 @@ import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 import { channelLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { Modal, useChatDialogs } from "./dialogs";
+import { RoomBackgroundSettings } from "./room-background-settings";
 
-export type DetailsTab = "info" | "members" | "pinned" | "integrations" | "settings";
+export type DetailsTab = "info" | "members" | "pinned" | "integrations" | "background" | "settings";
 
 /** Who may change what in a channel: its managers, or the company admin through the platform. */
 export function useChannelRights(client: ChatClient, room: Room) {
@@ -37,7 +38,8 @@ export function ChannelDetails({ client, room, initialTab = "info", onClose, onI
   const [tab, setTab] = useState<DetailsTab>(initialTab);
   const name = client.roomName(room);
   const { manage } = useChannelRights(client, room);
-  const tabs: DetailsTab[] = ["info", "members", "pinned", ...(room.archived ? [] : (["integrations"] as const)), ...(manage ? (["settings"] as const) : [])];
+  // Step 109: everyone in the channel sees its background tab (their own choice); managers and the admin also set it for all.
+  const tabs: DetailsTab[] = ["info", "members", "pinned", ...(room.archived ? [] : (["integrations"] as const)), "background", ...(manage ? (["settings"] as const) : [])];
   return (
     <Modal title={`${room.joinRule === "public" ? "#" : "🔒 "}${name}`} onClose={onClose} wide>
       <div role="tablist" className="-mx-4 -mt-4 mb-4 flex gap-1 overflow-x-auto border-b border-border px-3">
@@ -65,6 +67,7 @@ export function ChannelDetails({ client, room, initialTab = "info", onClose, onI
           </button>
         </div>
       )}
+      {tab === "background" && <RoomBackgroundSettings client={client} room={room} />}
       {tab === "settings" && <SettingsTab client={client} room={room} onClose={onClose} />}
     </Modal>
   );
