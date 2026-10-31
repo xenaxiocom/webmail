@@ -6,14 +6,19 @@ import { apiFetch } from "@/lib/browser-navigation";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { type ChatStatus, chatStatus } from "./api";
 import { ChatClient } from "./client";
+import type { AvatarAnimation } from "@/lib/xenaxio/api";
 import type { UserProfile } from "./profile";
 
 /** A colleague as the platform knows them (name, e-mail, profile picture). */
 export interface Colleague {
+  /** Step 104: the platform's id of the person (the admin removes a picture or banner by it). */
+  id?: string;
   address: string;
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  /** Step 104: a moving picture, played on the profile card (lists show the still one). */
+  avatarAnimation?: AvatarAnimation | null;
   /** Step 99, part G: job title, contacts, banner … (older platforms send none). */
   profile?: UserProfile;
 }
@@ -43,6 +48,8 @@ interface ChatState {
   colleagues: Map<string, Colleague>;
   /** Step 99, part G: one's own profile changed: the colleagues' list shows it at once. */
   setProfile: (address: string, profile: UserProfile) => void;
+  /** Step 104: a picture changed (own, or removed by the admin): the card shows it at once. */
+  setColleague: (address: string, change: Partial<Colleague>) => void;
   view: ChatView;
   panel: SidePanel;
   /** Scroll to and highlight this message once (search results, links, saved). */
@@ -87,6 +94,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
       if (!c) return {};
       const next = new Map(state.colleagues);
       next.set(address, { ...c, profile });
+      return { colleagues: next };
+    }),
+  setColleague: (address, change) =>
+    set((state) => {
+      const c = state.colleagues.get(address);
+      if (!c) return {};
+      const next = new Map(state.colleagues);
+      next.set(address, { ...c, ...change });
       return { colleagues: next };
     }),
   view: { kind: "home" },

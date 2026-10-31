@@ -235,7 +235,7 @@ function ChatInside() {
   return (
     <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <PushBanner />
-      <div className="flex min-h-0 flex-1">
+      <div className="relative flex min-h-0 flex-1">
       {isMobile ? (
         panel ? (
           <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -254,7 +254,13 @@ function ChatInside() {
         <>
           {sidebar}
           <main className="flex min-h-0 min-w-0 flex-1 flex-col">{main}</main>
-          {panel && <ChatSidePanel client={client} panel={panel} />}
+          {/* Step 104: below 1024 px (iPad upright) the panel lies over the chat instead of squeezing it to nothing. */}
+          {panel && <button type="button" aria-label={t("chat.close")} tabIndex={-1} onClick={() => setPanel(null)} className="absolute inset-0 z-20 bg-black/30 lg:hidden" data-testid="chat-panel-backdrop" />}
+          {panel && (
+            <div className="absolute inset-y-0 right-0 z-30 flex max-w-full shadow-2xl lg:static lg:z-auto lg:shadow-none">
+              <ChatSidePanel client={client} panel={panel} />
+            </div>
+          )}
         </>
       )}
       {client.syncError && <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-1.5 text-xs text-background shadow">{t("chat.reconnecting")}</div>}

@@ -51,6 +51,21 @@ async function request<T>(method: "GET" | "POST" | "DELETE" | "PUT" | "PATCH", p
 /** Step 41: whose picture: one's own (null), or someone of the company (admin). */
 export type AvatarTarget = null | { kind: "users" | "shared-mailboxes" | "resources"; id: string };
 
+/** Step 104: a moving profile picture and which part of it the circle shows (0–100). */
+export interface AvatarAnimation {
+  url: string;
+  focusX: number;
+  focusY: number;
+}
+
+/** Step 104: the own banner picture: still, moving (if any), and where the 3:1 strip sits on it. */
+export interface BannerImage {
+  url: string;
+  animatedUrl: string | null;
+  focusX: number;
+  focusY: number;
+}
+
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
 const AVATAR_BASES = {
   users: "/api/admin/users",
@@ -986,6 +1001,15 @@ export const xenaxio = {
   avatars: () => request<{ avatars: { email: string; url: string }[] }>("GET", "/api/avatars"),
   uploadAvatar: (target: AvatarTarget, image: Blob) => request<{ avatarUrl: string }>("PUT", avatarPath(target), image),
   removeAvatar: (target: AvatarTarget) => request<{ avatarUrl: null }>("DELETE", avatarPath(target)),
+  // Step 104: a moving picture over the still one (sent just before); x, y — the part shown.
+  uploadAvatarAnimation: (target: AvatarTarget, image: Blob, focus: { x: number; y: number }) =>
+    request<{ animation: AvatarAnimation }>("PUT", `${avatarPath(target)}/animated?x=${Math.round(focus.x)}&y=${Math.round(focus.y)}`, image),
+  // Step 104: the own banner picture; the admin removes an employee's.
+  uploadBanner: (image: Blob) => request<{ bannerImage: BannerImage }>("PUT", "/api/me/banner", image),
+  uploadBannerAnimation: (image: Blob, focus: { x: number; y: number }) =>
+    request<{ bannerImage: BannerImage }>("PUT", `/api/me/banner/animated?x=${Math.round(focus.x)}&y=${Math.round(focus.y)}`, image),
+  removeBanner: () => request<{ bannerImage: null }>("DELETE", "/api/me/banner"),
+  removeUserBanner: (userId: string) => request<{ bannerImage: null }>("DELETE", `/api/admin/users/${encodeURIComponent(userId)}/banner`),
   delivery: (emailId: string) => request<{ recipients: RecipientDelivery[] }>("GET", `/api/delivery?emailId=${encodeURIComponent(emailId)}`),
   mailApps: () => request<MailAppSettings>("GET", "/api/me/mail-apps"),
   memories: () => request<MemoryState>("GET", "/api/ai/memories"),

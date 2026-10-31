@@ -41,9 +41,20 @@ export function useColleague(userId: string): Colleague | undefined {
 /** Picture of a person: the company's profile picture (step 41) by e-mail, initials otherwise. */
 export function PersonAvatar({ userId, name, size = "md", className, presence }: { userId: string; name: string; size?: "sm" | "md" | "lg"; className?: string; presence?: PersonInfo["presence"] }) {
   const colleague = useColleague(userId);
+  // Step 104: a moving picture plays while the pointer is on it (lists keep the still one).
+  const [hover, setHover] = useState(false);
+  const animation = colleague?.avatarAnimation;
   return (
-    <span className={cn("relative inline-flex shrink-0", className)}>
+    <span className={cn("relative inline-flex shrink-0", className)} onPointerEnter={animation ? () => setHover(true) : undefined} onPointerLeave={animation ? () => setHover(false) : undefined}>
       <Avatar name={colleague?.displayName ?? name} email={colleague?.email} size={size} disableFavicon />
+      {hover && animation && (
+        <img
+          src={withBasePath(animation.url)}
+          alt=""
+          className="pointer-events-none absolute inset-0 h-full w-full rounded-full object-cover motion-reduce:hidden"
+          style={{ objectPosition: `${animation.focusX}% ${animation.focusY}%` }}
+        />
+      )}
       {presence && (
         <span
           className={cn(
