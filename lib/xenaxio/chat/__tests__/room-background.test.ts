@@ -1,4 +1,4 @@
-// Step 107: a channel's background and each person's own view of it.
+// Step 109: a channel's background and each person's own view of it.
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const calls: { method: string; path: string; body?: unknown }[] = [];
@@ -22,7 +22,7 @@ import { findBackground } from "../../backgrounds";
 const ROOM = "!proj:acme.de";
 const channel = (background: string | null) => ({ id: ROOM, kind: "channel", background });
 
-describe("channel background (step 107)", () => {
+describe("channel background (step 109)", () => {
   it("reads only codes; anything else is no background", () => {
     expect(backgroundCodeOf({ background: "img-sea" })).toBe("img-sea");
     expect(backgroundCodeOf({ background: null })).toBeNull();

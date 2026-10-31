@@ -60,7 +60,7 @@ function SystemLine({ message, room }: { message: Message; room: Room }) {
   else if (message.type === "m.room.name") text = t("chat.renamed", { name: who, value: String(message.content.name ?? "") });
   else if (message.type === "m.room.topic") text = t("chat.topic_changed", { name: who, value: String(message.content.topic ?? "") });
   else if (message.type === BACKGROUND_TYPE) {
-    // Step 107: a background this client does not know reads as a change without its name.
+    // Step 109: a background this client does not know reads as a change without its name.
     const bg = findBackground(backgroundCodeOf(message.content));
     text = backgroundImageOf(message.content) ? t("chat.background_image_set", { name: who }) : bg ? t("chat.background_changed", { name: who, value: t(`background.names.${bg.name}`) }) : backgroundCodeOf(message.content) ? t("chat.background_changed_other", { name: who }) : t("chat.background_removed", { name: who });
   } else text = t(message.content.archived === false ? "chat.restored_event" : "chat.archived_event", { name: who });

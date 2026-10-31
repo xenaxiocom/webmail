@@ -5,7 +5,7 @@ import { ChatClient as RealClient } from "@/lib/xenaxio/chat/client";
 
 const api = vi.hoisted(() => ({ changeChatChannel: vi.fn(async () => ({})), me: vi.fn() }));
 vi.mock("@/lib/xenaxio/api", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/api")>()), xenaxio: api }));
-// Step 107: an own picture is made smaller in the browser and goes up with the chat's files.
+// Step 109: an own picture is made smaller in the browser and goes up with the chat's files.
 const media = vi.hoisted(() => ({ shrinkPicture: vi.fn(async () => new Blob(["small"], { type: "image/jpeg" })), uploadFile: vi.fn(async () => "mxc://acme.de/Pic1") }));
 vi.mock("@/lib/xenaxio/meet-background", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet-background")>()), shrinkPicture: media.shrinkPicture }));
 vi.mock("@/lib/xenaxio/chat/api", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/chat/api")>()), uploadFile: media.uploadFile }));
@@ -144,7 +144,7 @@ describe("channel details (step 99, part B)", () => {
   });
 });
 
-describe("channel background (step 107)", () => {
+describe("channel background (step 109)", () => {
   beforeEach(() => {
     api.changeChatChannel.mockClear();
     media.uploadFile.mockClear();

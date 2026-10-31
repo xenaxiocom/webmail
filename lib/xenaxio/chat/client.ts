@@ -120,9 +120,9 @@ export interface Room {
   keepUnread?: boolean;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
   external: boolean;
-  /** Step 107: the room's background (a code of lib/xenaxio/backgrounds.ts), or none. */
+  /** Step 109: the room's background (a code of lib/xenaxio/backgrounds.ts), or none. */
   background: string | null;
-  /** Step 107: or a picture uploaded for it ("mxc://…"). */
+  /** Step 109: or a picture uploaded for it ("mxc://…"). */
   backgroundImage: string | null;
 }
 
@@ -397,7 +397,7 @@ export class ChatClient {
   saved: SavedItem[] = [];
   /** Step 99, part C: own sections, folded sections, order and filter of the sidebar. */
   sidebar: SidebarLayout = EMPTY_LAYOUT;
-  /** Step 107: the person's own view of channel backgrounds (account data). */
+  /** Step 109: the person's own view of channel backgrounds (account data). */
   roomBackgrounds: RoomBackgrounds = NO_ROOM_BACKGROUNDS;
   /** Step 99, part E: drafts per channel and thread ("roomId|threadRoot"). */
   drafts: Record<string, Draft> = {};
@@ -1192,14 +1192,14 @@ export class ChatClient {
   }
 
   /**
-   * Step 107: the room's background for everyone in it (a channel's managers,
+   * Step 109: the room's background for everyone in it (a channel's managers,
    * anyone in a direct conversation): a code, null (none), or an uploaded picture.
    */
   async setChannelBackground(roomId: string, value: { background: string | null } | { image: string }): Promise<void> {
     await mx("PUT", paths.state(roomId, BACKGROUND_TYPE), value);
   }
 
-  /** Step 107: the person's own view of channel backgrounds, kept on the server for every device. */
+  /** Step 109: the person's own view of channel backgrounds, kept on the server for every device. */
   async setRoomBackgrounds(next: RoomBackgrounds): Promise<void> {
     const previous = this.roomBackgrounds;
     this.roomBackgrounds = next;

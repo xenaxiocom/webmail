@@ -43,7 +43,7 @@ import { isSidebarShortcut, useChatLayout } from "@/lib/xenaxio/chat/layout";
 import { useRoomsAccounts } from "@/lib/xenaxio/chat/rooms";
 // Step 99: colours of highlighted code in messages and snippets.
 import "./code.css";
-// Step 107: a channel's background (room-view.tsx).
+// Step 109: a channel's background (room-view.tsx).
 import "./room-background.css";
 
 const STATUS_POLL_MS = 5000;

@@ -1,4 +1,4 @@
-/* Step 107: a channel's background under its timeline and message box
+/* Step 109: a channel's background under its timeline and message box
    (lib/xenaxio/chat/room-background.ts). The picture or gradient of the
    colour mode, and a veil of the theme's colour over it so that messages read
    as before; with "reduce transparency" the veil is almost solid. On phones

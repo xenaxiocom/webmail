@@ -1,4 +1,4 @@
-// Step 107: a room's background — the set of step 42 (lib/xenaxio/backgrounds.ts)
+// Step 109: a room's background — the set of step 42 (lib/xenaxio/backgrounds.ts)
 // inside one channel or direct conversation, or a picture uploaded for it. The
 // room keeps it in its state (a channel's managers and the company's admin set
 // it, anyone in a direct conversation; everyone in the room sees it); each

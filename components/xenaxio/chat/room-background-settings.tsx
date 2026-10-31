@@ -1,6 +1,6 @@
 "use client";
 
-// Step 107: a room's background — in a channel's details (tab "Hintergrund")
+// Step 109: a room's background — in a channel's details (tab "Hintergrund")
 // and in a direct conversation (button in its header). For everyone in the
 // room: a channel's managers set it themselves and the company's admin through
 // the platform; in a direct conversation anyone in it (they all have the same
@@ -143,7 +143,7 @@ export function RoomBackgroundSettings({ client, room }: { client: ChatClient; r
   );
 }
 
-/** Step 107: the background of a direct conversation, from the button in its header. */
+/** Step 109: the background of a direct conversation, from the button in its header. */
 export function RoomBackgroundDialog({ client, room, onClose }: { client: ChatClient; room: Room; onClose: () => void }) {
   const t = useXT();
   return (

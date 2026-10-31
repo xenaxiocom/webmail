@@ -104,14 +104,14 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const [inviting, setInviting] = useState(false);
   const [integrations, setIntegrations] = useState(false);
   const [dragging, setDragging] = useState(false);
-  // Step 107: a direct conversation's background (a channel's is in its details).
+  // Step 109: a direct conversation's background (a channel's is in its details).
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const roomName = client.roomName(room);
   const partners = room.kind === "dm" ? client.dmPartners(room) : [];
   const joined = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).length;
   const starred = !!room.tags["m.favourite"];
   const inCall = useChatExtras((s) => s.calls.get(room.id) ?? 0);
-  // Step 107: the channel's background, or the person's own choice for it.
+  // Step 109: the channel's background, or the person's own choice for it.
   const background = shownBackground(room, client.roomBackgrounds);
   const joinCall = useJoinRoomCall(client);
   // Step 99, part H: Ctrl+Shift+H starts the call or joins it (Slack's huddle shortcut).
@@ -244,7 +244,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
         </span>
       </header>
 
-      {/* Step 107: the channel's background (or the person's own) under everything below the header. */}
+      {/* Step 109: the channel's background (or the person's own) under everything below the header. */}
       <div className="relative isolate flex min-h-0 flex-1 flex-col" data-room-background={background?.id}>
       {background && (
         <>

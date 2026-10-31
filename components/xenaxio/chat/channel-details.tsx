@@ -38,7 +38,7 @@ export function ChannelDetails({ client, room, initialTab = "info", onClose, onI
   const [tab, setTab] = useState<DetailsTab>(initialTab);
   const name = client.roomName(room);
   const { manage } = useChannelRights(client, room);
-  // Step 107: everyone in the channel sees its background tab (their own choice); managers and the admin also set it for all.
+  // Step 109: everyone in the channel sees its background tab (their own choice); managers and the admin also set it for all.
   const tabs: DetailsTab[] = ["info", "members", "pinned", ...(room.archived ? [] : (["integrations"] as const)), "background", ...(manage ? (["settings"] as const) : [])];
   return (
     <Modal title={`${room.joinRule === "public" ? "#" : "🔒 "}${name}`} onClose={onClose} wide>
