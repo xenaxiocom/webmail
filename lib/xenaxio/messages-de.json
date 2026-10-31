@@ -279,7 +279,9 @@
     "hint": "Mindestens 10 Zeichen.",
     "mismatch": "Die Passwörter stimmen nicht überein.",
     "submit": "Passwort ändern",
-    "done": "Ihr Passwort wurde geändert."
+    "done": "Ihr Passwort wurde geändert.",
+    "setting_label": "Passwort",
+    "setting_intro": "Ihr Passwort für Xenaxio und XenRooms."
   },
   "onboarding": {
     "title": "Unternehmen einrichten",
@@ -2196,7 +2198,9 @@
     "admin_remove_banner": "Banner entfernen",
     "admin_remove_confirm": "Aus dem Profil von {name} entfernen? Die Person kann ein neues festlegen. Es wird im Audit-Protokoll vermerkt.",
     "admin_remove": "Entfernen",
-    "admin_removed": "Entfernt"
+    "admin_removed": "Entfernt",
+    "sidebar_hide": "Seitenleiste ausblenden",
+    "sidebar_show": "Seitenleiste einblenden"
   },
   "chatadmin": {
     "title": "Rooms",
@@ -3396,6 +3400,24 @@
     "own_domain_label": "Ihre Domain",
     "own_domain_hint": "Die Chat-Adressen enden dann darauf, z. B. @anna:mueller.de. Ihre E-Mail bleibt, wo sie ist. Der Chat startet sofort; andere Firmen erreichen ihn, sobald Sie eine kleine Datei auf Ihrer Website oder einen DNS-Eintrag hinterlegen – zu sehen unter Verwaltung → Rooms. Später nicht änderbar.",
     "moved_title": "Willkommen bei Xenaxio",
-    "moved_subtitle": "{company} nutzt jetzt Xenaxio. Legen Sie das Passwort für Ihre neue Adresse fest."
+    "moved_subtitle": "{company} nutzt jetzt Xenaxio. Legen Sie das Passwort für Ihre neue Adresse fest.",
+    "hide_companies": "Firmen ausblenden",
+    "show_companies": "Firmen links anzeigen",
+    "order_hint": "Zum Sortieren ziehen",
+    "move_company": "{company} verschieben (Position {n})",
+    "settings": "Einstellungen"
+  },
+  "profile_settings": {
+    "title": "Profil",
+    "intro": "Position, Kontakte, Banner und Rahmen – so sehen Kolleginnen und Kollegen Sie in Rooms, XenRooms, Mail, Kalender und Kontakten. Ein Profil für Xenaxio und XenRooms.",
+    "loading": "Profil wird geladen …",
+    "load_failed": "Das Profil konnte nicht geladen werden. Bitte laden Sie die Seite neu.",
+    "account_title": "Konto",
+    "account_intro": "Ihr Name, Ihr Foto und Ihre Anmeldung bei XenRooms.",
+    "sign_in_email": "Anmelde-E-Mail"
+  },
+  "colleague_card": {
+    "message": "Nachricht in Rooms",
+    "message_title": "{name} in Rooms schreiben"
   }
 }

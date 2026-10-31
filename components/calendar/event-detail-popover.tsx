@@ -29,6 +29,8 @@ import { PluginSlot } from "@/components/plugins/plugin-slot";
 import { eventToView } from "@/lib/plugin-projection";
 import { EventFiles } from "@/components/xenaxio/event-files";
 import { MeetingJoinButton } from "@/components/xenaxio/meet/event-meeting";
+import { RecipientPopover } from "@/components/email/recipient-popover";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 
 interface EventDetailPopoverProps {
   event: CalendarEvent;
@@ -265,6 +267,8 @@ export function EventDetailPopover({
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (popoverRef.current && !popoverRef.current.contains(e.target as Node)) {
+        // xenaxio (step 107): a participant's card opened from here is not "outside".
+        if ((e.target as Element | null)?.closest?.("[data-recipient-card]")) return;
         onClose();
       }
     };
@@ -552,7 +556,8 @@ export function EventDetailPopover({
                 {participants.slice(0, 5).map((p) => (
                   <div key={p.id} className="flex items-center justify-between gap-2 text-xs">
                     <span className="truncate text-foreground">
-                      {p.name || p.email}
+                      {/* xenaxio (step 107): a participant's name opens their card (a colleague's profile). */}
+                      {XENAXIO_BFF && p.email ? <RecipientPopover name={p.name} email={p.email} className="text-xs" /> : p.name || p.email}
                       {p.isOrganizer && (
                         <span className="text-muted-foreground ms-1">
                           ({t("participants.organizer").toLowerCase()})

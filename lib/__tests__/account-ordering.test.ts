@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { sortDefaultFirst, reorderNonDefaultIds, type OrderableAccount } from '../account-utils';
+import { sortDefaultFirst, reorderNonDefaultIds, reorderAllIds, type OrderableAccount } from '../account-utils';
 
 const acct = (id: string, isDefault = false): OrderableAccount => ({ id, isDefault });
 
@@ -41,5 +41,17 @@ describe('reorderNonDefaultIds', () => {
   it('returns null when the default is dragged or targeted', () => {
     expect(reorderNonDefaultIds(accounts, 'd', 'a')).toBeNull();
     expect(reorderNonDefaultIds(accounts, 'a', 'd')).toBeNull();
+  });
+});
+
+describe('reorderAllIds (Xenaxio, step 106)', () => {
+  const accounts = [{ id: 'a', isDefault: true }, { id: 'b', isDefault: false }, { id: 'c', isDefault: false }];
+  it('moves any account, the default (active) one too', () => {
+    expect(reorderAllIds(accounts, 'a', 'c')).toEqual(['b', 'c', 'a']);
+    expect(reorderAllIds(accounts, 'c', 'a')).toEqual(['c', 'a', 'b']);
+  });
+  it('ignores a no-op or an unknown id', () => {
+    expect(reorderAllIds(accounts, 'a', 'a')).toBeNull();
+    expect(reorderAllIds(accounts, 'x', 'a')).toBeNull();
   });
 });

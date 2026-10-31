@@ -180,3 +180,19 @@ export function reorderNonDefaultIds(
   nonDefault.splice(to, 0, moved);
   return [...defaults, ...nonDefault];
 }
+
+/**
+ * Xenaxio (step 106): the full account-id order after dragging `dragId` onto
+ * `overId`, with nothing pinned — the active account stays where it was put.
+ * Returns null when the move is a no-op or an id is unknown.
+ */
+export function reorderAllIds(accounts: OrderableAccount[], dragId: string, overId: string): string[] | null {
+  if (dragId === overId) return null;
+  const ids = accounts.map((a) => a.id);
+  const from = ids.indexOf(dragId);
+  const to = ids.indexOf(overId);
+  if (from < 0 || to < 0) return null;
+  ids.splice(from, 1);
+  ids.splice(to, 0, dragId);
+  return ids;
+}
