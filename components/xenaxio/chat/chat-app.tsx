@@ -223,6 +223,8 @@ function ChatInside() {
   );
 
   // On a phone one pane at a time: the list, a conversation, or the side panel.
+  // Every pane is min-w-0: without it a long channel name, link or code line
+  // widened the whole chat past the screen and pushed "Send" off it (Android).
   const back = (
     <button type="button" onClick={() => (panel ? setPanel(null) : setView({ kind: "home" }))} className="flex h-10 shrink-0 items-center gap-1 border-b border-border px-3 text-sm text-primary">
       <IconArrowLeft size={16} />
@@ -231,19 +233,19 @@ function ChatInside() {
   );
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 min-w-0 flex-1 flex-col">
       <PushBanner />
       <div className="flex min-h-0 flex-1">
       {isMobile ? (
         panel ? (
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {back}
             <ChatSidePanel client={client} panel={panel} />
           </div>
         ) : view.kind === "home" ? (
           sidebar
         ) : (
-          <div className="flex min-h-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
             {back}
             {main}
           </div>
