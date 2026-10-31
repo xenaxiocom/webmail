@@ -67,7 +67,7 @@ describe("step 109: Verwaltung in XenRooms", () => {
     expect(links()).toEqual(["/workspace/assistant", "/workspace/mcp", "/workspace/permissions", "/workspace/password"]);
   });
 
-  it("Erscheinungsbild: logo, colour and background; no portal address, own hostname, app icon or booking pages", async () => {
+  it("Erscheinungsbild: logo and colour; no portal address, own hostname, app icon, background (it shows behind the mail's navigation) or booking pages", async () => {
     api.adminPortal.mockResolvedValue(portal);
     render(<AppearancePage />);
     expect(await screen.findByText("Erscheint bei Ihrer Firma in XenRooms: in der Spalte der Firmen und oben in der Kanalliste.")).toBeTruthy();
@@ -75,6 +75,7 @@ describe("step 109: Verwaltung in XenRooms", () => {
     expect(screen.queryByText(/Adresse/)).toBeNull();
     expect(screen.queryByText("booking pages")).toBeNull();
     expect(screen.queryByLabelText(/Vorschau|App-Symbol/)).toBeNull();
+    expect(screen.queryByText("Hintergrund für alle")).toBeNull();
   });
 
   it("Erscheinungsbild in Xenaxio keeps the address and the booking pages", async () => {

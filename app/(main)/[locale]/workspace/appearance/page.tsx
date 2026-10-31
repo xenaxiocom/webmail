@@ -286,26 +286,29 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
       </Section>
 
       {/* Step 42: the background under the web client for everyone who has not picked their own. */}
-      <Section title={t("background.company_title")} description={t("background.company_intro")}>
-        <BackgroundPicker
-          value={portal.background ?? null}
-          extra={[{ code: null, label: t("background.none"), bg: null }]}
-          disabled={busy !== null}
-          onSelect={(code) =>
-            run(
-              "background",
-              async () => {
-                const result = await xenaxio.setCompanyBackground(code);
-                // This window follows at once (unless the admin picked their own).
-                const me = useXenaxioMeStore.getState().me;
-                if (me?.portal) useXenaxioMeStore.setState({ me: { ...me, portal: { ...me.portal, background: result.background ?? null } } });
-                return result;
-              },
-              t("background.company_saved"),
-            )
-          }
-        />
-      </Section>
+      {/* Step 109: the background shows behind the mail's navigation, which XenRooms has not. */}
+      {!rooms && (
+        <Section title={t("background.company_title")} description={t("background.company_intro")}>
+          <BackgroundPicker
+            value={portal.background ?? null}
+            extra={[{ code: null, label: t("background.none"), bg: null }]}
+            disabled={busy !== null}
+            onSelect={(code) =>
+              run(
+                "background",
+                async () => {
+                  const result = await xenaxio.setCompanyBackground(code);
+                  // This window follows at once (unless the admin picked their own).
+                  const me = useXenaxioMeStore.getState().me;
+                  if (me?.portal) useXenaxioMeStore.setState({ me: { ...me, portal: { ...me.portal, background: result.background ?? null } } });
+                  return result;
+                },
+                t("background.company_saved"),
+              )
+            }
+          />
+        </Section>
+      )}
 
       {portal.customHostnames && !rooms && (
         <Section title={t("appearance.own_title")} description={t("appearance.own_intro")}>

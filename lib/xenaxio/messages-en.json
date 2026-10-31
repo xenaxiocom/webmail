@@ -344,7 +344,7 @@
     "rooms_people_desc": "Invite colleagues, block them, choose admins, AI per person",
     "rooms_chat_desc": "Channels, groups, own emoji, other companies, AI access",
     "rooms_appearance": "Appearance",
-    "rooms_appearance_desc": "Your company’s logo and colour in XenRooms, background",
+    "rooms_appearance_desc": "Your company’s logo and colour in XenRooms",
     "rooms_meetings_desc": "Calls in Rooms, guests, background for calls",
     "rooms_ai_free": "In paid XenRooms: the AI assistant, AI chats and their settings"
   },
