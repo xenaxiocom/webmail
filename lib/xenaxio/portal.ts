@@ -49,13 +49,16 @@ export const ROOMS_NAME = "XenRooms";
 export const ROOMS_ICON = "/xenrooms/apple-touch-icon.png";
 /** The XenRooms logo on its sign-in page and switcher. */
 export const ROOMS_LOGO = "/xenrooms/icon-192.png";
+/** Step 98: the XenRooms wordmark (transparent PNG; the original is wordmark-original.png). */
+export const ROOMS_WORDMARK = "/xenrooms/wordmark.png";
 
 /**
  * Pages XenRooms has: the chat, sign-in and the forced password change; anything else goes to the chat.
  * Step 96: also creating a company without email and, for its admin, people and the chat's settings.
+ * Step 97: and the sign-up (/start).
  */
 export function isRoomsPath(pathname: string): boolean {
-  return /^\/[a-z]{2}\/(chat|login|auth|rooms\/start|workspace\/(password|rooms|chat))(\/|$)/.test(pathname);
+  return /^\/[a-z]{2}\/(chat|login|auth|start|rooms\/start|workspace\/(password|rooms|chat))(\/|$)/.test(pathname);
 }
 
 /** The chat's start page in a language. */
