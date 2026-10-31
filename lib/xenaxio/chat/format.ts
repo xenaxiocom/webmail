@@ -11,6 +11,12 @@ export interface Mention {
   displayName: string;
 }
 
+/** A channel that "#name" in a message links to. */
+export interface ChannelRef {
+  roomId: string;
+  name: string;
+}
+
 /** "@channel" and "@here" notify everyone in the channel (Matrix: a room mention). */
 export const ROOM_MENTIONS = ["@channel", "@here"] as const;
 
@@ -20,8 +26,36 @@ export function escapeHtml(s: string): string {
 
 const URL_RE = /\bhttps?:\/\/[^\s<>"']+[^\s<>"'.,;:!?)\]]/g;
 
+/** A Matrix permalink to a room (other clients show it as a room pill). */
+export function roomPermalink(roomId: string): string {
+  const server = roomId.includes(":") ? roomId.slice(roomId.indexOf(":") + 1) : "";
+  return `https://matrix.to/#/${encodeURIComponent(roomId)}${server ? `?via=${encodeURIComponent(server)}` : ""}`;
+}
+
+const escapeRe = (s: string) => s.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
+/**
+ * "#name" of a known channel becomes a link, as in Slack. The text is
+ * HTML-escaped; links go into `links` and leave placeholders, so Markdown
+ * markers do not touch them. Not inside words or addresses ("a#b", "/#x", "&#39;").
+ */
+function linkChannels(escaped: string, channels: ChannelRef[], links: string[]): string {
+  let out = escaped;
+  for (const ch of [...channels].sort((a, b) => b.name.length - a.name.length)) {
+    const label = escapeHtml(`#${ch.name}`);
+    if (!ch.name || !out.includes(label)) continue;
+    out = out.replace(new RegExp(`(^|[^\\p{L}\\p{N}&#/])${escapeRe(label)}(?![\\p{L}\\p{N}_-])`, "gu"), (_, pre: string) => {
+      links.push(`<a href="${roomPermalink(ch.roomId)}">${label}</a>`);
+      return `${pre}\uE000${links.length - 1}\uE001`;
+    });
+  }
+  return out;
+}
+
+const restoreLinks = (s: string, links: string[]) => s.replace(/\uE000(\d+)\uE001/g, (_, i) => links[Number(i)] as string);
+
 /** Inline Markdown of one line, already HTML-escaped (code spans stay untouched). */
-function inline(escaped: string, mentions: Mention[]): string {
+function inline(escaped: string, mentions: Mention[], channels: ChannelRef[] = []): string {
   const parts = escaped.split(/(`[^`]+`)/g);
   return parts
     .map((part) => {
@@ -38,6 +72,7 @@ function inline(escaped: string, mentions: Mention[]): string {
         links.push(`<a href="${url}">${url}</a>`);
         return `\uE000${links.length - 1}\uE001`;
       });
+      out = linkChannels(out, channels, links);
       out = out
         .replace(/\*\*(?=\S)([^*]*?\S)\*\*/g, "<strong>$1</strong>")
         .replace(/(^|[^\w*])\*(?=\S)([^*]*?\S)\*(?!\w)/g, "$1<em>$2</em>")
@@ -47,13 +82,14 @@ function inline(escaped: string, mentions: Mention[]): string {
         const label = escapeHtml(`@${m.displayName}`);
         out = out.split(label).join(`<a href="https://matrix.to/#/${encodeURIComponent(m.userId)}">${label}</a>`);
       }
-      return out.replace(/\uE000(\d+)\uE001/g, (_, i) => links[Number(i)] as string);
+      return restoreLinks(out, links);
     })
     .join("");
 }
 
 /** Composer text → Matrix HTML (null when the text needs none). */
-export function toHtml(text: string, mentions: Mention[] = []): string | null {
+export function toHtml(text: string, mentions: Mention[] = [], channels: ChannelRef[] = []): string | null {
+  const line1 = (l: string) => inline(escapeHtml(l), mentions, channels);
   const lines = text.replace(/\r\n/g, "\n").split("\n");
   const out: string[] = [];
   let i = 0;
@@ -79,22 +115,22 @@ export function toHtml(text: string, mentions: Mention[] = []): string | null {
     if (/^>\s?/.test(line)) {
       const quote: string[] = [];
       while (i < lines.length && /^>\s?/.test(lines[i] as string)) quote.push((lines[i++] as string).replace(/^>\s?/, ""));
-      out.push(`<blockquote>${quote.map((l) => inline(escapeHtml(l), mentions)).join("<br>")}</blockquote>`);
+      out.push(`<blockquote>${quote.map((l) => line1(l)).join("<br>")}</blockquote>`);
       continue;
     }
     if (/^\s*[-*•]\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\s*[-*•]\s+/.test(lines[i] as string)) items.push((lines[i++] as string).replace(/^\s*[-*•]\s+/, ""));
-      out.push(`<ul>${items.map((l) => `<li>${inline(escapeHtml(l), mentions)}</li>`).join("")}</ul>`);
+      out.push(`<ul>${items.map((l) => `<li>${line1(l)}</li>`).join("")}</ul>`);
       continue;
     }
     if (/^\s*\d+[.)]\s+/.test(line)) {
       const items: string[] = [];
       while (i < lines.length && /^\s*\d+[.)]\s+/.test(lines[i] as string)) items.push((lines[i++] as string).replace(/^\s*\d+[.)]\s+/, ""));
-      out.push(`<ol>${items.map((l) => `<li>${inline(escapeHtml(l), mentions)}</li>`).join("")}</ol>`);
+      out.push(`<ol>${items.map((l) => `<li>${line1(l)}</li>`).join("")}</ol>`);
       continue;
     }
-    out.push(inline(escapeHtml(line), mentions));
+    out.push(line1(line));
     i++;
   }
   // Join plain lines with <br>, but not around block elements.
@@ -109,11 +145,11 @@ export function toHtml(text: string, mentions: Mention[] = []): string | null {
 }
 
 /** The content of a text message from the composer; typed emoticons go out as emoji (step 87). */
-export function textContent(text: string, mentions: Mention[] = []): Record<string, unknown> {
+export function textContent(text: string, mentions: Mention[] = [], channels: ChannelRef[] = []): Record<string, unknown> {
   const body = emoticonsToEmoji(text.trim());
   const used = mentions.filter((m) => body.includes(`@${m.displayName}`));
   const room = ROOM_MENTIONS.some((m) => new RegExp(`(^|\\s)${m}\\b`).test(body));
-  const html = toHtml(body, used);
+  const html = toHtml(body, used, channels.filter((c) => c.name && body.includes(`#${c.name}`)));
   return {
     msgtype: "m.text",
     body,
@@ -152,6 +188,13 @@ function purifier() {
           node.setAttribute("class", "chat-mention");
           return;
         }
+        // A channel: its id (!…) or address (#…:server); the interface opens it.
+        if (user && /^[!#][^\s<>"]{1,254}$/.test(user)) {
+          node.setAttribute("data-room", user);
+          node.removeAttribute("href");
+          node.setAttribute("class", "chat-channel");
+          return;
+        }
         if (!/^(https?:|mailto:)/i.test(href)) node.removeAttribute("href");
         node.setAttribute("target", "_blank");
         node.setAttribute("rel", "noopener noreferrer nofollow");
@@ -161,17 +204,23 @@ function purifier() {
   return DOMPurify;
 }
 
-function linkify(escaped: string): string {
-  return escaped.replace(URL_RE, (url) => `<a href="${url}">${url}</a>`);
+function linkify(escaped: string, channels: ChannelRef[]): string {
+  const links: string[] = [];
+  const out = escaped.replace(URL_RE, (url) => {
+    links.push(`<a href="${url}">${url}</a>`);
+    return `\uE000${links.length - 1}\uE001`;
+  });
+  return restoreLinks(linkChannels(out, channels, links), links);
 }
 
 /**
- * Safe HTML of a message for display. Mentions become `<a data-mention>`;
- * the interface styles them and shows names.
+ * Safe HTML of a message for display. Mentions become `<a data-mention>`,
+ * channels `<a data-room>`; the interface styles them and opens them. In plain
+ * text (other clients, older messages) "#name" of a known channel is linked here.
  */
-export function messageHtml(content: Record<string, unknown>): string {
+export function messageHtml(content: Record<string, unknown>, channels: ChannelRef[] = []): string {
   const body = typeof content.body === "string" ? content.body : "";
-  const raw = content.format === "org.matrix.custom.html" && typeof content.formatted_body === "string" ? content.formatted_body : linkify(escapeHtml(body)).replace(/\n/g, "<br>");
+  const raw = content.format === "org.matrix.custom.html" && typeof content.formatted_body === "string" ? content.formatted_body : linkify(escapeHtml(body), channels).replace(/\n/g, "<br>");
   // Thread fallbacks quote the replied-to message; Matrix marks them for removal.
   const withoutFallback = raw.replace(/<mx-reply>[\s\S]*?<\/mx-reply>/g, "");
   return purifier().sanitize(withoutFallback, { ALLOWED_TAGS, ALLOWED_ATTR: ["href", "target", "rel", "data-mention", "class"], ALLOW_DATA_ATTR: false }) as string;
@@ -194,6 +243,21 @@ export function firstLink(body: string, ownOrigin: string | null = null): string
     return url;
   }
   return null;
+}
+
+/**
+ * Step 99: a link to this chat (a channel's or a message's, "Copy link")
+ * opens here, not in a new tab. Links of another account (`as`) stay links.
+ */
+export function chatLinkTarget(href: string, origin: string): { roomId: string; eventId: string | null } | null {
+  try {
+    const u = new URL(href, origin);
+    if (u.origin !== origin || !/\/chat\/?$/.test(u.pathname) || u.searchParams.has("as")) return null;
+    const roomId = u.searchParams.get("room");
+    return roomId && /^!/.test(roomId) ? { roomId, eventId: u.searchParams.get("event") } : null;
+  } catch {
+    return null;
+  }
 }
 
 /** Does the message mention this person (or everyone)? */

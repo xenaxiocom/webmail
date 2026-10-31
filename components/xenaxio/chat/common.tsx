@@ -10,7 +10,9 @@ import { withBasePath } from "@/lib/browser-navigation";
 import { assistantAvailable } from "@/lib/xenaxio/assistant";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import type { ChatClient, PersonInfo } from "@/lib/xenaxio/chat/client";
+import { chatLinkTarget } from "@/lib/xenaxio/chat/format";
 import { type Colleague, useChatStore } from "@/lib/xenaxio/chat/store";
+import { toast } from "@/stores/toast-store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { cn } from "@/lib/utils";
 
@@ -87,6 +89,51 @@ export function messageLink(locale: string, roomId: string, eventId: string): st
 export function channelLink(locale: string, roomId: string): string {
   const prefix = typeof window === "undefined" ? "" : window.location.origin;
   return `${prefix}${withBasePath(`/${locale}/chat/`)}?room=${encodeURIComponent(roomId)}`;
+}
+
+/**
+ * Step 99: a click in a message on a channel ("#name") or on a link to this
+ * chat opens the channel here, like in Slack. An open channel I am not in is
+ * joined first; a closed one says it is not available.
+ */
+export function useChatLinkClick(): (e: React.MouseEvent) => void {
+  const t = useXT();
+  const client = useChatStore((s) => s.client);
+  const setView = useChatStore((s) => s.setView);
+  const setPanel = useChatStore((s) => s.setPanel);
+  const setFocus = useChatStore((s) => s.setFocus);
+  return useCallback(
+    (e: React.MouseEvent) => {
+      if (!client || e.defaultPrevented) return;
+      const el = e.target as HTMLElement;
+      let target: { roomId: string; eventId: string | null } | null = null;
+      const channel = el.closest("[data-room]");
+      if (channel) target = { roomId: channel.getAttribute("data-room") ?? "", eventId: null };
+      else {
+        const a = el.closest("a[href]") as HTMLAnchorElement | null;
+        // Ctrl/Cmd/Shift-click keeps the browser's new tab.
+        if (!a || e.metaKey || e.ctrlKey || e.shiftKey || e.altKey || e.button !== 0) return;
+        target = chatLinkTarget(a.href, window.location.origin);
+      }
+      if (!target?.roomId) return;
+      e.preventDefault();
+      const { eventId } = target;
+      const open = (roomId: string) => {
+        setView({ kind: "room", roomId });
+        setPanel(null);
+        if (eventId) setFocus({ roomId, eventId });
+      };
+      if (client.rooms.get(target.roomId)?.membership === "join") {
+        open(target.roomId);
+        return;
+      }
+      void client.openChannel(target.roomId).then(
+        (roomId) => (roomId ? open(roomId) : toast.error(t("chat.channel_unavailable"))),
+        () => toast.error(t("chat.channel_unavailable")),
+      );
+    },
+    [client, setView, setPanel, setFocus, t],
+  );
 }
 
 /** Step 43, part D: whether the AI assistant is on for this person (its chat buttons show only then). */

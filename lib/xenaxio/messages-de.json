@@ -1609,6 +1609,7 @@
     "browse_title": "Kanäle",
     "browse_search": "Kanäle suchen",
     "browse_join": "Beitreten",
+    "channel_unavailable": "Dieser Kanal ist für Sie nicht verfügbar.",
     "browse_open": "Öffnen",
     "browse_empty": "Keine offenen Kanäle gefunden.",
     "dm_title": "Neue Nachricht",
