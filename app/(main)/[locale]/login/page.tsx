@@ -30,7 +30,9 @@ function PasswordLinkForm({ kind, token }: { kind: "invite" | "reset"; token: st
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const title = t(kind === "invite" ? "rooms.invite_title" : "rooms.reset_title");
+  // Step 96, part D: the company moved to Xenaxio – a new mailbox, then into mail.
+  const mailbox = info?.kind === "mailbox";
+  const title = t(mailbox ? "rooms.moved_title" : kind === "invite" ? "rooms.invite_title" : "rooms.reset_title");
   useDocumentTitle(title, { withAccount: false });
 
   useEffect(() => {
@@ -48,7 +50,7 @@ function PasswordLinkForm({ kind, token }: { kind: "invite" | "reset"; token: st
       await xenaxio.roomsUseLink(kind, token, password, locale);
       setPassword("");
       clearAssistantState();
-      window.location.assign(withBasePath(roomsStart(locale)));
+      window.location.assign(withBasePath(mailbox ? `/${locale}/` : roomsStart(locale)));
     } catch (err) {
       setError(t(errorKey(err)));
       setBusy(false);
@@ -73,7 +75,7 @@ function PasswordLinkForm({ kind, token }: { kind: "invite" | "reset"; token: st
     );
   }
   return (
-    <AuthCard title={title} subtitle={t(kind === "invite" ? "rooms.invite_subtitle" : "rooms.reset_subtitle", { company: info.company ?? "" })}>
+    <AuthCard title={title} subtitle={t(mailbox ? "rooms.moved_subtitle" : kind === "invite" ? "rooms.invite_subtitle" : "rooms.reset_subtitle", { company: info.company ?? "" })}>
       <form onSubmit={submit} className="space-y-4" noValidate>
         {error && <Notice kind="error">{error}</Notice>}
         <TextField label={t("login.email")} type="email" autoComplete="username" value={info.email ?? ""} readOnly />

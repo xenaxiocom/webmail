@@ -622,6 +622,8 @@ export interface RoomsLinkInfo {
   email?: string;
   company?: string;
   displayName?: string;
+  /** Step 96, part D: "mailbox" when the company moved to Xenaxio (sign-in with mail afterwards). */
+  kind?: "mailbox" | "chat";
 }
 
 export interface Invitation {
@@ -1238,6 +1240,7 @@ export const xenaxio = {
     /** Step 97: XenRooms Free or paid; "reviewed" opens chat with other companies. */
     setTenantPlan: (id: string, plan: "free" | "paid") => request<RoomsPlanInfo>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/plan`, { plan }),
     reviewTenant: (id: string) => request<RoomsPlanInfo>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/review`, {}),
+    toWorkspace: (id: string, domain: string) => request<{ moved: number }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/to-workspace`, { domain }),
     createInvitation: (note: string, locale: "de" | "en", product: "workspace" | "rooms" = "workspace") =>
       request<{ id: string; url: string; expiresAt: string }>("POST", "/api/operator/invitations", { note: note || undefined, locale, product }),
   },
