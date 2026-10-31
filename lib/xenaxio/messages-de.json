@@ -2725,5 +2725,21 @@
     "delete": "Ausgewählte löschen ({count})",
     "delete_confirm": "{count} Einträge von {name} endgültig löschen? Ordner werden mit ihrem ganzen Inhalt gelöscht. {name} erhält darüber eine E-Mail.\n\n{names}",
     "deleted": "{count} gelöscht."
+  },
+  "rooms": {
+    "login_title": "Bei XenRooms anmelden",
+    "login_subtitle": "Der Team-Chat für alle Ihre Firmen – mit Ihrem Xenaxio-Konto.",
+    "add_title": "Weitere Firma hinzufügen",
+    "add_subtitle": "Melden Sie sich mit dem Xenaxio-Konto der anderen Firma an. Sie wechseln dann links per Klick.",
+    "by": "von Xenaxio",
+    "companies": "Firmen",
+    "add_company": "Firma hinzufügen",
+    "switch_to": "Zu {company} wechseln ({email})",
+    "current": "{company} ({email}) – geöffnet",
+    "unread_important": "{count} Erwähnungen und Direktnachrichten",
+    "unread_any": "Ungelesene Nachrichten",
+    "admin": "Verwaltung in Xenaxio",
+    "sign_out": "Von {company} abmelden",
+    "too_many": "Höchstens {max} Konten in einem Browser."
   }
 }

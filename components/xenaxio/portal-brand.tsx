@@ -5,7 +5,8 @@
 // one, and a clear page for addresses that belong to no company.
 import { useEffect } from "react";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
-import { activeBrand, applyAppIdentity, brandCss, goToPortal, movedUrl, shouldHandOff, usePortal } from "@/lib/xenaxio/portal";
+import { activeBrand, applyAppIdentity, brandCss, goToPortal, isRoomsPath, movedUrl, ROOMS_ICON, ROOMS_NAME, roomsStart, shouldHandOff, usePortal } from "@/lib/xenaxio/portal";
+import { getLocaleFromPath, getPathPrefix, withBasePath } from "@/lib/browser-navigation";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 
@@ -36,6 +37,12 @@ export function PortalBrand() {
     if (portal?.kind === "moved") window.location.replace(movedUrl(portal.url, window.location));
     // Step 38: installed from a company portal, the app carries the company's name and icon.
     if (portal?.kind === "tenant" && portal.name) applyAppIdentity(document, portal.name, portal.iconUrl);
+    // Step 67: XenRooms is the chat only, one app for every company.
+    if (portal?.kind === "rooms") {
+      applyAppIdentity(document, ROOMS_NAME, ROOMS_ICON);
+      const path = window.location.pathname.slice(getPathPrefix().length) || "/";
+      if (!isRoomsPath(path)) window.location.replace(withBasePath(roomsStart(getLocaleFromPath())));
+    }
   }, [portal]);
 
   if (!XENAXIO_BFF || !portal) return null;
@@ -51,6 +58,8 @@ export function PortalBrand() {
   }
   // On the shared address: once signed in, continue on the company's own address.
   if (portal.kind === "app") return <SignedIn handOff={portal.portals} />;
+  // Step 67: XenRooms keeps every company here; the open company's colour, no hand-over.
+  if (portal.kind === "rooms") return <SignedIn handOff={false} />;
   const brand = activeBrand(portal, null);
   return <BrandStyle color={brand?.color} text={brand?.colorText} />;
 }

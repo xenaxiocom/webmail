@@ -2725,5 +2725,21 @@
     "delete": "Delete selected ({count})",
     "delete_confirm": "Delete {count} items of {name} for good? Folders are deleted with everything in them. {name} gets an e-mail about it.\n\n{names}",
     "deleted": "{count} deleted."
+  },
+  "rooms": {
+    "login_title": "Sign in to XenRooms",
+    "login_subtitle": "The team chat for all your companies – with your Xenaxio account.",
+    "add_title": "Add another company",
+    "add_subtitle": "Sign in with your Xenaxio account of the other company. Then switch on the left with one click.",
+    "by": "by Xenaxio",
+    "companies": "Companies",
+    "add_company": "Add a company",
+    "switch_to": "Switch to {company} ({email})",
+    "current": "{company} ({email}) – open",
+    "unread_important": "{count} mentions and direct messages",
+    "unread_any": "Unread messages",
+    "admin": "Administration in Xenaxio",
+    "sign_out": "Sign out of {company}",
+    "too_many": "At most {max} accounts in one browser."
   }
 }

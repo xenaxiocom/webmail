@@ -16,6 +16,19 @@ const SCRIPT_URL = new URL(self.location.href);
 const BASE_PATH = SCRIPT_URL.pathname.replace(/[^/]*$/, "").replace(/\/+$/, "");
 const LOCALE = /^[a-z]{2}$/.test(SCRIPT_URL.searchParams.get("locale") || "") ? SCRIPT_URL.searchParams.get("locale") : "de";
 const CHAT_PATH = `${BASE_PATH}/${LOCALE}/chat/`;
+// Step 67: on XenRooms (xenrooms.app) its own icon; a notification says whose
+// it is (several companies in one browser), and a click opens that company.
+const ROOMS = SCRIPT_URL.searchParams.get("app") === "rooms";
+const ICON = ROOMS ? `${BASE_PATH}/xenrooms/icon-192.png` : `${BASE_PATH}/api/pwa-icon/192`;
+const ACCOUNT = /^[0-9a-f-]{36}$/i;
+// The account open in the chat window (the page tells us). Unknown after the
+// worker restarts: then every company's notification shows.
+let openAccount = "";
+
+self.addEventListener("message", (event) => {
+  const data = event.data || {};
+  if (data.kind === "xenaxio-chat-account" && typeof data.account === "string" && ACCOUNT.test(data.account)) openAccount = data.account;
+});
 
 self.addEventListener("install", () => {
   self.skipWaiting();
@@ -71,8 +84,10 @@ async function handlePush(event) {
     }
   }
 
-  // Someone reading the chat right now on this device needs no ping (like Slack).
-  if (open.some((c) => c.focused && c.visibilityState === "visible" && isChatWindow(c))) return;
+  // Someone reading the chat right now on this device needs no ping (like Slack);
+  // on XenRooms only for the company that is open there.
+  const sameAccount = !ROOMS || !data.account || data.account === openAccount;
+  if (sameAccount && open.some((c) => c.focused && c.visibilityState === "visible" && isChatWindow(c))) return;
 
   const title = typeof data.title === "string" && data.title ? data.title : "Rooms";
   const body = typeof data.body === "string" ? data.body : "";
@@ -81,9 +96,9 @@ async function handlePush(event) {
     // One notification per channel: a new message replaces the older one.
     tag: `xenaxio-chat:${data.roomId || ""}`,
     renotify: true,
-    icon: `${BASE_PATH}/api/pwa-icon/192`,
-    badge: `${BASE_PATH}/api/pwa-icon/192`,
-    data: { roomId: data.roomId || "", eventId: data.eventId || "" },
+    icon: ICON,
+    badge: ICON,
+    data: { roomId: data.roomId || "", eventId: data.eventId || "", account: typeof data.account === "string" && ACCOUNT.test(data.account) ? data.account : "" },
   });
 }
 
@@ -96,8 +111,8 @@ async function showAssistant(data) {
     body: typeof data.body === "string" ? data.body : "",
     tag: `xenaxio-assistant:${id}`,
     renotify: true,
-    icon: `${BASE_PATH}/api/pwa-icon/192`,
-    badge: `${BASE_PATH}/api/pwa-icon/192`,
+    icon: ICON,
+    badge: ICON,
     data: { assistant: id },
   });
 }
@@ -107,6 +122,7 @@ async function handleClick(data) {
   const query = new URLSearchParams();
   if (data.roomId) query.set("room", data.roomId);
   if (data.eventId) query.set("event", data.eventId);
+  if (data.account) query.set("as", data.account);
   const target = `${CHAT_PATH}${query.toString() ? `?${query}` : ""}`;
   const open = await windows();
 
@@ -116,7 +132,7 @@ async function handleClick(data) {
     try {
       // Focus first: navigating spends the click's user activation (see sw.js).
       const focused = await chat.focus();
-      focused.postMessage({ kind: "xenaxio-chat-open", roomId: data.roomId || "", eventId: data.eventId || "" });
+      focused.postMessage({ kind: "xenaxio-chat-open", roomId: data.roomId || "", eventId: data.eventId || "", account: data.account || "" });
       return;
     } catch (_) {
       // Fall through.

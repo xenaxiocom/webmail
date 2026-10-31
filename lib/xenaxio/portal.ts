@@ -40,8 +40,24 @@ export function usePortal(): PortalState | null {
 /** Logo, colour and name to show: this address's company, else the signed-in person's. */
 export function activeBrand(portal: PortalState | null, me: Me | null): PortalInfo | null {
   if (portal?.kind === "tenant") return portal;
-  if (portal?.kind === "app" && me?.portal) return me.portal;
+  if ((portal?.kind === "app" || portal?.kind === "rooms") && me?.portal) return me.portal;
   return null;
+}
+
+/** Step 67: XenRooms, the team chat on its own address. */
+export const ROOMS_NAME = "XenRooms";
+export const ROOMS_ICON = "/xenrooms/apple-touch-icon.png";
+/** The XenRooms logo on its sign-in page and switcher. */
+export const ROOMS_LOGO = "/xenrooms/icon-192.png";
+
+/** Pages XenRooms has: the chat, sign-in and the forced password change; anything else goes to the chat. */
+export function isRoomsPath(pathname: string): boolean {
+  return /^\/[a-z]{2}\/(chat|login|auth|workspace\/password)(\/|$)/.test(pathname);
+}
+
+/** The chat's start page in a language. */
+export function roomsStart(locale: string): string {
+  return `/${locale}/chat/`;
 }
 
 /**
