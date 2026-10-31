@@ -812,7 +812,7 @@ export interface RoomsPerson {
   createdAt: string;
   /** Step 108: blocked by Xenaxio; the admin cannot lift it. */
   blockedByOperator?: boolean;
-  /** Step 109: the AI for this person (paid XenRooms). */
+  /** Step 110: the AI for this person (paid XenRooms). */
   aiEnabled?: boolean;
 }
 

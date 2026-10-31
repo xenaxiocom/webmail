@@ -10,7 +10,7 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 
 function Tile({ href, icon, title, description, disabled }: { href: string; icon: ReactNode; title: string; description: string; disabled?: boolean }) {
-  // Step 109: a page the plan does not include yet — shown, with the reason, not linked.
+  // Step 110: a page the plan does not include yet — shown, with the reason, not linked.
   if (disabled) {
     return (
       <div aria-disabled="true" className="flex items-center gap-3 rounded-lg border border-dashed border-border p-4 text-muted-foreground" data-testid="workspace-tile-disabled">
@@ -35,7 +35,7 @@ function Tile({ href, icon, title, description, disabled }: { href: string; icon
 }
 
 /**
- * Step 109: the overview of a company without email (XenRooms): the pages a
+ * Step 110: the overview of a company without email (XenRooms): the pages a
  * team chat needs — people, Rooms, look, meetings, AI, audit log — and the own
  * assistant. XenRooms Free has no AI: its tile says so.
  */
@@ -99,7 +99,7 @@ function Overview() {
 
 export default function WorkspacePage() {
   const t = useXT();
-  // Step 109: in XenRooms this page is the administration ("Verwaltung").
+  // Step 110: in XenRooms this page is the administration ("Verwaltung").
   const rooms = useXenaxioMe()?.tenant.product === "rooms";
   return (
     <WorkspaceShell title={rooms ? t("rooms.admin_here") : t("workspace.title")}>

@@ -455,7 +455,7 @@ function AiSettings() {
   );
 }
 
-/** Step 109: XenRooms Free comes without the AI (step 97): the page says where it is. */
+/** Step 110: XenRooms Free comes without the AI (step 97): the page says where it is. */
 function AiBody() {
   const t = useXT();
   const me = useMe();

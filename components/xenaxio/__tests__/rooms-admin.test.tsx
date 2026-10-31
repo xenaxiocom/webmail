@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import type { ReactNode } from "react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 109: the administration of a company without email (XenRooms) — the
+// Step 110: the administration of a company without email (XenRooms) — the
 // overview, the look without the portal's address and app icon, the AI page
 // for Free, and the AI per person in "Personen".
 const me = vi.hoisted(() => ({
@@ -47,7 +47,7 @@ beforeEach(() => {
   me.current = { ...me.current, user: { ...me.current.user, role: "admin" }, tenant: { ...me.current.tenant, product: "rooms", plan: "paid" } };
 });
 
-describe("step 109: Verwaltung in XenRooms", () => {
+describe("step 110: Verwaltung in XenRooms", () => {
   it("paid: people, Rooms, look, meetings, AI, audit log, and the own assistant — nothing about mail", () => {
     render(<WorkspacePage />);
     expect(screen.getByRole("heading", { name: "Verwaltung" })).toBeTruthy();

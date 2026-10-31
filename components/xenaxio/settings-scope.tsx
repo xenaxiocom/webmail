@@ -56,7 +56,7 @@ export function ChatOnlyAccountSettings() {
           <span className="text-sm text-foreground">{me.user.email}</span>
         </SettingItem>
         <XenaxioPasswordSetting />
-        {/* Step 109: paid XenRooms has the AI — the own assistant (memory, skills, permissions). */}
+        {/* Step 110: paid XenRooms has the AI — the own assistant (memory, skills, permissions). */}
         {me.tenant.plan !== "free" && (
           <SettingItem label={t("workspace.assistant")} description={t("profile_settings.assistant_intro")}>
             <Link href="/workspace/assistant" className="text-sm font-medium text-primary hover:underline" data-testid="settings-assistant-link">

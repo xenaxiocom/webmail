@@ -174,7 +174,7 @@ function MeetingsSettings() {
           </span>
         </label>
         {/* Step 90: recording a meeting's sound; the one who started the meeting switches it on, every time. */}
-        {/* Step 109: XenRooms has no recording (no Files to keep it in, step 96). */}
+        {/* Step 110: XenRooms has no recording (no Files to keep it in, step 96). */}
         {data.recordingAvailable && !rooms && (
           <label htmlFor="meet-recording" className="flex cursor-pointer items-start gap-3 border-t border-border pt-3">
             <input

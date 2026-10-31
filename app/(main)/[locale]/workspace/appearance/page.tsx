@@ -141,7 +141,7 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
       {error && <Notice kind="error">{error}</Notice>}
       {notice && <Notice kind="success">{notice}</Notice>}
 
-      {/* Step 109: in XenRooms the address is the chat's (<slug>.xenrooms.app) and stays. */}
+      {/* Step 110: in XenRooms the address is the chat's (<slug>.xenrooms.app) and stays. */}
       {portal.baseDomain && !rooms && (
         <Section title={t("appearance.address_title")} description={t("appearance.address_intro")}>
           <a href={portal.url} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline break-all">
@@ -201,7 +201,7 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
         <p className="text-xs text-muted-foreground">{t("appearance.logo_hint")}</p>
       </Section>
 
-      {/* Step 109: XenRooms is one app with its own icon for every company. */}
+      {/* Step 110: XenRooms is one app with its own icon for every company. */}
       {portal.logoUrl && !rooms && (
         <Section title={t("appearance.icon_title")} description={t("appearance.icon_intro")}>
           {portal.iconUrl ? (
@@ -286,7 +286,7 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
       </Section>
 
       {/* Step 42: the background under the web client for everyone who has not picked their own. */}
-      {/* Step 109: the background shows behind the mail's navigation, which XenRooms has not. */}
+      {/* Step 110: the background shows behind the mail's navigation, which XenRooms has not. */}
       {!rooms && (
         <Section title={t("background.company_title")} description={t("background.company_intro")}>
           <BackgroundPicker
@@ -405,7 +405,7 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
   );
 }
 
-/** Step 109: XenRooms (a company without email) — logo, colour and background; no address, app icon or booking pages. */
+/** Step 110: XenRooms (a company without email) — logo, colour and background; no address, app icon or booking pages. */
 function AppearanceBody() {
   const rooms = useMe().tenant.product === "rooms";
   return (
@@ -419,7 +419,7 @@ function AppearanceBody() {
 
 export default function AppearancePage() {
   const t = useXT();
-  // Step 109: in XenRooms there is no address to choose.
+  // Step 110: in XenRooms there is no address to choose.
   const rooms = useXenaxioMe()?.tenant.product === "rooms";
   return (
     <WorkspaceShell title={rooms ? t("workspace.rooms_appearance") : t("appearance.title")} backHref="/workspace" requireAdmin>

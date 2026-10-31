@@ -19,7 +19,7 @@ const gb = (bytes: number) => (bytes / 1024 ** 3).toLocaleString(undefined, { ma
 function Person({ person, isSelf, withAi, onChanged, onMessage }: {
   person: RoomsPerson;
   isSelf: boolean;
-  /** Step 109: paid XenRooms — the admin switches the AI per person. */
+  /** Step 110: paid XenRooms — the admin switches the AI per person. */
   withAi: boolean;
   onChanged: () => Promise<void>;
   onMessage: (m: { kind: "error" | "success"; text: string }) => void;

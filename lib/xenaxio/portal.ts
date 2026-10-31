@@ -57,7 +57,7 @@ export const ROOMS_WORDMARK = "/xenrooms/wordmark.png";
  * Step 96: also creating a company without email and, for its admin, people and the chat's settings.
  * Step 97: and the sign-up (/start). Step 96: and connecting AI chats (/connect, /workspace/mcp).
  * Step 107: and the same settings as in Xenaxio (/settings).
- * Step 109: and the administration a company without email needs (overview, look,
+ * Step 110: and the administration a company without email needs (overview, look,
  * meetings, AI, audit log) and the own assistant pages; the platform's catalog
  * of settings (settings-catalog.ts, ROOMS_PAGE) keeps to the same list.
  */

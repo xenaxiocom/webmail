@@ -139,7 +139,7 @@ describe("step 90, part D: the company's recordings", () => {
   });
 });
 
-describe("step 109: meetings in XenRooms", () => {
+describe("step 110: meetings in XenRooms", () => {
   it("keeps the background for calls and leaves out recording (XenRooms has none)", async () => {
     product.current = "rooms";
     api.settings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: true, recording: false });
