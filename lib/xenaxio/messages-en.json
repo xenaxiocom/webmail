@@ -763,10 +763,14 @@
       "out_on_done": "Out-of-office reply switched on.",
       "out_off_done": "Out-of-office reply switched off.",
       "failed": "Could not be saved.",
-      "link": "See in the settings"
+      "link": "See in the settings",
+      "sender_name_title": "Change sender name",
+      "sender_name_done": "Sender name changed.",
+      "sender_name_note": "This is how recipients see you in new emails. Your name in Xenaxio (Rooms, calendar, people) stays as it is."
     },
     "tool_find_setting": "Looking for the setting…",
     "tool_set_signature": "Preparing a new signature…",
+    "tool_set_sender_name": "Preparing the sender name…",
     "tool_set_out_of_office": "Preparing the out-of-office reply…",
     "screen": {
       "context": "Context: {where}",
@@ -836,7 +840,27 @@
     "tool_start_flow": "Starting the run…",
     "tool_update_flow": "Changing the flow…",
     "tool_add_flow_person": "Adding the person…",
-    "tool_remove_flow_person": "Removing the person…"
+    "tool_remove_flow_person": "Removing the person…",
+    "actions": {
+      "title": "What I did",
+      "no_tools": "nothing looked up",
+      "one_step": "1 step",
+      "steps": "{count} steps",
+      "changed": "Changed: {what}",
+      "waiting": "Waiting for your confirmation, nothing changed yet",
+      "nothing_changed": "Nothing changed",
+      "found": "{count} found",
+      "warning": "Note: the answer sounds as if something was done, but nothing was changed in this answer.",
+      "state_done": "done",
+      "state_failed": "failed, nothing happened",
+      "state_unknown": "\"{tool}\": there is no such tool, nothing happened",
+      "state_waiting": "proposed, waiting for your confirmation",
+      "state_confirmed": "confirmed by you and done",
+      "state_rejected": "discarded by you",
+      "state_expired": "proposed, expired",
+      "state_decided": "proposed, already decided",
+      "state_proposal_failed": "confirmed, but failed"
+    }
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -2795,6 +2819,7 @@
       "delete_schedule": "Delete a scheduled task",
       "find_setting": "Find a setting",
       "set_signature": "Change signature",
+      "set_sender_name": "Change sender name",
       "set_out_of_office": "Change out-of-office reply",
       "list_flow_tasks": "See what waits for my decision in flows",
       "list_flow_runs": "See runs of flows",

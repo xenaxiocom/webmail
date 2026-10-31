@@ -124,7 +124,41 @@ export type AssistantEvent =
   /** Step 84 (Xenacore): the answer follows a skill of the company or the user. */
   | { type: "skill"; name: string }
   /** Step 91 (Xenacore): facts the assistant kept in this answer; the panel offers to undo them. */
-  | { type: "memory"; items: { id: string; text: string }[] };
+  | { type: "memory"; items: { id: string; text: string }[] }
+  /** Step 101: what the answer really did, from its tool calls (not from the model's words). */
+  | ({ type: "actions" } & ActionReport);
+
+/** Step 101: one tool call of an answer. */
+export interface ActionStep {
+  tool: string;
+  /** "unknown": the model called a tool that does not exist or that it may not use. */
+  kind: "read" | "write-safe" | "write-confirm" | "send" | "unknown";
+  status: "ok" | "error" | "proposed";
+  /** Read tools only: their short arguments (search words, folder, dates). */
+  args?: Record<string, unknown>;
+  /** How many objects the call found or touched. */
+  count?: number;
+  proposalId?: string;
+  /** A chat opened later: how the user answered the proposal. */
+  outcome?: "pending" | "done" | "failed" | "rejected" | "expired";
+}
+
+/** Step 101: the report under an answer. */
+export interface ActionReport {
+  steps: ActionStep[];
+  /** A tool changed something (proposals wait for the user: not yet). */
+  changed: boolean;
+  /** The answer says something was done although nothing was changed or proposed. */
+  claimMismatch: boolean;
+}
+
+/** A message of a chat from the history (step 101: answers carry their report). */
+export interface StoredMessage {
+  role: "user" | "assistant";
+  content: string;
+  files?: AttachedFile[];
+  actions?: ActionReport;
+}
 
 /** Step 83: one step of the assistant's plan. */
 export interface PlanItem {
@@ -316,14 +350,14 @@ export const assistant = {
     const res = await apiFetch("/api/ai/conversations", { credentials: "same-origin" });
     return res.ok ? (await res.json()).conversations : [];
   },
-  async messages(id: string): Promise<{ role: "user" | "assistant"; content: string; files?: AttachedFile[] }[]> {
+  async messages(id: string): Promise<StoredMessage[]> {
     return (await this.conversation(id)).messages;
   },
   /** Step 49: the messages and the proposals still waiting in the chat; opening it marks it read. */
-  async conversation(id: string): Promise<{ messages: { role: "user" | "assistant"; content: string; files?: AttachedFile[] }[]; proposals: WaitingProposal[] }> {
+  async conversation(id: string): Promise<{ messages: StoredMessage[]; proposals: WaitingProposal[] }> {
     const res = await apiFetch(`/api/ai/conversations/${encodeURIComponent(id)}`, { credentials: "same-origin" });
     if (!res.ok) return { messages: [], proposals: [] };
-    const data = (await res.json()) as { messages?: { role: "user" | "assistant"; content: string; files?: AttachedFile[] }[]; proposals?: WaitingProposal[] };
+    const data = (await res.json()) as { messages?: StoredMessage[]; proposals?: WaitingProposal[] };
     return { messages: data.messages ?? [], proposals: data.proposals ?? [] };
   },
   async remove(id?: string): Promise<void> {

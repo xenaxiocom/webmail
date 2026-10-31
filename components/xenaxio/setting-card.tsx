@@ -3,6 +3,7 @@
 // Step 85, part B: the card of a proposal to change one of the user's own
 // settings — the signature or the out-of-office reply — with the value as it
 // was and as it will be. Nothing changes until the user confirms.
+// Step 101: the sender name on the user's emails, too.
 import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { Check, PalmtreeIcon, PenLine } from "@/components/icons";
@@ -20,14 +21,16 @@ interface OutOfOffice {
 }
 
 interface SettingSummary {
-  setting: "signature" | "out_of_office";
+  setting: "signature" | "out_of_office" | "sender_name";
   email?: string;
+  /** sender_name: the new name. */
+  name?: string;
   text?: string | null;
   enabled?: boolean;
   from?: string | null;
   until?: string | null;
   subject?: string | null;
-  before?: { text?: string } & Partial<OutOfOffice>;
+  before?: { text?: string; name?: string } & Partial<OutOfOffice>;
 }
 
 export interface SettingProposal {
@@ -40,7 +43,7 @@ export interface SettingProposal {
 /** The proposal is a change of one of the user's own settings. */
 export function isSettingProposal(summary: ProposalSummary): boolean {
   const setting = (summary as { setting?: unknown }).setting;
-  return setting === "signature" || setting === "out_of_office";
+  return setting === "signature" || setting === "out_of_office" || setting === "sender_name";
 }
 
 /** When the reply applies, in words. */
@@ -66,20 +69,37 @@ export function SettingCard({ proposal, locale, onDecide }: { proposal: SettingP
   const t = useXT();
   const s = proposal.summary as unknown as SettingSummary;
   const signature = s.setting === "signature";
+  const name = s.setting === "sender_name";
   const settled = proposal.state !== "pending" && proposal.state !== "running";
   const done = proposal.state === "done";
-  const title = signature ? t(s.text ? "assistant.setting.signature_title" : "assistant.setting.signature_remove") : t(s.enabled ? "assistant.setting.out_on" : "assistant.setting.out_off");
-  const doneText = signature ? t("assistant.setting.signature_done") : t(s.enabled ? "assistant.setting.out_on_done" : "assistant.setting.out_off_done");
+  const title = name
+    ? t("assistant.setting.sender_name_title")
+    : signature
+      ? t(s.text ? "assistant.setting.signature_title" : "assistant.setting.signature_remove")
+      : t(s.enabled ? "assistant.setting.out_on" : "assistant.setting.out_off");
+  const doneText = name ? t("assistant.setting.sender_name_done") : signature ? t("assistant.setting.signature_done") : t(s.enabled ? "assistant.setting.out_on_done" : "assistant.setting.out_off_done");
   const stateText = done ? doneText : proposal.state === "failed" ? t("assistant.setting.failed") : t(`assistant.proposal.${proposal.state}`);
   const changedText = !signature && s.before && s.before.text !== s.text;
 
   return (
     <div className="space-y-2 rounded-lg border border-primary/40 bg-primary/5 p-3 text-xs">
       <p className="flex items-center gap-1.5 font-medium text-sm">
-        {signature ? <PenLine className="h-4 w-4 text-primary" /> : <PalmtreeIcon className="h-4 w-4 text-primary" />}
+        {signature || name ? <PenLine className="h-4 w-4 text-primary" /> : <PalmtreeIcon className="h-4 w-4 text-primary" />}
         {title}
       </p>
-      {signature ? (
+      {name ? (
+        <>
+          <p className="text-muted-foreground">{t("assistant.setting.for", { email: s.email ?? "" })}</p>
+          <Text value={s.name} />
+          {s.before?.name?.trim() && s.before.name !== s.name && (
+            <>
+              <p className="text-muted-foreground">{t("assistant.setting.before")}</p>
+              <Text value={s.before.name} old />
+            </>
+          )}
+          <p className="text-muted-foreground">{t("assistant.setting.sender_name_note")}</p>
+        </>
+      ) : signature ? (
         <>
           <p className="text-muted-foreground">{t("assistant.setting.for", { email: s.email ?? "" })}</p>
           {s.text ? <Text value={s.text} /> : null}
@@ -120,7 +140,7 @@ export function SettingCard({ proposal, locale, onDecide }: { proposal: SettingP
           </Button>
         </div>
       )}
-      <Link href={signature ? "/settings/account" : "/settings/vacation"} className="inline-block text-muted-foreground underline hover:text-foreground">
+      <Link href={signature || name ? "/settings/account" : "/settings/vacation"} className="inline-block text-muted-foreground underline hover:text-foreground">
         {t("assistant.setting.link")}
       </Link>
     </div>
