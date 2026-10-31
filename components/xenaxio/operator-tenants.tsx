@@ -227,6 +227,20 @@ export function OperatorTenants() {
     }
   };
 
+  // Step 96, part D: a XenRooms company moves to Xenaxio with a mail domain.
+  const toWorkspace = async (tenant: OperatorTenant) => {
+    const domain = window.prompt(t("operator.to_workspace_prompt", { name: tenant.name }))?.trim().toLowerCase();
+    if (!domain) return;
+    setError(null);
+    try {
+      const { moved } = await xenaxio.operator.toWorkspace(tenant.id, domain);
+      window.alert(t("operator.to_workspace_done", { name: tenant.name, count: moved }));
+      await load();
+    } catch (err) {
+      setError(t(errorKey(err)));
+    }
+  };
+
   // Step 26: blocked, and the domain leaves the mail server; confirmed by typing the name.
   const deactivate = async (tenant: OperatorTenant) => {
     const typed = window.prompt(t("operator.deactivate_prompt", { name: tenant.name, domain: tenant.domain ?? "—" }));
@@ -311,6 +325,11 @@ export function OperatorTenants() {
                 {tenant.product === "rooms" && (
                   <Button size="sm" variant="outline" onClick={() => void setPlan(tenant, tenant.plan === "free" ? "paid" : "free")}>
                     {tenant.plan === "free" ? t("operator.plan_to_paid") : t("operator.plan_to_free")}
+                  </Button>
+                )}
+                {tenant.product === "rooms" && (
+                  <Button size="sm" variant="outline" onClick={() => void toWorkspace(tenant)}>
+                    {t("operator.to_workspace")}
                   </Button>
                 )}
                 {tenant.plan === "free" && tenant.federationAfter && (

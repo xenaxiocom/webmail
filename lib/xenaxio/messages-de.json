@@ -521,7 +521,10 @@
     "plan_paid": "bezahlt",
     "plan_to_paid": "Auf bezahlt stellen",
     "plan_to_free": "Zurück auf Free",
-    "plan_review": "Geprüft: andere Firmen erlauben"
+    "plan_review": "Geprüft: andere Firmen erlauben",
+    "to_workspace": "In Xenaxio umwandeln",
+    "to_workspace_prompt": "Mail-Domain für {name} (z. B. firma.de)? Alle bekommen ein Postfach <name>@Domain und eine E-Mail an ihre bisherige Adresse, um das Passwort festzulegen. Der Chat und seine Adresse bleiben. Nicht rückgängig zu machen.",
+    "to_workspace_done": "{name} ist jetzt bei Xenaxio: {count} Postfächer, E-Mails verschickt."
   },
   "about": {
     "based_on": "Basiert auf",
@@ -3180,6 +3183,8 @@
     "plan_free_more": "Mehr Personen oder Platz? Fragen Sie uns",
     "own_domain": "Eigene Domain für die Chat-Adressen verwenden",
     "own_domain_label": "Ihre Domain",
-    "own_domain_hint": "Die Chat-Adressen enden dann darauf, z. B. @anna:mueller.de. Ihre E-Mail bleibt, wo sie ist. Der Chat startet sofort; andere Firmen erreichen ihn, sobald Sie eine kleine Datei auf Ihrer Website oder einen DNS-Eintrag hinterlegen – zu sehen unter Verwaltung → Rooms. Später nicht änderbar."
+    "own_domain_hint": "Die Chat-Adressen enden dann darauf, z. B. @anna:mueller.de. Ihre E-Mail bleibt, wo sie ist. Der Chat startet sofort; andere Firmen erreichen ihn, sobald Sie eine kleine Datei auf Ihrer Website oder einen DNS-Eintrag hinterlegen – zu sehen unter Verwaltung → Rooms. Später nicht änderbar.",
+    "moved_title": "Willkommen bei Xenaxio",
+    "moved_subtitle": "{company} nutzt jetzt Xenaxio. Legen Sie das Passwort für Ihre neue Adresse fest."
   }
 }

@@ -521,7 +521,10 @@
     "plan_paid": "paid",
     "plan_to_paid": "Make paid",
     "plan_to_free": "Back to Free",
-    "plan_review": "Reviewed: allow other companies"
+    "plan_review": "Reviewed: allow other companies",
+    "to_workspace": "Move to Xenaxio",
+    "to_workspace_prompt": "Mail domain for {name} (e.g. firma.de)? Everyone gets a mailbox <name>@domain and an email to their current address to set the password. The chat and its address stay. This cannot be undone.",
+    "to_workspace_done": "{name} is on Xenaxio now: {count} mailboxes, emails sent."
   },
   "about": {
     "based_on": "Based on",
@@ -3180,6 +3183,8 @@
     "plan_free_more": "More people or space? Ask us",
     "own_domain": "Use our own domain for chat addresses",
     "own_domain_label": "Your domain",
-    "own_domain_hint": "Chat addresses then end with it, e.g. @anna:mueller.de. Your email stays where it is. The chat starts at once; other companies reach it once you put a small file on your website or a DNS record – shown under Administration → Rooms. It cannot be changed later."
+    "own_domain_hint": "Chat addresses then end with it, e.g. @anna:mueller.de. Your email stays where it is. The chat starts at once; other companies reach it once you put a small file on your website or a DNS record – shown under Administration → Rooms. It cannot be changed later.",
+    "moved_title": "Welcome to Xenaxio",
+    "moved_subtitle": "{company} now uses Xenaxio. Set the password for your new address."
   }
 }
