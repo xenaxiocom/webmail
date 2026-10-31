@@ -227,7 +227,10 @@
     "email_disposable": "Please use your work email – one-time email services are not accepted.",
     "too_many_signups": "Too many sign-ups from this connection. Please try again later.",
     "signup_closed": "Sign-up is not open.",
-    "signup_link_invalid": "This link is no longer valid. Please sign up again."
+    "signup_link_invalid": "This link is no longer valid. Please sign up again.",
+    "person_name_required": "Please enter a name.",
+    "person_name_too_long": "The name may have up to 100 characters.",
+    "person_name_invalid": "The name may not contain control characters."
   },
   "login": {
     "title": "Sign in",
@@ -1414,6 +1417,14 @@
     "saving": "Saving …",
     "unreadable": "The browser cannot open this picture. Please choose a JPEG or PNG.",
     "alt": "Profile picture of {name}"
+  },
+  "name": {
+    "label": "Name",
+    "intro": "How colleagues see you: in the portal, the directory, Rooms and as the sender of your emails.",
+    "save": "Save",
+    "save_aria": "Save name",
+    "saved": "Name saved.",
+    "rename": "Change name"
   },
   "chat": {
     "title": "Rooms",

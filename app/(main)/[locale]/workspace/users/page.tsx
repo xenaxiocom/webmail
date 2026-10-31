@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { KeyRound, Pencil, Plus } from "@/components/icons";
 import { Field, Notice, PasswordField, TextField } from "@/components/xenaxio/ui";
 import { AvatarEditor } from "@/components/xenaxio/avatar-editor";
+import { NameForm, saveMyName } from "@/components/xenaxio/name-setting";
 import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { errorKey, errorText, type WorkspaceDomain, type WorkspaceUser, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -72,6 +73,18 @@ function UserEditor({ user, isSelf, maxQuotaBytes, aiEnabled, onChanged, onMessa
 
   return (
     <div className="space-y-4 rounded-md bg-muted/50 p-3">
+      {/* Step 101: the name everywhere (portal, colleagues, Rooms, sender name). */}
+      <div className="space-y-1.5">
+        <label htmlFor={`name-${user.id}`} className="text-sm font-medium">
+          {t("name.label")}
+        </label>
+        <NameForm
+          id={`name-${user.id}`}
+          initial={user.displayName}
+          save={isSelf ? saveMyName : async (name) => (await xenaxio.setUserName(user.id, name)).displayName}
+          onSaved={() => void onChanged()}
+        />
+      </div>
       <form
         className="space-y-2"
         onSubmit={(e) => {

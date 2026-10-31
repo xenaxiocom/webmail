@@ -42,6 +42,8 @@ interface ChatState {
   editing: string | null;
   loadStatus: (force?: boolean) => Promise<ChatStatus | null>;
   connect: () => Promise<void>;
+  /** Step 101: the colleagues' directory again (a name changed). */
+  reloadColleagues: () => Promise<void>;
   disconnect: () => void;
   setView: (view: ChatView) => void;
   setPanel: (panel: SidePanel) => void;
@@ -93,6 +95,12 @@ export const useChatStore = create<ChatState>((set, get) => ({
         statusPromise = null;
       });
     return statusPromise;
+  },
+
+  reloadColleagues: async () => {
+    if (!get().client) return;
+    const colleagues = await loadColleagues();
+    if (colleagues.size) set({ colleagues });
   },
 
   connect: async () => {
