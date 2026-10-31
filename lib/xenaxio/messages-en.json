@@ -3246,5 +3246,9 @@
     "account_title": "Account",
     "account_intro": "Your name, your photo and how you sign in to XenRooms.",
     "sign_in_email": "Sign-in email"
+  },
+  "colleague_card": {
+    "message": "Message in Rooms",
+    "message_title": "Message {name} in Rooms"
   }
 }
