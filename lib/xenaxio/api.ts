@@ -90,8 +90,10 @@ export function errorText(t: (key: string, values?: Record<string, string | numb
 }
 
 export interface Me {
-  user: { id: string; email: string; displayName: string; role: "user" | "admin"; mustChangePassword: boolean };
-  tenant: { id: string; name: string; status: "onboarding" | "active" | "blocked" };
+  /** Step 96: kind "chat" — a person without a mailbox (XenRooms only). */
+  user: { id: string; email: string; displayName: string; role: "user" | "admin"; mustChangePassword: boolean; kind?: "mailbox" | "chat" };
+  /** Step 96: product "rooms" — a company without email (XenRooms). */
+  tenant: { id: string; name: string; status: "onboarding" | "active" | "blocked"; product?: "workspace" | "rooms" };
   edition: "cloud" | "onprem";
   /** The user's own domain; mail works only once it is "active" (DNS checked). */
   domain?: { name: string; status: "pending" | "active" } | null;
@@ -586,8 +588,31 @@ export interface OperatorReport {
   tenants: { id: string; name: string; domain: string | null; status: string; mailUsers: number; aiWorkspaceUsers: number; aiTokens: number }[];
 }
 
+/** Step 96: a person of a company without email (XenRooms). */
+export interface RoomsPerson {
+  id: string;
+  email: string;
+  displayName: string;
+  role: "user" | "admin";
+  status: "active" | "disabled";
+  /** Invited, no password set yet. */
+  invited: boolean;
+  chatAddress: string | null;
+  createdAt: string;
+}
+
+/** Step 96: an invitation or password reset link of XenRooms. */
+export interface RoomsLinkInfo {
+  status: "valid" | "used" | "expired" | "unknown";
+  email?: string;
+  company?: string;
+  displayName?: string;
+}
+
 export interface Invitation {
   id: string;
+  /** Step 96: "rooms" — a company without email (XenRooms). */
+  product?: "workspace" | "rooms";
   note: string | null;
   createdAt: string;
   expiresAt: string;
@@ -987,6 +1012,27 @@ export const xenaxio = {
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: true }>("POST", "/api/me/password", { currentPassword, newPassword }),
 
+  // --- Step 96: XenRooms without email ---
+  roomsInvitation: (token: string) =>
+    request<{ status: "valid" | "used" | "expired" | "unknown"; product: "workspace" | "rooms" | null; domain: string | null }>("GET", `/api/rooms/onboarding?token=${encodeURIComponent(token)}`),
+  roomsSlug: (token: string, q: { name?: string; slug?: string }) => {
+    const params = new URLSearchParams({ token });
+    if (q.name) params.set("name", q.name);
+    if (q.slug !== undefined) params.set("slug", q.slug);
+    return request<{ domain: string; suggestion: string | null; slug?: string; problem?: SlugProblem | null }>("GET", `/api/rooms/onboarding/slug?${params}`);
+  },
+  roomsOnboard: (input: { token: string; companyName: string; slug: string; adminName: string; email: string; password: string; locale: "de" | "en" }) =>
+    request<Me>("POST", "/api/rooms/onboarding", input),
+  roomsLink: (kind: "invite" | "reset", token: string) => request<RoomsLinkInfo>("GET", `/api/rooms/link?kind=${kind}&token=${encodeURIComponent(token)}`),
+  roomsUseLink: (kind: "invite" | "reset", token: string, password: string, locale?: string) =>
+    request<Me>("POST", "/api/rooms/link", { kind, token, password, ...(locale === "de" || locale === "en" ? { locale } : {}) }),
+  roomsForgot: (email: string) => request<{ ok: true }>("POST", "/api/rooms/password/forgot", { email }),
+  roomsPeople: () => request<{ people: RoomsPerson[]; limit: number | null; chatDomain: string | null }>("GET", "/api/admin/rooms/people"),
+  roomsInvite: (input: { email: string; displayName: string; role?: "user" | "admin" }) => request<RoomsPerson>("POST", "/api/admin/rooms/people", input),
+  roomsResend: (id: string) => request<{ ok: true }>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/resend`, {}),
+  roomsSetStatus: (id: string, status: "active" | "disabled") => request<RoomsPerson>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/status`, { status }),
+  roomsRemove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/rooms/people/${encodeURIComponent(id)}`),
+
   invitationStatus: (token: string) =>
     request<{ status: "valid" | "used" | "expired" | "unknown" }>("GET", `/api/onboarding/invitation?token=${encodeURIComponent(token)}`),
   onboard: (input: { token: string; companyName: string; domain: string; adminName: string; adminLocalPart: string; password: string; slug?: string }) =>
@@ -1162,7 +1208,7 @@ export const xenaxio = {
     testModels: (kind: "chat" | "speech", model?: string) => request<{ ok: boolean; error: string | null; ms: number | null }>("POST", "/api/operator/models/test", { kind, ...(model ? { model } : {}) }),
     setTenantSlug: (id: string, slug: string) => request<{ id: string; slug: string }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/slug`, { slug }),
     revokeInvitation: (id: string) => request<{ id: string; revokedAt: string }>("POST", `/api/operator/invitations/${encodeURIComponent(id)}/revoke`, {}),
-    createInvitation: (note: string, locale: "de" | "en") =>
-      request<{ id: string; url: string; expiresAt: string }>("POST", "/api/operator/invitations", { note: note || undefined, locale }),
+    createInvitation: (note: string, locale: "de" | "en", product: "workspace" | "rooms" = "workspace") =>
+      request<{ id: string; url: string; expiresAt: string }>("POST", "/api/operator/invitations", { note: note || undefined, locale, product }),
   },
 };

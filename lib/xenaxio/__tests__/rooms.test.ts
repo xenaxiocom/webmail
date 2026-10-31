@@ -8,6 +8,11 @@ describe("XenRooms helpers (step 67)", () => {
     for (const path of ["/", "/de/", "/de/mail/", "/de/workspace/", "/de/calendar/", "/de/chatty/"]) expect(isRoomsPath(path)).toBe(false);
   });
 
+  it("step 96: has creating a company without email, its people and the chat settings", () => {
+    for (const path of ["/en/rooms/start/", "/de/workspace/rooms/people/", "/de/workspace/chat/"]) expect(isRoomsPath(path)).toBe(true);
+    for (const path of ["/de/rooms/", "/de/workspace/users/", "/de/workspace/roomsx/"]) expect(isRoomsPath(path)).toBe(false);
+  });
+
   it("names companies without a logo by two letters and caps counts", () => {
     expect(companyInitials("Acme GmbH")).toBe("AG");
     expect(companyInitials("botkontor")).toBe("BO");

@@ -85,6 +85,8 @@ function Console({
   const [invitations, setInvitations] = useState<Invitation[]>([]);
   const [note, setNote] = useState("");
   const [lang, setLang] = useState<"de" | "en">("de");
+  // Step 96: the whole workspace or XenRooms only (a company without email).
+  const [product, setProduct] = useState<"workspace" | "rooms">("workspace");
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [tab, setTab] = useState<"tenants" | "report" | "invitations" | "models">(
@@ -103,7 +105,7 @@ function Console({
     e.preventDefault();
     setError(null);
     try {
-      const res = await xenaxio.operator.createInvitation(note.trim(), lang);
+      const res = await xenaxio.operator.createInvitation(note.trim(), lang, product);
       setLink(res.url);
       setNote("");
       load();
@@ -180,7 +182,7 @@ function Console({
               <h2 className="font-medium">{t("operator.new_invitation")}</h2>
               <form
                 onSubmit={create}
-                className="grid gap-4 sm:grid-cols-[1fr_auto_auto] sm:items-end"
+                className="grid gap-4 sm:grid-cols-[1fr_auto_auto_auto] sm:items-end"
               >
                 <TextField
                   label={t("operator.note")}
@@ -196,6 +198,17 @@ function Console({
                   >
                     <option value="de">Deutsch</option>
                     <option value="en">English</option>
+                  </select>
+                </Field>
+                <Field label={t("operator.product")} htmlFor="inv-product">
+                  <select
+                    id="inv-product"
+                    value={product}
+                    onChange={(e) => setProduct(e.target.value as "workspace" | "rooms")}
+                    className="h-10 rounded-md border border-input bg-background px-3 text-sm"
+                  >
+                    <option value="workspace">Xenaxio</option>
+                    <option value="rooms">{t("operator.product_rooms")}</option>
                   </select>
                 </Field>
                 <Button type="submit">{t("operator.create")}</Button>
@@ -218,7 +231,10 @@ function Console({
                   key={i.id}
                   className="p-4 flex flex-wrap items-center justify-between gap-2 text-sm"
                 >
-                  <span className="font-medium">{i.note || "—"}</span>
+                  <span className="font-medium">
+                    {i.note || "—"}
+                    {i.product === "rooms" && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">XenRooms</span>}
+                  </span>
                   <span className="text-muted-foreground">
                     {t("operator.col_created")}: {date(i.createdAt)} ·{" "}
                     {t("operator.col_expires")}: {date(i.expiresAt)} ·{" "}

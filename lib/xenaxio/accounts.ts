@@ -126,3 +126,16 @@ export function otherCompanyPortal(err: unknown): string | null {
     return null;
   }
 }
+
+/** Step 96: a person without a mailbox signs in on XenRooms; its address (origin) from the error. */
+export function roomsSignInOrigin(err: unknown): string | null {
+  if (!(err instanceof XenaxioApiError) || err.code !== "rooms_sign_in_elsewhere") return null;
+  const url = err.details?.url;
+  if (typeof url !== "string") return null;
+  try {
+    const parsed = new URL(url);
+    return parsed.protocol === "https:" ? parsed.origin : null;
+  } catch {
+    return null;
+  }
+}
