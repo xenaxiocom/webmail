@@ -22,6 +22,8 @@ export type ChatView =
   | { kind: "saved" }
   /** Step 99, part E: unsent drafts of every channel and thread. */
   | { kind: "drafts" }
+  /** Step 99, part E2: reminders and messages sent later. */
+  | { kind: "later" }
   | { kind: "browse" }
   | { kind: "search"; query: string }
   | { kind: "home" };

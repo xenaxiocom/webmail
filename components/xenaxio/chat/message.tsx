@@ -11,7 +11,7 @@ import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
 import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { reportMessage } from "@/lib/xenaxio/chat/api";
 import { isJumboEmoji } from "@/lib/xenaxio/chat/emoji";
-import { appOf, firstLink, forwardedOf, forwardParts, messageHtml, mentionsUser, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
+import { appOf, firstLink, forwardedOf, forwardParts, messageHtml, mentionsUser, plainPreview, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatDialogs } from "./dialogs";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -25,6 +25,8 @@ import { RichHtml, SnippetCard } from "./code";
 import { LinkPreviewCard } from "./link-preview";
 import { ForwardDialog, ForwardedFrom } from "./forward";
 import { EditHistory } from "./edit-history";
+import { TimePicker } from "./later";
+import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { SnippetDialog } from "./snippet-dialog";
 import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
 import { ImageViewer } from "./image-viewer";
@@ -300,7 +302,28 @@ function Editor({ message, client, onDone }: { message: Message; client: ChatCli
  * What can be done with a message. The hover toolbar shows the thread and
  * "save" as buttons and the rest in "⋯"; the sheet on phones (step 99) shows all.
  */
-function useMessageActions({ message, room, client, inThread, saved, onEdit, onReport, onForward }: { message: Message; room: Room; client: ChatClient; inThread?: boolean; saved: boolean; onEdit: () => void; onReport: () => Promise<void>; onForward: () => void }): MessageAction[] {
+function useMessageActions({
+  message,
+  room,
+  client,
+  inThread,
+  saved,
+  onEdit,
+  onReport,
+  onForward,
+  onRemind,
+}: {
+  message: Message;
+  room: Room;
+  client: ChatClient;
+  inThread?: boolean;
+  saved: boolean;
+  onEdit: () => void;
+  onReport: () => Promise<void>;
+  onForward: () => void;
+  onRemind: () => void;
+}): MessageAction[] {
+  const real = !message.id.startsWith("~");
   const t = useXT();
   const locale = useLocale();
   const setPanel = useChatStore((s) => s.setPanel);
@@ -312,6 +335,8 @@ function useMessageActions({ message, room, client, inThread, saved, onEdit, onR
     !inThread && { key: "thread", label: t("chat.reply_in_thread"), run: () => setPanel({ kind: "thread", roomId: room.id, rootId: message.id }) },
     mine && textual && !forwardedOf(message.content) && { key: "edit", label: t("chat.edit"), run: onEdit },
     { key: "save", label: saved ? t("chat.unsave") : t("chat.save"), run: run(() => client.setSaved(room.id, message.id, !saved)) },
+    // Step 99, part E2: Slack's "Remind me about this".
+    real && !message.redacted && { key: "remind", label: t("chat.remind"), run: onRemind },
     // Step 99, part E: forward to another channel or person (Slack's "Share message").
     !message.redacted && { key: "forward", label: t("chat.forward"), run: onForward },
     // Step 99, part E: Slack's "mark unread" (also Alt+click on the message).
@@ -385,6 +410,8 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
   const [snippetEdit, setSnippetEdit] = useState(false);
   const [forwarding, setForwarding] = useState(false);
   const [history, setHistory] = useState(false);
+  const [reminding, setReminding] = useState(false);
+  const remind = useChatLater((s) => s.remind);
   const snippet = snippetOf(message.content);
   const editSnippet = useCallback(() => setSnippetEdit(true), []);
   const saved = client.saved.some((s) => s.eventId === message.id);
@@ -397,7 +424,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     await reportMessage({ roomId: room.id, eventId: message.id, sender: message.sender, excerpt: String(message.content.body ?? "").slice(0, 500), reason: reason.trim() });
     toast.success(t("chat.report_sent"));
   };
-  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report, onForward: () => setForwarding(true) });
+  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report, onForward: () => setForwarding(true), onRemind: () => setReminding(true) });
   const actionable = message.type === "m.room.message" && !message.id.startsWith("~") && !message.redacted && !editing;
   const longPress = useLongPress(() => setSheet(true), actionable);
   const closeSheet = useCallback(() => setSheet(false), []);
@@ -548,6 +575,18 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
               toast.error(t("chat.error"));
               return false;
             }
+          }}
+        />
+      )}
+      {reminding && (
+        <TimePicker
+          title={t("chat.remind")}
+          choices={["20m", "1h", "3h", "tomorrow", "monday"]}
+          confirm={t("chat.remind_set")}
+          onClose={() => setReminding(false)}
+          onPick={async (at) => {
+            await remind({ roomId: room.id, eventId: message.id, roomName: room.kind === "channel" ? client.roomName(room) : null, preview: plainPreview(message.content, 280), remindAt: at.toISOString() });
+            toast.success(t("chat.remind_done"));
           }}
         />
       )}

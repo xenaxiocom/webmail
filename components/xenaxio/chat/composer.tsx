@@ -7,7 +7,7 @@
 // and go out together on "send". Step 87: ":" and a word suggests emoji;
 // typed emoticons (":)") go out as emoji. Step 99: code blocks, numbered
 // lists, links and code snippets (a long paste offers one, as in Slack).
-import { IconBold, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
+import { IconBold, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { uploadFile } from "@/lib/xenaxio/chat/api";
@@ -25,6 +25,8 @@ import { PersonAvatar } from "./common";
 import { EmojiPicker } from "./emoji-picker";
 import { useChatDialogs } from "./dialogs";
 import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
+import { TimePicker } from "./later";
+import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
 
 
@@ -153,6 +155,8 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [snippet, setSnippet] = useState<{ code: string; fromBox: boolean } | null>(null);
   const [longPaste, setLongPaste] = useState<string | null>(null);
+  const [scheduling, setScheduling] = useState(false);
+  const schedule = useChatLater((s) => s.schedule);
   const { prompt } = useChatDialogs();
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
@@ -551,17 +555,45 @@ export function Composer({
             </label>
           )}
           <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={(!text.trim() && !pending.length) || busy}
-            className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40"
-            aria-label={t("chat.send")}
-          >
-            {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />}
-          </button>
+          <span className="flex">
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={(!text.trim() && !pending.length) || busy}
+              className="flex h-7 items-center gap-1 rounded-l-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40"
+              aria-label={t("chat.send")}
+            >
+              {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />}
+            </button>
+            {/* Step 99, part E2: Slack's "Schedule for later" (text only; files go now). */}
+            <button
+              type="button"
+              onClick={() => setScheduling(true)}
+              disabled={!text.trim() || pending.length > 0 || busy}
+              className="flex h-7 items-center rounded-r-md border-l border-primary-foreground/30 bg-primary px-1 text-primary-foreground disabled:opacity-40"
+              aria-label={t("chat.send_later")}
+              title={t("chat.send_later")}
+            >
+              <IconClockHour4 size={14} />
+            </button>
+          </span>
         </div>
       </div>
+      {scheduling && (
+        <TimePicker
+          title={t("chat.send_later")}
+          choices={["1h", "tomorrow", "monday"]}
+          confirm={t("chat.send_later_set")}
+          onClose={() => setScheduling(false)}
+          onPick={async (at) => {
+            const body = text.trim();
+            if (!body) return;
+            await schedule({ roomId: room.id, roomName: room.kind === "channel" ? client.roomName(room) : null, threadRoot: threadRoot ?? null, content: textContent(body, people), sendAt: at.toISOString() });
+            setText("");
+            toast.success(t("chat.send_later_done", { time: at.toLocaleString(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) }));
+          }}
+        />
+      )}
       {snippet && <SnippetDialog initial={{ code: snippet.code }} onClose={() => setSnippet(null)} onSubmit={submitSnippet} />}
     </div>
   );
