@@ -5,7 +5,7 @@
 // "Mit KI antworten" for the open conversation. Shown only when the platform
 // has the assistant configured and enabled for the user. Step 33: files and
 // pictures go into the chat (paperclip, paste, drop) and are kept in Files.
-import { type ClipboardEvent, type DragEvent, Fragment, type FormEvent, type ReactNode, useCallback, useEffect, useRef, useState } from "react";
+import { type ClipboardEvent, type DragEvent, Fragment, type FormEvent, type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Link, usePathname, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
@@ -25,6 +25,7 @@ import {
   type AssistantEvent,
   assistantIds,
   type AttachedFile,
+  type ActionReport,
   ASSISTANT_OPEN_PARAM,
   ASSISTANT_WAITING,
   type ConversationInfo,
@@ -51,6 +52,7 @@ import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
 import { toast } from "@/stores/toast-store";
 import { useToolLabel } from "./tool-permissions";
 import { isSettingProposal, SettingCard } from "./setting-card";
+import { ActionReportView } from "./action-report";
 import { useAssistantScreen } from "./use-assistant-screen";
 import { type Screen, screenSuggestions } from "@/lib/xenaxio/assistant-screen";
 
@@ -87,6 +89,8 @@ interface Turn {
   skills?: string[];
   /** Step 91: facts the assistant kept in this answer; `undone` once the user took one back. */
   memory?: { id: string; text: string; undone?: boolean }[];
+  /** Step 101: what the answer really did, from its tool calls. */
+  actions?: ActionReport;
 }
 
 /** Step 83: the assistant's plan for a longer task. */
@@ -454,6 +458,8 @@ export function AssistantPanel() {
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
   const [turns, setTurns] = useState<Turn[]>([]);
+  // Step 101: the cards' states, so the report under an answer says whether a proposal was confirmed.
+  const proposalStates = useMemo(() => Object.fromEntries(turns.flatMap((turn) => turn.proposals ?? []).map((p) => [p.id, p.state])), [turns]);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [input, setInput] = useState("");
   const [busy, setBusy] = useState(false);
@@ -563,6 +569,7 @@ export function AssistantPanel() {
           else if (e.type === "budget") update((turn) => ({ ...turn, budget: true }));
           else if (e.type === "skill") update((turn) => ({ ...turn, skills: [...new Set([...(turn.skills ?? []), e.name])] }));
           else if (e.type === "memory") update((turn) => ({ ...turn, memory: [...(turn.memory ?? []), ...e.items] }));
+          else if (e.type === "actions") update((turn) => ({ ...turn, actions: { steps: e.steps, changed: e.changed, claimMismatch: e.claimMismatch } }));
         }
       } catch (err) {
         if ((err as { name?: string }).name !== "AbortError") {
@@ -768,7 +775,7 @@ export function AssistantPanel() {
   const showHistory = async () => setHistory(await assistant.conversations());
   const loadConversation = useCallback(async (id: string) => {
     const { messages: msgs, proposals } = await assistant.conversation(id);
-    const loaded: Turn[] = msgs.map((m) => ({ role: m.role, text: m.content, ...(m.files?.length ? { files: m.files } : {}) }));
+    const loaded: Turn[] = msgs.map((m) => ({ role: m.role, text: m.content, ...(m.files?.length ? { files: m.files } : {}), ...(m.actions ? { actions: m.actions } : {}) }));
     // Step 49: what a scheduled run proposed still waits here for the user's click.
     if (proposals.length) loaded.push({ role: "assistant", text: "", proposals: proposals.map((p) => ({ ...p, state: "pending" as const })) });
     setTurns(loaded);
@@ -1039,6 +1046,10 @@ export function AssistantPanel() {
                   )}
                 </Fragment>
               ))}
+              {/* Step 101: what this answer really did; the proposal cards tell the live state. */}
+              {turn.actions && !(busy && i === turns.length - 1) && (
+                <ActionReportView report={turn.actions} live={proposalStates} />
+              )}
               {turn.sources && turn.sources.length > 0 && (
                 <div className="space-y-1">
                   <p className="text-xs font-medium text-muted-foreground">{t("assistant.sources")}</p>

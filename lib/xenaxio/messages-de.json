@@ -845,7 +845,27 @@
     "tool_start_flow": "Starte den Vorgang…",
     "tool_update_flow": "Ändere den Flow…",
     "tool_add_flow_person": "Füge die Person hinzu…",
-    "tool_remove_flow_person": "Entferne die Person…"
+    "tool_remove_flow_person": "Entferne die Person…",
+    "actions": {
+      "title": "Was ich getan habe",
+      "no_tools": "nichts nachgesehen",
+      "one_step": "1 Schritt",
+      "steps": "{count} Schritte",
+      "changed": "Geändert: {what}",
+      "waiting": "Wartet auf Ihre Bestätigung, noch nichts geändert",
+      "nothing_changed": "Nichts geändert",
+      "found": "{count} gefunden",
+      "warning": "Achtung: Die Antwort klingt, als wäre etwas erledigt. In dieser Antwort wurde aber nichts geändert.",
+      "state_done": "ausgeführt",
+      "state_failed": "fehlgeschlagen, nichts passiert",
+      "state_unknown": "„{tool}“: dieses Werkzeug gibt es nicht, nichts passiert",
+      "state_waiting": "vorgeschlagen, wartet auf Ihre Bestätigung",
+      "state_confirmed": "von Ihnen bestätigt und ausgeführt",
+      "state_rejected": "von Ihnen verworfen",
+      "state_expired": "vorgeschlagen, abgelaufen",
+      "state_decided": "vorgeschlagen, bereits entschieden",
+      "state_proposal_failed": "bestätigt, aber fehlgeschlagen"
+    }
   },
   "mcp": {
     "title": "KI-Chats verbinden",
@@ -2994,7 +3014,13 @@
       "start_flow": "Einen Vorgang starten",
       "update_flow": "Einstellungen eigener Flows ändern",
       "add_flow_person": "Personen zu eigenen Flows hinzufügen",
-      "remove_flow_person": "Personen aus eigenen Flows entfernen"
+      "remove_flow_person": "Personen aus eigenen Flows entfernen",
+      "get_meeting_transcript": "Aufzeichnung einer Besprechung lesen",
+      "set_chat_notifications": "Chat-Benachrichtigungen: Xenaxio oder XenRooms",
+      "set_display_name": "Eigenen Namen ändern",
+      "rename_user": "Namen von Mitarbeitenden ändern (Admin)",
+      "get_profile": "Profil ansehen",
+      "update_profile": "Eigenes Profil ändern"
     },
     "admin_title": "KI-Berechtigungen der Firma",
     "admin_intro": "Obergrenze für alle in der Firma. Mitarbeitende können für sich nur strenger einstellen. Lesende Werkzeuge bleiben bei „Höchstens nachfragen“ erlaubt.",

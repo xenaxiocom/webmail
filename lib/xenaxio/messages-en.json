@@ -845,7 +845,27 @@
     "tool_start_flow": "Starting the run…",
     "tool_update_flow": "Changing the flow…",
     "tool_add_flow_person": "Adding the person…",
-    "tool_remove_flow_person": "Removing the person…"
+    "tool_remove_flow_person": "Removing the person…",
+    "actions": {
+      "title": "What I did",
+      "no_tools": "nothing looked up",
+      "one_step": "1 step",
+      "steps": "{count} steps",
+      "changed": "Changed: {what}",
+      "waiting": "Waiting for your confirmation, nothing changed yet",
+      "nothing_changed": "Nothing changed",
+      "found": "{count} found",
+      "warning": "Note: the answer sounds as if something was done, but nothing was changed in this answer.",
+      "state_done": "done",
+      "state_failed": "failed, nothing happened",
+      "state_unknown": "\"{tool}\": there is no such tool, nothing happened",
+      "state_waiting": "proposed, waiting for your confirmation",
+      "state_confirmed": "confirmed by you and done",
+      "state_rejected": "discarded by you",
+      "state_expired": "proposed, expired",
+      "state_decided": "proposed, already decided",
+      "state_proposal_failed": "confirmed, but failed"
+    }
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -2994,7 +3014,13 @@
       "start_flow": "Start a run of a flow",
       "update_flow": "Change settings of own flows",
       "add_flow_person": "Add a person to own flows",
-      "remove_flow_person": "Remove a person from own flows"
+      "remove_flow_person": "Remove a person from own flows",
+      "get_meeting_transcript": "Read a meeting transcript",
+      "set_chat_notifications": "Chat notifications: Xenaxio or XenRooms",
+      "set_display_name": "Change your own name",
+      "rename_user": "Change an employee's name (admin)",
+      "get_profile": "View a profile",
+      "update_profile": "Change your own profile"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",
