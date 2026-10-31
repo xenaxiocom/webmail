@@ -23,7 +23,7 @@ function setup() {
   return { send, box: screen.getByLabelText("Nachricht an #dev") as HTMLTextAreaElement };
 }
 
-describe("snippets from the composer (step 98)", () => {
+describe("snippets from the composer (step 99)", () => {
   it("a long paste offers a snippet; it takes the text out of the box and sends it as a snippet", async () => {
     const { send, box } = setup();
     const code = Array.from({ length: 40 }, (_, i) => `line ${i}`).join("\n");

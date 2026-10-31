@@ -29,7 +29,7 @@ function inline(escaped: string, mentions: Mention[]): string {
       let out = part;
       // Links first, so the markers below do not touch addresses.
       const links: string[] = [];
-      // Step 98: [text](https://…) from the link button.
+      // Step 99: [text](https://…) from the link button.
       out = out.replace(/\[([^\]\n]{1,300})\]\((https?:\/\/[^\s<>"')]+)\)/g, (_, label: string, url: string) => {
         links.push(`<a href="${url}">${label}</a>`);
         return `\uE000${links.length - 1}\uE001`;
@@ -67,7 +67,7 @@ export function toHtml(text: string, mentions: Mention[] = []): string | null {
         i++;
         continue;
       }
-      // Step 98: ```python names the language (Matrix clients read class="language-…").
+      // Step 99: ```python names the language (Matrix clients read class="language-…").
       const lang = /^[\w+#.-]{1,20}$/.test(first) ? languageOf(first) : null;
       if (first && !lang) code.push(first);
       i++;
@@ -130,7 +130,7 @@ function purifier() {
   if (!hooked) {
     hooked = true;
     DOMPurify.addHook("afterSanitizeAttributes", (node) => {
-      // Classes only for the language of code (step 98) and our mentions below.
+      // Classes only for the language of code (step 99) and our mentions below.
       if (node.tagName !== "A" && node.hasAttribute("class")) {
         const lang = node.tagName === "CODE" ? /^language-([\w+#-]{1,20})$/.exec(node.getAttribute("class") ?? "") : null;
         if (lang) node.setAttribute("class", `language-${lang[1]}`);
@@ -187,7 +187,7 @@ export function mentionsUser(content: Record<string, unknown>, userId: string): 
 export function plainPreview(content: Record<string, unknown>, max = 140): string {
   const type = content.msgtype;
   const body = typeof content.body === "string" ? content.body : "";
-  // Step 98: a snippet by its title.
+  // Step 99: a snippet by its title.
   const snippet = content[SNIPPET_FIELD] as { title?: unknown } | undefined;
   if (snippet && typeof snippet === "object") {
     const title = typeof snippet.title === "string" && snippet.title.trim() ? snippet.title.trim() : "Snippet";

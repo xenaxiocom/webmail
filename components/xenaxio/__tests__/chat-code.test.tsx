@@ -4,7 +4,7 @@ import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
 import { RichHtml, SnippetCard } from "../chat/code";
 import { ChatDialogsProvider } from "../chat/dialogs";
 
-describe("code in messages (step 98)", () => {
+describe("code in messages (step 99)", () => {
   it("a ``` block gets highlighting and a copy button; the text around stays", async () => {
     const writeText = vi.fn(async () => undefined);
     Object.assign(navigator, { clipboard: { writeText } });

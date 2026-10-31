@@ -21,6 +21,8 @@ export interface ChatNotifySettings {
   dndDays: number[];
   /** E-mail about mentions unread for 24 hours. */
   emailDigest: boolean;
+  /** Step 98: which installed app shows chat notifications; auto = XenRooms when installed. */
+  chatApp?: "auto" | "workspace" | "rooms";
 }
 
 const json = { Accept: "application/json", "Content-Type": "application/json", "x-xenaxio-csrf": "1" };
@@ -37,10 +39,18 @@ async function registration(): Promise<ServiceWorkerRegistration | undefined> {
   return navigator.serviceWorker.getRegistration(scope());
 }
 
-async function serverInfo(): Promise<{ publicKey: string | null; endpoints: string[] }> {
+async function serverInfo(): Promise<{ publicKey: string | null; endpoints: string[]; chatTarget?: "workspace" | "rooms" }> {
   const res = await apiFetch("/api/chat/push", { credentials: "same-origin", headers: { Accept: "application/json" } });
   if (!res.ok) throw new Error(`push info ${res.status}`);
-  return (await res.json()) as { publicKey: string | null; endpoints: string[] };
+  return (await res.json()) as { publicKey: string | null; endpoints: string[]; chatTarget?: "workspace" | "rooms" };
+}
+
+/** Step 98: the app that shows this person's chat notifications now (null: unknown). */
+export async function chatPushTarget(): Promise<"workspace" | "rooms" | null> {
+  return serverInfo().then(
+    (info) => info.chatTarget ?? null,
+    () => null,
+  );
 }
 
 async function sendSubscription(sub: PushSubscription): Promise<void> {

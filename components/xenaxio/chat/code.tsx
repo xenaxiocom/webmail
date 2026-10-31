@@ -1,6 +1,6 @@
 "use client";
 
-// Step 98, part A: code in messages, as in Slack — code blocks highlighted
+// Step 99, part A: code in messages, as in Slack — code blocks highlighted
 // with a "copy" button, and snippets as a card: title, language, line
 // numbers, the first lines until "show all", copy, download, full screen.
 import { IconCheck, IconCopy, IconDownload, IconMaximize, IconPencil } from "@tabler/icons-react";

@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import { messageHtml, plainPreview, toHtml } from "../format";
 import { guessLanguage, highlight, isLongPaste, languageOf, loadHighlighter, MAX_INLINE_BYTES, snippetContent, snippetFileFields, snippetFileName, snippetOf } from "../snippet";
 
-describe("snippets (step 98)", () => {
+describe("snippets (step 99)", () => {
   it("is a normal Matrix code block with our field, read back the same", () => {
     const content = snippetContent({ title: "nginx.conf", language: "py", code: "if a < b:\n    print('x')\n\n" });
     expect(content).toMatchObject({
@@ -74,7 +74,7 @@ describe("snippets (step 98)", () => {
   });
 });
 
-describe("code blocks and links in the composer's Markdown (step 98)", () => {
+describe("code blocks and links in the composer's Markdown (step 99)", () => {
   it("```language names the language; a word that is no language stays code", () => {
     expect(toHtml("```ts\nlet a: number;\n```")).toBe('<pre><code class="language-typescript">let a: number;</code></pre>');
     expect(toHtml("```ls -la\n```")).toBe("<pre><code>ls -la</code></pre>");
