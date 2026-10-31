@@ -219,7 +219,14 @@
     "not_rooms_company": "Nur für Firmen, die XenRooms ohne E-Mail nutzen.",
     "rooms_unavailable": "XenRooms ist in dieser Installation nicht eingerichtet.",
     "account_already_added": "Dieses Konto ist hier schon angemeldet.",
-    "password_link_invalid": "Dieser Link gilt nicht mehr. Fordern Sie einen neuen an."
+    "password_link_invalid": "Dieser Link gilt nicht mehr. Fordern Sie einen neuen an.",
+    "plan_limit_people": "XenRooms Free hat Platz für {limit} Personen. Fragen Sie uns nach mehr.",
+    "plan_limit_storage": "Der Platz für Dateien von XenRooms Free ist aufgebraucht.",
+    "plan_federation_later": "Der Chat mit anderen Firmen öffnet einige Tage nach der Registrierung.",
+    "email_disposable": "Bitte nutzen Sie Ihre geschäftliche E-Mail – Wegwerf-Adressen werden nicht angenommen.",
+    "too_many_signups": "Zu viele Registrierungen von dieser Verbindung. Bitte später erneut versuchen.",
+    "signup_closed": "Die Registrierung ist nicht geöffnet.",
+    "signup_link_invalid": "Dieser Link gilt nicht mehr. Bitte registrieren Sie sich erneut."
   },
   "login": {
     "title": "Anmelden",
@@ -500,7 +507,11 @@
     "models_test_ok": "Funktioniert ({ms} ms).",
     "models_test_failed": "Test fehlgeschlagen: {error}",
     "product": "Produkt",
-    "product_rooms": "XenRooms (nur Chat, ohne E-Mail)"
+    "product_rooms": "XenRooms (nur Chat, ohne E-Mail)",
+    "plan_paid": "bezahlt",
+    "plan_to_paid": "Auf bezahlt stellen",
+    "plan_to_free": "Zurück auf Free",
+    "plan_review": "Geprüft: andere Firmen erlauben"
   },
   "about": {
     "based_on": "Basiert auf",
@@ -2803,6 +2814,30 @@
     "people_remove_confirm": "{email} aus Ihrer Firma entfernen? Das Chat-Konto wird geschlossen, die Nachrichten bleiben.",
     "people_removed": "{email} wurde entfernt.",
     "people_chat_settings": "Chat-Einstellungen: andere Firmen, Kanäle, KI",
-    "people_not_rooms": "Ihre Firma verwaltet ihre Personen in Xenaxio (Verwaltung → Mitarbeitende)."
+    "people_not_rooms": "Ihre Firma verwaltet ihre Personen in Xenaxio (Verwaltung → Mitarbeitende).",
+    "signup_title": "XenRooms kostenlos starten",
+    "signup_subtitle": "Team-Chat für bis zu 10 Personen, kostenlos. Ihre E-Mail bleibt, wo sie ist; Kolleginnen und Kollegen kommen mit ihrer geschäftlichen E-Mail dazu.",
+    "signup_submit": "Kostenloses Konto anlegen",
+    "signup_consent": "Ich bin einverstanden, dass Xenaxio meine Angaben verarbeitet, um XenRooms für meine Firma zu betreiben.",
+    "signup_privacy": "Datenschutzerklärung",
+    "signup_free_note": "Free: bis zu 10 Personen und 5 GB für Dateien, Chat mit anderen Firmen nach 7 Tagen. Mehr auf Anfrage.",
+    "signup_have_account": "Schon ein Konto?",
+    "signup_closed": "Die Registrierung ist in dieser Installation nicht geöffnet. Fragen Sie uns nach einem Zugang.",
+    "signup_sent_title": "Bitte E-Mail prüfen",
+    "signup_sent": "Wir haben einen Link an {email} geschickt. Öffnen Sie ihn innerhalb von 24 Stunden, um Ihre Firma anzulegen.",
+    "signup_confirm_title": "Bestätigen und starten",
+    "signup_confirm_subtitle": "XenRooms für {company} – registriert mit {email}.",
+    "signup_confirm_submit": "Firma anlegen und Chat öffnen",
+    "signup_creating": "Wird eingerichtet …",
+    "signup_link_used": "Dieser Link wurde schon verwendet. Melden Sie sich mit E-Mail und Passwort an.",
+    "signup_link_expired": "Dieser Link ist abgelaufen. Bitte registrieren Sie sich erneut.",
+    "signup_link_unknown": "Dieser Link ist nicht gültig.",
+    "signup_again": "Erneut registrieren",
+    "signup_no_account": "Noch kein Konto?",
+    "signup_link": "Kostenlos starten",
+    "plan_free_title": "XenRooms Free",
+    "plan_free_usage": "{people} von {maxPeople} Personen · {used} von {storage} GB für Dateien",
+    "plan_free_federation": "Chat mit anderen Firmen ab {date}.",
+    "plan_free_more": "Mehr Personen oder Platz? Fragen Sie uns"
   }
 }

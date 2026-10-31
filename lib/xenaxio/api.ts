@@ -541,6 +541,11 @@ export function auditQuery(f: AuditFilter): string {
 export interface OperatorTenant {
   id: string;
   name: string;
+  /** Step 96/97: a company without email (XenRooms) and its plan. */
+  product?: "workspace" | "rooms";
+  plan?: "free" | "paid" | null;
+  /** Free: chat with other companies opens then (null: open). */
+  federationAfter?: string | null;
   /** Step 26: "inactive" = deactivated, the domain is off the mail server. */
   status: "onboarding" | "active" | "blocked" | "inactive";
   deactivatedAt?: string | null;
@@ -599,6 +604,15 @@ export interface RoomsPerson {
   invited: boolean;
   chatAddress: string | null;
   createdAt: string;
+}
+
+/** Step 97: XenRooms Free or paid, the limits and the space used. */
+export interface RoomsPlanInfo {
+  plan: "free" | "paid" | null;
+  maxPeople: number | null;
+  storageBytes: number | null;
+  usedBytes: number;
+  federationAfter: string | null;
 }
 
 /** Step 96: an invitation or password reset link of XenRooms. */
@@ -1027,7 +1041,19 @@ export const xenaxio = {
   roomsUseLink: (kind: "invite" | "reset", token: string, password: string, locale?: string) =>
     request<Me>("POST", "/api/rooms/link", { kind, token, password, ...(locale === "de" || locale === "en" ? { locale } : {}) }),
   roomsForgot: (email: string) => request<{ ok: true }>("POST", "/api/rooms/password/forgot", { email }),
-  roomsPeople: () => request<{ people: RoomsPerson[]; limit: number | null; chatDomain: string | null }>("GET", "/api/admin/rooms/people"),
+  roomsPeople: () => request<{ people: RoomsPerson[]; limit: number | null; chatDomain: string | null; plan?: RoomsPlanInfo | null }>("GET", "/api/admin/rooms/people"),
+  // --- Step 97: sign-up without the operator (XenRooms Free) ---
+  roomsSignupOpen: () => request<{ open: boolean; domain: string | null }>("GET", "/api/rooms/signup"),
+  roomsSignupSlug: (q: { name?: string; slug?: string }) => {
+    const params = new URLSearchParams();
+    if (q.name) params.set("name", q.name);
+    if (q.slug !== undefined) params.set("slug", q.slug);
+    return request<{ domain: string; suggestion: string | null; slug?: string; problem?: SlugProblem | null }>("GET", `/api/rooms/signup/slug?${params}`);
+  },
+  roomsSignup: (input: { displayName: string; email: string; companyName: string; slug: string; password: string; locale: "de" | "en"; homepage?: string }) =>
+    request<{ ok: true }>("POST", "/api/rooms/signup", input),
+  roomsSignupInfo: (token: string) => request<{ status: "valid" | "used" | "expired" | "unknown"; email?: string; company?: string }>("GET", `/api/rooms/signup/confirm?token=${encodeURIComponent(token)}`),
+  roomsSignupConfirm: (token: string) => request<Me>("POST", "/api/rooms/signup/confirm", { token }),
   roomsInvite: (input: { email: string; displayName: string; role?: "user" | "admin" }) => request<RoomsPerson>("POST", "/api/admin/rooms/people", input),
   roomsResend: (id: string) => request<{ ok: true }>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/resend`, {}),
   roomsSetStatus: (id: string, status: "active" | "disabled") => request<RoomsPerson>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/status`, { status }),
@@ -1208,6 +1234,9 @@ export const xenaxio = {
     testModels: (kind: "chat" | "speech", model?: string) => request<{ ok: boolean; error: string | null; ms: number | null }>("POST", "/api/operator/models/test", { kind, ...(model ? { model } : {}) }),
     setTenantSlug: (id: string, slug: string) => request<{ id: string; slug: string }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/slug`, { slug }),
     revokeInvitation: (id: string) => request<{ id: string; revokedAt: string }>("POST", `/api/operator/invitations/${encodeURIComponent(id)}/revoke`, {}),
+    /** Step 97: XenRooms Free or paid; "reviewed" opens chat with other companies. */
+    setTenantPlan: (id: string, plan: "free" | "paid") => request<RoomsPlanInfo>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/plan`, { plan }),
+    reviewTenant: (id: string) => request<RoomsPlanInfo>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/review`, {}),
     createInvitation: (note: string, locale: "de" | "en", product: "workspace" | "rooms" = "workspace") =>
       request<{ id: string; url: string; expiresAt: string }>("POST", "/api/operator/invitations", { note: note || undefined, locale, product }),
   },

@@ -55,9 +55,10 @@ export const ROOMS_WORDMARK = "/xenrooms/wordmark.png";
 /**
  * Pages XenRooms has: the chat, sign-in and the forced password change; anything else goes to the chat.
  * Step 96: also creating a company without email and, for its admin, people and the chat's settings.
+ * Step 97: and the sign-up (/start).
  */
 export function isRoomsPath(pathname: string): boolean {
-  return /^\/[a-z]{2}\/(chat|login|auth|rooms\/start|workspace\/(password|rooms|chat))(\/|$)/.test(pathname);
+  return /^\/[a-z]{2}\/(chat|login|auth|start|rooms\/start|workspace\/(password|rooms|chat))(\/|$)/.test(pathname);
 }
 
 /** The chat's start page in a language. */
