@@ -119,6 +119,17 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/admin/chat",
   // Step 67: unread counts of the other companies in XenRooms.
   "/api/chat/accounts",
+  // Step 99: Rooms like Slack — the company's emoji, groups to mention, saved for later,
+  // reminders, messages sent later, link previews, following threads (lib/xenaxio/chat/*).
+  "/api/chat/emoji",
+  "/api/chat/groups",
+  "/api/chat/later",
+  "/api/chat/reminders",
+  "/api/chat/scheduled",
+  "/api/chat/preview",
+  "/api/chat/threads",
+  // Step 99, part G: profiles (job title, contacts, banner and frame).
+  "/api/profile",
   // Step 96: XenRooms without email (company set-up, invitation and reset links, people).
   "/api/rooms",
   "/api/admin/rooms",
