@@ -11,6 +11,8 @@ import { useContactStore, getContactDisplayName } from "@/stores/contact-store";
 import { toast } from "@/stores/toast-store";
 import { useOwnDomainAddress } from "@/hooks/use-own-domain-address";
 import type { ContactCard } from "@/lib/jmap/types";
+import { ColleagueCardDetails, ColleagueCardHeader, RoomsMessageLink } from "@/components/xenaxio/colleague-card";
+import { useColleague } from "@/lib/xenaxio/people";
 
 const CARD_WIDTH = 300;
 
@@ -39,6 +41,8 @@ export function RecipientCard({ name, email, onViewContact, onClose, children, a
   const t = useTranslations("email_viewer.contact_sidebar");
   const contacts = useContactStore((s) => s.contacts);
   const shownEmail = useOwnDomainAddress()(email);
+  // xenaxio (step 107): a colleague of the own company shows their profile card (null elsewhere).
+  const colleague = useColleague(email);
 
   // Find matching contact by email
   const contact = contacts.find((c) => {
@@ -75,6 +79,9 @@ export function RecipientCard({ name, email, onViewContact, onClose, children, a
   return (
     <>
       {/* Header with avatar and name */}
+      {colleague ? (
+        <ColleagueCardHeader person={colleague} email={shownEmail} className="overflow-hidden rounded-t-lg pb-3" />
+      ) : (
       <div className="px-4 pt-4 pb-3 flex items-center gap-3">
         <Avatar
           name={contactName || shownEmail}
@@ -98,6 +105,7 @@ export function RecipientCard({ name, email, onViewContact, onClose, children, a
           )}
         </div>
       </div>
+      )}
 
       {/* Contact details */}
       <div className="px-4 pb-3 space-y-1.5">
@@ -127,6 +135,8 @@ export function RecipientCard({ name, email, onViewContact, onClose, children, a
           </div>
         )}
 
+        {colleague && <ColleagueCardDetails person={colleague} />}
+
         {children}
       </div>
 
@@ -149,6 +159,7 @@ export function RecipientCard({ name, email, onViewContact, onClose, children, a
           <Send className="w-3.5 h-3.5" />
           {t("action_email")}
         </MailtoLink>
+        {colleague && <RoomsMessageLink person={colleague} className={actionClass} />}
         {onViewContact && (
           <button
             type="button"
@@ -184,7 +195,7 @@ export function placeCard(anchor: CardAnchor, height: number): { top: number; le
 }
 
 export const recipientCardClass =
-  "fixed z-50 w-[300px] max-w-[calc(100vw-16px)] bg-background rounded-lg shadow-lg border border-border animate-in fade-in-0 zoom-in-95 duration-100";
+  "fixed z-50 w-[300px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto bg-background rounded-lg shadow-lg border border-border animate-in fade-in-0 zoom-in-95 duration-100";
 
 interface RecipientCardPopoverProps extends RecipientCardProps {
   anchor: CardAnchor;
@@ -206,10 +217,21 @@ export function RecipientCardPopover({ anchor, onClose, ignoreRef, ...card }: Re
 
   useLayoutEffect(() => {
     setPosition(placeCard(anchor, popoverRef.current?.offsetHeight ?? 250));
+    // xenaxio (step 107): a colleague's card grows once the profile is there: stay on screen.
+    const el = popoverRef.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() => setPosition(placeCard(anchor, el.offsetHeight)));
+    observer.observe(el);
+    return () => observer.disconnect();
   }, [anchor]);
 
   useEffect(() => {
     const close = () => onCloseRef.current();
+    // A long card scrolls inside itself; only scrolling elsewhere closes it.
+    const onScroll = (e: Event) => {
+      if (popoverRef.current?.contains(e.target as Node)) return;
+      close();
+    };
     const onPress = (e: MouseEvent) => {
       const target = e.target as Node;
       if (popoverRef.current?.contains(target) || ignoreRef?.current?.contains(target)) return;
@@ -220,13 +242,13 @@ export function RecipientCardPopover({ anchor, onClose, ignoreRef, ...card }: Re
     };
     document.addEventListener("mousedown", onPress);
     document.addEventListener("keydown", onKey);
-    document.addEventListener("scroll", close, true);
+    document.addEventListener("scroll", onScroll, true);
     window.addEventListener("resize", close);
     window.addEventListener("blur", close);
     return () => {
       document.removeEventListener("mousedown", onPress);
       document.removeEventListener("keydown", onKey);
-      document.removeEventListener("scroll", close, true);
+      document.removeEventListener("scroll", onScroll, true);
       window.removeEventListener("resize", close);
       window.removeEventListener("blur", close);
     };
@@ -237,6 +259,7 @@ export function RecipientCardPopover({ anchor, onClose, ignoreRef, ...card }: Re
       ref={popoverRef}
       role="dialog"
       aria-label={card.name || card.email}
+      data-recipient-card=""
       className={recipientCardClass}
       style={{ top: position?.top ?? 0, left: position?.left ?? 0, visibility: position ? undefined : "hidden" }}
     >

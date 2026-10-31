@@ -70,6 +70,8 @@ describe("RoomsRail (step 67)", () => {
     expect(acme.textContent).toContain("2");
     // Administration stays in Xenaxio, in a new tab.
     expect(screen.getByRole("link", { name: "Administration in Xenaxio" }).getAttribute("href")).toBe("https://acme.xenaxio.com/en/workspace/");
+    // Step 107: the own settings, the same pages as in Xenaxio, here on XenRooms.
+    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/en/settings/account/");
   });
 
   it("switches without a password and stays in the chat", async () => {
@@ -143,6 +145,8 @@ describe("companies keep their order, the column hides (step 106)", () => {
     fireEvent.click(await screen.findByTestId("rooms-company-button"));
     expect(screen.queryByRole("button", { name: "Show companies on the left" })).toBeNull();
     expect(screen.getByRole("link", { name: "Administration in Xenaxio" })).toBeTruthy();
+    // Step 107: on a phone the settings are in the sheet.
+    expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/en/settings/account/");
     fireEvent.click(screen.getByRole("button", { name: /Switch to Beta AG/ }));
     await waitFor(() => expect(opened).toHaveBeenCalledWith("/en/chat/"));
   });

@@ -12,7 +12,7 @@
 import { closestCenter, DndContext, type DragEndEvent, KeyboardSensor, PointerSensor, useSensor, useSensors } from "@dnd-kit/core";
 import { SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
-import { IconGripVertical, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconLogout, IconPlus, IconSettings, IconSparkles } from "@tabler/icons-react";
+import { IconBuildingCog, IconGripVertical, IconLayoutSidebarLeftCollapse, IconLayoutSidebarLeftExpand, IconLogout, IconPlus, IconSettings, IconSparkles } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useMemo, useState } from "react";
 import { useIsEmbedded } from "@/hooks/use-is-embedded";
@@ -121,6 +121,8 @@ function useCompanies() {
   const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/rooms/people/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
   const adminTarget = roomsOnly ? {} : { target: "_blank", rel: "noopener" };
   const adminLabel = t(roomsOnly ? "rooms.admin_here" : "rooms.admin");
+  // Step 107: everyone's own settings — the same pages as in Xenaxio, here on XenRooms.
+  const settingsUrl = withBasePath(`/${locale}/settings/account/`);
   // Step 96: someone without a mailbox connects AI chats (Claude …) here too; others in Xenaxio.
   const aiUrl = me?.user.kind === "chat" ? withBasePath(`/${locale}/workspace/mcp/`) : null;
 
@@ -133,7 +135,7 @@ function useCompanies() {
     const { important, unread: any } = countsOf(account);
     return `${t("rooms.switch_to", { company: account.company, email: account.email })}${important > 0 ? ` – ${t("rooms.unread_important", { count: important })}` : any ? ` – ${t("rooms.unread_any")}` : ""}`;
   };
-  return { t, accounts, max, canAdd: accounts.length < max, switchTo, add, signOut, move, company, adminUrl, adminTarget, adminLabel, aiUrl, countsOf, labelOf };
+  return { t, accounts, max, canAdd: accounts.length < max, switchTo, add, signOut, move, company, adminUrl, adminTarget, adminLabel, settingsUrl, aiUrl, countsOf, labelOf };
 }
 
 /** A few pixels before a drag starts, so a click still switches; `keyboard` for the handles (a tile's Enter switches). */
@@ -208,9 +210,12 @@ export function RoomsRail() {
       )}
       {c.adminUrl && (
         <a href={c.adminUrl} {...c.adminTarget} title={c.adminLabel} aria-label={c.adminLabel} className={icon}>
-          <IconSettings size={20} />
+          <IconBuildingCog size={20} />
         </a>
       )}
+      <a href={c.settingsUrl} title={c.t("rooms.settings")} aria-label={c.t("rooms.settings")} className={icon}>
+        <IconSettings size={20} />
+      </a>
       <button type="button" onClick={() => void c.signOut()} title={c.t("rooms.sign_out", { company: c.company })} aria-label={c.t("rooms.sign_out", { company: c.company })} className={icon}>
         <IconLogout size={20} />
       </button>
@@ -316,10 +321,14 @@ function CompaniesMenu({ sheet, onClose }: { sheet: boolean; onClose: () => void
           )}
           {c.adminUrl && (
             <a href={c.adminUrl} {...c.adminTarget} className={item}>
-              <IconSettings size={18} className="text-muted-foreground" />
+              <IconBuildingCog size={18} className="text-muted-foreground" />
               {c.adminLabel}
             </a>
           )}
+          <a href={c.settingsUrl} className={item}>
+            <IconSettings size={18} className="text-muted-foreground" />
+            {c.t("rooms.settings")}
+          </a>
           {!sheet && (
             <button
               type="button"
