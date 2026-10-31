@@ -9,7 +9,10 @@ import { withBasePath } from "@/lib/browser-navigation";
 import { generateAvatarColor, getInitials } from "@/lib/account-utils";
 import { cn } from "@/lib/utils";
 import { type AvatarTarget, errorText, xenaxio } from "@/lib/xenaxio/api";
-import { squareAvatar, useXenaxioAvatarStore } from "@/lib/xenaxio/avatars";
+import { useXenaxioAvatarStore } from "@/lib/xenaxio/avatars";
+import { XenaxioApiError } from "@/lib/xenaxio/api";
+import { CENTER } from "@/lib/xenaxio/media";
+import { sendAvatar } from "@/lib/xenaxio/profile-media";
 import { useXT } from "@/lib/xenaxio/i18n";
 
 export function AvatarEditor({
@@ -55,14 +58,16 @@ export function AvatarEditor({
     e.target.value = "";
     if (!file) return;
     if (!file.type.startsWith("image/")) return setError(t("errors.avatar_invalid_type"));
-    let image: Blob;
-    try {
-      image = await squareAvatar(file);
-    } catch {
-      // HEIC on some browsers, a broken file: the browser cannot draw it.
-      return setError(t("avatar.unreadable"));
-    }
-    await run(async () => (await xenaxio.uploadAvatar(target, image)).avatarUrl);
+    // Step 104: an animated GIF or WebP keeps moving (the middle of it is shown; Rooms lets one move it).
+    await run(async () => {
+      try {
+        return (await sendAvatar(target, file, CENTER)).avatarUrl;
+      } catch (err) {
+        // HEIC on some browsers, a broken file: the browser cannot draw it.
+        if (!(err instanceof XenaxioApiError)) throw new XenaxioApiError(400, "avatar_unreadable");
+        throw err;
+      }
+    });
   };
 
   const side = size === "lg" ? "w-20 h-20 text-2xl" : "w-10 h-10 text-sm";
