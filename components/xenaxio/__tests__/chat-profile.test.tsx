@@ -65,6 +65,11 @@ describe("profiles in Rooms (steps 99 G and 104)", () => {
     expect(screen.getByText("Vertrieb · Nord")).toBeTruthy();
     expect(screen.getByText("sie/ihr")).toBeTruthy();
     expect(screen.getByTestId("profile-banner")).toBeTruthy();
+    // The gold frame touches the photo: no gap of background between them.
+    const avatar = screen.getByTestId("profile-avatar");
+    expect(avatar.closest("[data-frame]")?.getAttribute("data-frame")).toBe("gold");
+    expect(avatar.closest("[data-frame]")?.className).not.toContain("ring-offset");
+    expect(avatar.className).not.toContain("border-4");
     expect(screen.getByRole("button", { name: "Message" })).toBeTruthy();
     const tiles = within(screen.getByTestId("profile-contacts")).getAllByRole("link");
     expect(tiles.map((a) => [a.getAttribute("data-contact"), a.getAttribute("href")])).toEqual([

@@ -39,12 +39,13 @@ export const BANNER_STYLE: Record<(typeof BANNERS)[number], string> = {
 };
 
 /** Frames around the picture. */
+/** Right at the picture: no gap of background between the frame and the photo (owner, 31.10.2026). */
 export const FRAME_STYLE: Record<UserProfile["frame"], string> = {
   none: "",
-  ring: "ring-2 ring-primary ring-offset-2 ring-offset-background",
-  gold: "ring-4 ring-amber-400 ring-offset-2 ring-offset-background",
+  ring: "ring-2 ring-primary",
+  gold: "ring-4 ring-amber-400",
   rainbow: "p-[3px] bg-[conic-gradient(#f43f5e,#f59e0b,#22c55e,#3b82f6,#a855f7,#f43f5e)]",
-  leaf: "ring-4 ring-emerald-500 ring-offset-2 ring-offset-background",
+  leaf: "ring-4 ring-emerald-500",
   neon: "ring-2 ring-cyan-400 shadow-[0_0_12px_rgba(34,211,238,0.9)]",
 };
 
