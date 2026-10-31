@@ -12,6 +12,7 @@ import {
   OperatorTenants,
 } from "@/components/xenaxio/operator-tenants";
 import { OperatorModels } from "@/components/xenaxio/operator-models";
+import { OperatorPeople } from "@/components/xenaxio/operator-people";
 import {
   AuthCard,
   Field,
@@ -89,7 +90,7 @@ function Console({
   const [product, setProduct] = useState<"workspace" | "rooms">("workspace");
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"tenants" | "report" | "invitations" | "models">(
+  const [tab, setTab] = useState<"tenants" | "people" | "report" | "invitations" | "models">(
     "tenants",
   );
 
@@ -157,10 +158,10 @@ function Console({
       </header>
       <main className="mx-auto max-w-4xl pt-6 pb-[calc(1.5rem+env(safe-area-inset-bottom))] pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] space-y-6">
         <nav
-          className="flex gap-1 border-b border-border"
+          className="flex gap-1 overflow-x-auto border-b border-border"
           aria-label={t("operator.title")}
         >
-          {(["tenants", "report", "invitations", "models"] as const).map((k) => (
+          {(["tenants", "people", "report", "invitations", "models"] as const).map((k) => (
             <button
               key={k}
               type="button"
@@ -173,6 +174,8 @@ function Console({
           ))}
         </nav>
         {tab === "tenants" && <OperatorTenants />}
+        {/* Step 106: every person, which companies they are in, their activity. */}
+        {tab === "people" && <OperatorPeople />}
         {tab === "report" && <OperatorReportView />}
         {tab === "models" && <OperatorModels />}
         {tab === "invitations" && (

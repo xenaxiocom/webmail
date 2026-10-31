@@ -622,6 +622,79 @@ export interface OperatorReport {
   tenants: { id: string; name: string; domain: string | null; status: string; mailUsers: number; aiWorkspaceUsers: number; aiTokens: number }[];
 }
 
+/** Step 106: the people of the installation for the operator console. */
+export interface OperatorPeopleSummary {
+  people: number;
+  accounts: number;
+  workspacePeople: number;
+  roomsPeople: number;
+  new7: number;
+  new30: number;
+  active7: number;
+  active30: number;
+  neverSignedIn: number;
+  disabledAccounts: number;
+  companies: number;
+  workspaceCompanies: number;
+  roomsFreeCompanies: number;
+  roomsPaidCompanies: number;
+  freeSignups7: number;
+  freeSignups30: number;
+}
+
+export interface OperatorPersonAccount {
+  userId: string;
+  tenantId: string;
+  company: string;
+  slug: string | null;
+  product: "workspace" | "rooms";
+  plan: "free" | "paid" | null;
+  companyStatus: string;
+  role: "user" | "admin";
+  kind: "mailbox" | "chat";
+  status: "active" | "disabled";
+  invited: boolean;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastSeenAt: string | null;
+}
+
+export interface OperatorPersonRow {
+  email: string;
+  name: string;
+  createdAt: string;
+  lastLoginAt: string | null;
+  lastSeenAt: string | null;
+  accounts: OperatorPersonAccount[];
+}
+
+export interface OperatorPerson {
+  email: string;
+  name: string;
+  accounts: OperatorPersonAccount[];
+  devices: { company: string; browser: string | null; os: string | null; signedInAt: string; lastSeenAt: string }[];
+  lastLogin: { at: string; ip: string | null; country: string | null } | null;
+}
+
+export interface OperatorPeopleFilter {
+  q?: string;
+  product?: "workspace" | "rooms";
+  plan?: "free" | "paid";
+  role?: "user" | "admin";
+  status?: "active" | "disabled";
+  inactiveDays?: number;
+  sort?: "created" | "seen" | "name" | "email";
+  page?: number;
+}
+
+/** Query string of a people filter (empty values left out). */
+export function peopleQuery(f: OperatorPeopleFilter): string {
+  const params = new URLSearchParams();
+  for (const [key, value] of Object.entries(f)) if (value !== undefined && value !== "" && value !== null) params.set(key, String(value));
+  const q = params.toString();
+  return q ? `?${q}` : "";
+}
+
 /** Step 96: a person of a company without email (XenRooms). */
 export interface RoomsPerson {
   id: string;
@@ -1270,6 +1343,11 @@ export const xenaxio = {
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
+    // Step 106: every person, which companies they are in, their activity.
+    peopleSummary: () => request<OperatorPeopleSummary>("GET", "/api/operator/people/summary"),
+    people: (f: OperatorPeopleFilter) =>
+      request<{ people: OperatorPersonRow[]; total: number; page: number; pageSize: number }>("GET", `/api/operator/people${peopleQuery(f)}`),
+    person: (email: string) => request<OperatorPerson>("GET", `/api/operator/person?email=${encodeURIComponent(email)}`),
     // Step 90, part F: the installation's models.
     models: () => request<InstallationModels>("GET", "/api/operator/models"),
     availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),
