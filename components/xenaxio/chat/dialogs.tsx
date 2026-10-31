@@ -195,6 +195,9 @@ export function CreateChannelDialog({ client, onClose, onCreated }: { client: Ch
   const [topic, setTopic] = useState("");
   const [isPublic, setPublic] = useState(true);
   const [external, setExternal] = useState(false);
+  // Step 99, part H: a voice channel or a forum (Discord).
+  const [kind, setKind] = useState<"text" | "voice" | "forum">("text");
+  const [tags, setTags] = useState("");
   const [busy, setBusy] = useState(false);
   // Slack-style names: lower case, words joined by dashes.
   const clean = name.trim().toLowerCase().replace(/\s+/g, "-").replace(/[^a-z0-9äöüß_-]/g, "").slice(0, 80);
@@ -203,7 +206,8 @@ export function CreateChannelDialog({ client, onClose, onCreated }: { client: Ch
     setBusy(true);
     try {
       // Part E: an external channel is private (invitation only) and the only kind that takes other companies.
-      onCreated(await client.createChannel({ name: clean, topic: topic.trim() || undefined, isPublic: isPublic && !external, external }));
+      const forumTags = [...new Set(tags.split(",").map((x) => x.trim()).filter(Boolean))].slice(0, 20);
+      onCreated(await client.createChannel({ name: clean, topic: topic.trim() || undefined, isPublic: isPublic && !external, external, kind, tags: forumTags }));
       onClose();
     } catch {
       toast.error(t("chat.error"));
@@ -219,6 +223,22 @@ export function CreateChannelDialog({ client, onClose, onCreated }: { client: Ch
         <input autoFocus value={name} onChange={(e) => setName(e.target.value)} placeholder={t("chat.create_name_hint")} className="h-9 flex-1 bg-transparent px-1 text-sm focus:outline-none" onKeyDown={(e) => e.key === "Enter" && void submit()} />
       </div>
       {name && clean !== name.trim() && <p className="mt-1 text-xs text-muted-foreground">#{clean}</p>}
+      <div className="mt-3 flex gap-1" role="radiogroup" aria-label={t("chat.create_kind")}>
+        {(["text", "voice", "forum"] as const).map((k) => (
+          <button key={k} type="button" role="radio" aria-checked={kind === k} onClick={() => setKind(k)} className={cn("flex-1 rounded-md border px-2 py-1.5 text-sm", kind === k ? "border-primary bg-primary/10 font-medium" : "border-border hover:bg-accent")}>
+            {t(`chat.create_kind_${k}`)}
+          </button>
+        ))}
+      </div>
+      {kind !== "text" && <p className="mt-1 text-xs text-muted-foreground">{t(`chat.create_kind_${kind}_hint`)}</p>}
+      {kind === "forum" && (
+        <>
+          <label className="mt-3 block text-sm font-medium" htmlFor="chat-forum-tags">
+            {t("chat.forum_tags")}
+          </label>
+          <input id="chat-forum-tags" value={tags} onChange={(e) => setTags(e.target.value)} placeholder={t("chat.forum_tags_hint")} className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
+        </>
+      )}
       <label className="mt-3 block text-sm font-medium">{t("chat.create_topic")}</label>
       <input value={topic} onChange={(e) => setTopic(e.target.value)} className="mt-1 h-9 w-full rounded-md border border-input bg-transparent px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring" />
       <div className="mt-3 space-y-1.5 text-sm">

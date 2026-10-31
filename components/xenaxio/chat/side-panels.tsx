@@ -2,7 +2,7 @@
 
 // Step 43, part B: the right-hand panel — a thread, a channel's members or a
 // colleague's profile.
-import { IconSparkles, IconX } from "@tabler/icons-react";
+import { IconBell, IconBellOff, IconSparkles, IconX } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
 import { type ChatClient, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
@@ -10,6 +10,7 @@ import { type SidePanel, useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { sendAssistantCommand } from "@/lib/xenaxio/assistant";
 import { toast } from "@/stores/toast-store";
+import { setThreadFollow, threadFollow } from "@/lib/xenaxio/chat/api";
 import { NameForm, saveMyName } from "@/components/xenaxio/name-setting";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { PersonAvatar, presenceOf, useAssistant, useColleague, useDisplayName } from "./common";
@@ -17,8 +18,10 @@ import { Composer } from "./composer";
 import { ChatMessage } from "./message";
 import { MessageList } from "./message-list";
 import { TypingLine } from "./room-view";
+import { ProfileBanner, ProfileDetails, ProfileDialog, ProfileFrame } from "./profile";
+import { CanvasPanel } from "./channel-extras";
 
-function PanelFrame({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode }) {
+export function PanelFrame({ title, subtitle, actions, children }: { title: string; subtitle?: string; actions?: React.ReactNode; children: React.ReactNode }) {
   const t = useXT();
   const setPanel = useChatStore((s) => s.setPanel);
   return (
@@ -44,9 +47,12 @@ function ThreadPanel({ client, roomId, rootId }: { client: ChatClient; roomId: s
   const locale = useLocale();
   const room = client.rooms.get(roomId);
   const [error, setError] = useState(false);
+  // Step 99, part E2b: following the thread, as in Slack (replying follows it).
+  const [follow, setFollow] = useState<boolean | null>(null);
   useEffect(() => {
     setError(false);
     void client.loadThread(roomId, rootId).catch(() => setError(true));
+    void threadFollow(roomId, rootId).then(setFollow);
   }, [client, roomId, rootId]);
   if (!room) return null;
   const root = room.byId.get(rootId);
@@ -63,8 +69,34 @@ function ThreadPanel({ client, roomId, rootId }: { client: ChatClient; roomId: s
       {t("chat.ai_summarize")}
     </button>
   ) : null;
+  // Following: chosen, or replied in it, or it is one's own message.
+  const following = follow ?? (root?.sender === client.userId || replies.some((r) => r.sender === client.userId));
+  const followButton = (
+    <button
+      type="button"
+      onClick={() => {
+        const next = !following;
+        setFollow(next);
+        void setThreadFollow(roomId, rootId, next).catch(() => toast.error(t("chat.error")));
+      }}
+      className="flex h-8 items-center gap-1 rounded-md px-2 text-xs font-medium hover:bg-accent"
+      aria-pressed={following}
+    >
+      {following ? <IconBellOff size={15} /> : <IconBell size={15} />}
+      {following ? t("chat.thread_unfollow") : t("chat.thread_follow")}
+    </button>
+  );
   return (
-    <PanelFrame title={t("chat.thread")} subtitle={client.roomName(room)} actions={summarize}>
+    <PanelFrame
+      title={t("chat.thread")}
+      subtitle={client.roomName(room)}
+      actions={
+        <>
+          {followButton}
+          {summarize}
+        </>
+      }
+    >
       <MessageList
         room={room}
         client={client}
@@ -130,6 +162,7 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
   const myName = useXenaxioMe()?.user.displayName;
   // The box is for a new status; the current one is shown under the name.
   const [status, setStatus] = useState("");
+  const [editing, setEditing] = useState(false);
   const presence = presenceOf(client, userId);
   const presenceLabel = presence === "online" ? t("chat.online") : presence === "unavailable" ? t("chat.away") : t("chat.offline");
   const saveStatus = async (value: string | null) => {
@@ -141,11 +174,23 @@ function ProfilePanel({ client, userId }: { client: ChatClient; userId: string }
       toast.error(t("chat.error"));
     }
   };
+  // Step 99, part G: banner, frame, job title and contacts (colleagues of the same company).
+  const profile = colleague?.profile;
   return (
     <PanelFrame title={name(userId)}>
       <div className="flex-1 overflow-y-auto p-5">
-        <PersonAvatar userId={userId} name={name(userId)} size="lg" presence={presence} />
+        <ProfileBanner profile={profile} />
+        <ProfileFrame profile={profile}>
+          <PersonAvatar userId={userId} name={name(userId)} size="lg" presence={presence} />
+        </ProfileFrame>
         <h3 className="mt-3 text-lg font-bold">{name(userId)}</h3>
+        <ProfileDetails profile={profile} />
+        {me && colleague && (
+          <button type="button" onClick={() => setEditing(true)} className="mt-2 h-8 rounded-md border border-border px-3 text-sm hover:bg-accent">
+            {t("chat.profile_edit")}
+          </button>
+        )}
+        {editing && colleague && <ProfileDialog address={colleague.address} initial={profile} onClose={() => setEditing(false)} />}
         {client.isExternalUser(userId) && (
           <div className="mt-1 inline-flex items-center gap-1 rounded bg-primary/10 px-1.5 py-0.5 text-xs text-primary">
             {t("chat.ext_person", { domain: serverOfUser(userId) })}
@@ -251,5 +296,6 @@ export function ChatSidePanel({ client, panel }: { client: ChatClient; panel: Si
   if (!panel) return null;
   if (panel.kind === "thread") return <ThreadPanel key={`${panel.roomId}|${panel.rootId}`} client={client} roomId={panel.roomId} rootId={panel.rootId} />;
   if (panel.kind === "members") return <MembersPanel client={client} roomId={panel.roomId} />;
+  if (panel.kind === "canvas") return <CanvasPanel client={client} roomId={panel.roomId} />;
   return <ProfilePanel key={panel.userId} client={client} userId={panel.userId} />;
 }

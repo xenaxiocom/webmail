@@ -258,6 +258,22 @@ export function NotifySettingsDialog({ client, onClose }: { client: ChatClient; 
           </select>
         </section>
 
+        <section>
+          <label htmlFor="chat-notify-threads" className="font-semibold">
+            {t("chat.notify_threads")}
+          </label>
+          <select
+            id="chat-notify-threads"
+            value={base.threadNotify ?? "all"}
+            disabled={busy}
+            onChange={(e) => run(() => save({ ...base, threadNotify: e.target.value as "all" | "following" }))}
+            className="mt-1 block h-9 w-full rounded-md border border-input bg-transparent px-2"
+          >
+            <option value="all">{t("chat.notify_threads_all")}</option>
+            <option value="following">{t("chat.notify_threads_following")}</option>
+          </select>
+        </section>
+
         <section className="space-y-1.5">
           <label className="flex items-center gap-2">
             <input type="checkbox" checked={base.sound ?? true} disabled={busy} onChange={(e) => run(() => save({ ...base, sound: e.target.checked }))} />

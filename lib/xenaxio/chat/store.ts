@@ -6,6 +6,7 @@ import { apiFetch } from "@/lib/browser-navigation";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { type ChatStatus, chatStatus } from "./api";
 import { ChatClient } from "./client";
+import type { UserProfile } from "./profile";
 
 /** A colleague as the platform knows them (name, e-mail, profile picture). */
 export interface Colleague {
@@ -13,6 +14,8 @@ export interface Colleague {
   email: string;
   displayName: string;
   avatarUrl: string | null;
+  /** Step 99, part G: job title, contacts, banner … (older platforms send none). */
+  profile?: UserProfile;
 }
 
 export type ChatView =
@@ -22,11 +25,15 @@ export type ChatView =
   | { kind: "saved" }
   /** Step 99, part E: unsent drafts of every channel and thread. */
   | { kind: "drafts" }
+  /** Step 99, part E2: reminders and messages sent later. */
+  | { kind: "later" }
+  /** Step 99, part H: unread channels one after another (Slack's "Catch up"). */
+  | { kind: "catchup" }
   | { kind: "browse" }
   | { kind: "search"; query: string }
   | { kind: "home" };
 
-export type SidePanel = { kind: "thread"; roomId: string; rootId: string } | { kind: "members"; roomId: string } | { kind: "profile"; userId: string } | null;
+export type SidePanel = { kind: "thread"; roomId: string; rootId: string } | { kind: "members"; roomId: string } | { kind: "profile"; userId: string } | { kind: "canvas"; roomId: string } | null;
 
 interface ChatState {
   status: ChatStatus | null;
@@ -34,6 +41,8 @@ interface ChatState {
   client: ChatClient | null;
   version: number;
   colleagues: Map<string, Colleague>;
+  /** Step 99, part G: one's own profile changed: the colleagues' list shows it at once. */
+  setProfile: (address: string, profile: UserProfile) => void;
   view: ChatView;
   panel: SidePanel;
   /** Scroll to and highlight this message once (search results, links, saved). */
@@ -72,6 +81,14 @@ export const useChatStore = create<ChatState>((set, get) => ({
   client: null,
   version: 0,
   colleagues: new Map(),
+  setProfile: (address, profile) =>
+    set((state) => {
+      const c = state.colleagues.get(address);
+      if (!c) return {};
+      const next = new Map(state.colleagues);
+      next.set(address, { ...c, profile });
+      return { colleagues: next };
+    }),
   view: { kind: "home" },
   panel: null,
   focus: null,

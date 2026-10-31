@@ -7,13 +7,13 @@
 // and go out together on "send". Step 87: ":" and a word suggests emoji;
 // typed emoticons (":)") go out as emoji. Step 99: code blocks, numbered
 // lists, links and code snippets (a long paste offers one, as in Slack).
-import { IconBold, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
+import { IconBold, IconChartBar, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
-import { uploadFile } from "@/lib/xenaxio/chat/api";
+import { setThreadFollow, uploadFile } from "@/lib/xenaxio/chat/api";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
 import { searchEmoji } from "@/lib/xenaxio/chat/emoji";
-import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
+import { type Mention, plainPreview, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { suggestionAt } from "@/lib/xenaxio/chat/view";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -22,9 +22,16 @@ import { toast } from "@/stores/toast-store";
 import { cn, formatFileSize } from "@/lib/utils";
 import { addPendingFiles, composerKey, MAX_FILE_BYTES, MAX_PENDING_FILES, removePendingFile, takePendingFiles, usePendingFiles } from "@/lib/xenaxio/chat/pending-files";
 import { PersonAvatar } from "./common";
-import { EmojiPicker } from "./emoji-picker";
+import { EmojiGlyph, EmojiPicker } from "./emoji-picker";
 import { useChatDialogs } from "./dialogs";
 import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
+import { TimePicker } from "./later";
+import { PollDialog } from "./poll";
+import { useChatNotify } from "./notifications";
+import { useChatExtras } from "@/lib/xenaxio/chat/extras";
+import { withGroupMentions } from "@/lib/xenaxio/chat/format";
+import { type Command, dndUntil, parseSlash, personArg, slashSuggestions } from "@/lib/xenaxio/chat/slash";
+import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
 
 
@@ -153,7 +160,16 @@ export function Composer({
   const [busy, setBusy] = useState(false);
   const [snippet, setSnippet] = useState<{ code: string; fromBox: boolean } | null>(null);
   const [longPaste, setLongPaste] = useState<string | null>(null);
-  const { prompt } = useChatDialogs();
+  const [scheduling, setScheduling] = useState(false);
+  const [polling, setPolling] = useState(false);
+  const groups = useChatExtras((s) => s.groups);
+  const companyEmoji = useChatExtras((s) => s.emoji);
+  const [remindAbout, setRemindAbout] = useState<{ eventId: string; preview: string } | null>(null);
+  const remind = useChatLater((s) => s.remind);
+  const notify = useChatNotify();
+  const setView = useChatStore((s) => s.setView);
+  const { prompt, confirm } = useChatDialogs();
+  const schedule = useChatLater((s) => s.schedule);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -188,7 +204,8 @@ export function Composer({
 
   const suggestion = suggestionAt(text, cursor);
   const options = useMemo<Suggestion[]>(() => {
-    if (!suggestion) return [];
+    // Step 99, part F: "/" at the start suggests the commands.
+    if (!suggestion) return slashSuggestions(text).map((c) => ({ key: c, label: `/${c}`, insert: `/${c} `, hint: t(`chat.slash_${c}`) }));
     const q = suggestion.query.toLowerCase();
     if (suggestion.trigger === "@") {
       // Step 99: @channel / @here only for those the channel lets notify everyone.
@@ -196,10 +213,16 @@ export function Composer({
       const found = people
         .filter((p) => p.displayName.toLowerCase().includes(q) || p.userId.toLowerCase().includes(q))
         .slice(0, 8)
-        .map((p) => ({ key: p.userId, label: p.displayName, insert: `@${p.displayName} `, userId: p.userId, hint: colleagues.get(p.userId)?.email }));
-      return [...found, ...special];
+        .map((p) => ({ key: p.userId, label: p.displayName, insert: `@${p.displayName} `, userId: p.userId, hint: colleagues.get(p.userId)?.profile?.title ?? colleagues.get(p.userId)?.email }));
+      // Step 99, part H: groups notify all their members (@vertrieb).
+      const teams: Suggestion[] = groups.filter((g) => g.handle.startsWith(q) || g.name.toLowerCase().includes(q)).slice(0, 5).map((g) => ({ key: `g:${g.handle}`, label: `@${g.handle}`, insert: `@${g.handle} `, hint: g.name }));
+      return [...found, ...teams, ...special];
     }
-    if (suggestion.trigger === ":") return searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }));
+    if (suggestion.trigger === ":") {
+      // Step 99, part H: the company's own emoji first.
+      const own: Suggestion[] = companyEmoji.filter((e) => e.name.includes(q)).slice(0, 5).map((e) => ({ key: `c:${e.name}`, label: `:${e.name}:`, insert: `:${e.name}: `, emoji: `:${e.name}:` }));
+      return [...own, ...searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }))];
+    }
     // Mine first, then the company's open channels.
     const joined = (id: string) => client.rooms.get(id)?.membership === "join";
     return client
@@ -208,13 +231,18 @@ export function Composer({
       .sort((a, b) => Number(joined(b.roomId)) - Number(joined(a.roomId)) || a.name.localeCompare(b.name))
       .slice(0, 8)
       .map((c) => ({ key: c.roomId, label: `#${c.name}`, insert: `#${c.name} ` }));
-  }, [suggestion, people, colleagues, client, room]);
+  }, [suggestion, people, colleagues, client, room, text, t, groups, companyEmoji]);
 
   useEffect(() => setSelected(0), [suggestion?.query, suggestion?.trigger]);
 
   const apply = useCallback(
     (option: Suggestion) => {
-      if (!suggestion) return;
+      if (!suggestion) {
+        // A command: the box holds it and waits for its argument.
+        setText(option.insert);
+        requestAnimationFrame(() => area.current?.setSelectionRange(option.insert.length, option.insert.length));
+        return;
+      }
       const next = text.slice(0, suggestion.start) + option.insert + text.slice(cursor);
       const pos = suggestion.start + option.insert.length;
       setText(next);
@@ -301,9 +329,106 @@ export function Composer({
     openSnippet(longPaste, false);
   };
 
+  /** Step 99, part F: runs a slash command; false when it needs the text to stay. */
+  const runSlash = async (command: Command, arg: string): Promise<boolean> => {
+    const canChange = client.can(room, "state");
+    const denied = () => (toast.error(t("chat.no_permission")), false);
+    switch (command) {
+      case "rename":
+        if (!arg) return false;
+        if (!canChange) return denied();
+        await client.rename(room.id, arg.toLowerCase().replace(/\s+/g, "-").slice(0, 80));
+        return true;
+      case "topic":
+        if (!canChange) return denied();
+        await client.setTopic(room.id, arg.slice(0, 500));
+        return true;
+      case "invite": {
+        const found = personArg(arg, people);
+        if (!found) return (toast.error(t("chat.slash_no_person")), false);
+        await client.invite(room.id, found.person.userId);
+        toast.success(t("chat.slash_invited", { name: found.person.displayName }));
+        return true;
+      }
+      case "leave":
+        if (room.kind !== "channel") return false;
+        if (!(await confirm({ title: t("chat.leave"), message: t("chat.leave_confirm", { name: client.roomName(room) }), confirmText: t("chat.leave") }))) return false;
+        await client.leave(room.id);
+        setView({ kind: "home" });
+        return true;
+      case "mute":
+        await client.setNotifications(room.id, "none");
+        toast.success(t("chat.slash_muted"));
+        return true;
+      case "unmute":
+        await client.setNotifications(room.id, client.defaultLevel === "none" ? "all" : client.defaultLevel);
+        toast.success(t("chat.slash_unmuted"));
+        return true;
+      case "remind": {
+        const last = [...room.timeline].reverse().find((m) => !m.id.startsWith("~") && m.type === "m.room.message");
+        if (!last) return (toast.error(t("chat.slash_nothing_to_remind")), false);
+        setRemindAbout({ eventId: last.id, preview: arg || plainPreview(last.content, 280) });
+        return true;
+      }
+      case "status":
+        await client.setStatus(arg || null);
+        toast.success(arg ? t("chat.status_saved") : t("chat.status_cleared"));
+        return true;
+      case "dnd": {
+        const until = dndUntil(arg);
+        if (until === undefined) return (toast.error(t("chat.slash_dnd_usage")), false);
+        const current = notify.settings ?? { dndUntil: null, dndFrom: null, dndTo: null, dndDays: [], emailDigest: true };
+        await notify.save({ ...current, dndUntil: until ? until.toISOString() : null });
+        toast.success(until ? t("chat.notify_paused") : t("chat.notify_resume"));
+        return true;
+      }
+      case "msg": {
+        const found = personArg(arg, people);
+        if (!found || !found.rest) return (toast.error(t("chat.slash_no_person")), false);
+        const dm = await client.openDirect([found.person.userId]);
+        await client.send(dm, textContent(found.rest, people));
+        setView({ kind: "room", roomId: dm });
+        return true;
+      }
+      case "snippet":
+        openSnippet(arg, false);
+        return true;
+      case "poll":
+        if (threadRoot) return false;
+        setPolling(true);
+        return true;
+      case "search":
+        if (!arg) return false;
+        setView({ kind: "search", query: arg });
+        return true;
+      case "shrug":
+        // Plain text: the underscores of the shrug are no italics.
+        await client.send(room.id, { msgtype: "m.text", body: `${arg} ¯\\_(ツ)_/¯`.trim() }, threadRoot ? { threadRoot } : {});
+        return true;
+      case "me":
+        if (!arg) return false;
+        await client.send(room.id, { msgtype: "m.emote", body: arg }, threadRoot ? { threadRoot } : {});
+        return true;
+    }
+  };
+
   const send = async () => {
     const body = text.trim();
     if ((!body && !pending.length) || busy) return;
+    const slash = pending.length ? null : parseSlash(body);
+    if (slash && "unknown" in slash) {
+      toast.error(t("chat.slash_unknown", { name: slash.unknown }));
+      return;
+    }
+    if (slash) {
+      try {
+        if (await runSlash(slash.command, slash.arg)) setText("");
+        else if (!slash.arg) toast.error(t("chat.slash_needs_arg", { name: slash.command }));
+      } catch {
+        toast.error(t("chat.error"));
+      }
+      return;
+    }
     setText("");
     setLongPaste(null);
     void client.setTyping(room.id, false);
@@ -320,9 +445,11 @@ export function Composer({
       }
     }
     if (!body) return;
-    const content = textContent(body, people, client.channelRefs());
+    const content = withGroupMentions(textContent(body, people, client.channelRefs()), body, groups, client.userId);
     try {
       await client.send(room.id, content, threadRoot ? { threadRoot } : {});
+      // Step 99, part E2b: replying follows the thread, as in Slack.
+      if (threadRoot) void setThreadFollow(room.id, threadRoot, true).catch(() => undefined);
       if (threadRoot && alsoChannel) await client.send(room.id, { ...content, "com.xenaxio.thread": threadRoot });
     } catch {
       toast.error(t("chat.error"));
@@ -357,7 +484,11 @@ export function Composer({
               className={cn("flex w-full items-center gap-2 px-3 py-1.5 text-left text-sm", i === selected ? "bg-accent" : "hover:bg-accent/60")}
             >
               {o.userId && <PersonAvatar userId={o.userId} name={o.label} size="sm" />}
-              {o.emoji && <span className="text-lg leading-none">{o.emoji}</span>}
+              {o.emoji && (
+                <span className="text-lg leading-none">
+                  <EmojiGlyph emoji={o.emoji} />
+                </span>
+              )}
               <span className="truncate font-medium">{o.label}</span>
               {o.hint && <span className="truncate text-xs text-muted-foreground">{o.hint}</span>}
             </button>
@@ -551,6 +682,12 @@ export function Composer({
           <button type="button" className={tool} onClick={() => openSnippet("", false)} title={t("chat.snippet_title")} aria-label={t("chat.snippet_title")}>
             <IconFileCode size={16} />
           </button>
+          {/* Step 99, part E2b: a poll in the channel (not in threads). */}
+          {!threadRoot && (
+            <button type="button" className={tool} onClick={() => setPolling(true)} title={t("chat.poll_create")} aria-label={t("chat.poll_create")}>
+              <IconChartBar size={16} />
+            </button>
+          )}
           {threadRoot && (
             <label className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={alsoChannel} onChange={(e) => setAlsoChannel(e.target.checked)} />
@@ -558,17 +695,58 @@ export function Composer({
             </label>
           )}
           <span className="flex-1" />
-          <button
-            type="button"
-            onClick={() => void send()}
-            disabled={(!text.trim() && !pending.length) || busy}
-            className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40"
-            aria-label={t("chat.send")}
-          >
-            {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />}
-          </button>
+          <span className="flex">
+            <button
+              type="button"
+              onClick={() => void send()}
+              disabled={(!text.trim() && !pending.length) || busy}
+              className="flex h-7 items-center gap-1 rounded-l-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40"
+              aria-label={t("chat.send")}
+            >
+              {busy ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />}
+            </button>
+            {/* Step 99, part E2: Slack's "Schedule for later" (text only; files go now). */}
+            <button
+              type="button"
+              onClick={() => setScheduling(true)}
+              disabled={!text.trim() || pending.length > 0 || busy}
+              className="flex h-7 items-center rounded-r-md border-l border-primary-foreground/30 bg-primary px-1 text-primary-foreground disabled:opacity-40"
+              aria-label={t("chat.send_later")}
+              title={t("chat.send_later")}
+            >
+              <IconClockHour4 size={14} />
+            </button>
+          </span>
         </div>
       </div>
+      {remindAbout && (
+        <TimePicker
+          title={t("chat.remind")}
+          choices={["20m", "1h", "3h", "tomorrow", "monday"]}
+          confirm={t("chat.remind_set")}
+          onClose={() => setRemindAbout(null)}
+          onPick={async (at) => {
+            await remind({ roomId: room.id, eventId: remindAbout.eventId, roomName: room.kind === "channel" ? client.roomName(room) : null, preview: remindAbout.preview, remindAt: at.toISOString() });
+            toast.success(t("chat.remind_done"));
+          }}
+        />
+      )}
+      {polling && <PollDialog client={client} roomId={room.id} onClose={() => setPolling(false)} />}
+      {scheduling && (
+        <TimePicker
+          title={t("chat.send_later")}
+          choices={["1h", "tomorrow", "monday"]}
+          confirm={t("chat.send_later_set")}
+          onClose={() => setScheduling(false)}
+          onPick={async (at) => {
+            const body = text.trim();
+            if (!body) return;
+            await schedule({ roomId: room.id, roomName: room.kind === "channel" ? client.roomName(room) : null, threadRoot: threadRoot ?? null, content: textContent(body, people), sendAt: at.toISOString() });
+            setText("");
+            toast.success(t("chat.send_later_done", { time: at.toLocaleString(locale, { weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) }));
+          }}
+        />
+      )}
       {snippet && <SnippetDialog initial={{ code: snippet.code }} onClose={() => setSnippet(null)} onSubmit={submitSnippet} />}
     </div>
   );
