@@ -16,7 +16,7 @@ vi.mock("../api", async (orig) => {
 });
 
 import { ChatClient, isVisible, type RawEvent, type SyncResponse } from "../client";
-import { backgroundCodeOf, NO_ROOM_BACKGROUNDS, parseRoomBackgrounds, roomBackgroundStyle, shownBackground, withMyChoice } from "../room-background";
+import { backgroundCodeOf, backgroundImageOf, imageBackground, NO_ROOM_BACKGROUNDS, parseRoomBackgrounds, roomBackgroundStyle, shownBackground, withMyChoice } from "../room-background";
 import { findBackground } from "../../backgrounds";
 
 const ROOM = "!proj:acme.de";
@@ -47,8 +47,9 @@ describe("channel background (step 107)", () => {
     expect(shownBackground(channel(null), NO_ROOM_BACKGROUNDS)).toBeNull();
     // A code this client does not know shows nothing.
     expect(shownBackground(channel("img-new"), NO_ROOM_BACKGROUNDS)).toBeNull();
-    // Direct messages have none.
-    expect(shownBackground({ ...channel("img-sea"), kind: "dm" }, NO_ROOM_BACKGROUNDS)).toBeNull();
+    // Direct conversations have one too, spaces none.
+    expect(shownBackground({ ...channel("img-sea"), kind: "dm" }, NO_ROOM_BACKGROUNDS)).toBe(sea);
+    expect(shownBackground({ ...channel("img-sea"), kind: "space" }, NO_ROOM_BACKGROUNDS)).toBeNull();
     const mine = withMyChoice(NO_ROOM_BACKGROUNDS, ROOM, "default");
     expect(shownBackground(channel("img-sea"), mine)).toBeNull();
     expect(shownBackground(channel("img-sea"), withMyChoice(mine, ROOM, "grad-blue"))).toBe(blue);
@@ -57,6 +58,22 @@ describe("channel background (step 107)", () => {
     expect(shownBackground(channel("img-sea"), hidden)).toBeNull();
     // An own choice for one channel wins over hiding all.
     expect(shownBackground(channel("img-sea"), withMyChoice(hidden, ROOM, "grad-blue"))).toBe(blue);
+  });
+
+  it("an uploaded picture: only mxc addresses, shown through the chat's file address, encoded", () => {
+    expect(backgroundImageOf({ image: "mxc://acme.de/AbC123" })).toBe("mxc://acme.de/AbC123");
+    expect(backgroundImageOf({ image: "https://evil.test/x.jpg" })).toBeNull();
+    expect(backgroundImageOf({ image: 'mxc://acme.de/a")' })).toBeNull();
+    expect(backgroundImageOf({ image: 'mxc://ev"il)/AbC' })).toBe('mxc://ev"il)/AbC');
+    const bg = imageBackground('mxc://ev"il)/AbC')!;
+    // The server part is encoded: no quote can close the CSS string.
+    expect(bg.css.light).toMatch(/^url\("[^"]*"\) center \/ cover no-repeat$/);
+    expect(bg.css.light).toContain("/_matrix/client/v1/media/download/ev%22il)/AbC");
+    expect(bg.preview.light).toContain("/thumbnail/");
+    const room = { ...channel("img-sea"), backgroundImage: "mxc://acme.de/AbC123" };
+    expect(shownBackground(room, NO_ROOM_BACKGROUNDS)?.id).toBe("image");
+    // The person's own choice still wins.
+    expect(shownBackground(room, withMyChoice(NO_ROOM_BACKGROUNDS, ROOM, "default"))).toBeNull();
   });
 
   it("styles both colour modes from the client's own list", () => {
@@ -94,10 +111,12 @@ describe("channel background (step 107)", () => {
       expect(isVisible({ type: "com.xenaxio.background", content: {} })).toBe(true);
       c.processSync(sync([ev({ type: "com.xenaxio.background", state_key: "", content: {} })]), false);
       expect(room.background).toBeNull();
+      c.processSync(sync([ev({ type: "com.xenaxio.background", state_key: "", content: { image: "mxc://acme.de/AbC123" } })]), false);
+      expect([room.background, room.backgroundImage]).toEqual([null, "mxc://acme.de/AbC123"]);
     });
 
     it("writes the channel's state and the person's account data; a failed save goes back", async () => {
-      await c.setChannelBackground(ROOM, "img-sea");
+      await c.setChannelBackground(ROOM, { background: "img-sea" });
       expect(calls.at(-1)).toMatchObject({ method: "PUT", body: { background: "img-sea" } });
       expect(calls.at(-1)?.path).toContain("/state/com.xenaxio.background");
       const next = withMyChoice(NO_ROOM_BACKGROUNDS, ROOM, "default");

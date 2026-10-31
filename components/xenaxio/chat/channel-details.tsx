@@ -20,9 +20,7 @@ import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
 import { channelLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
 import { Modal, useChatDialogs } from "./dialogs";
-import { type BackgroundChoice, BackgroundPicker } from "@/components/xenaxio/background-picker";
-import { findBackground, NO_BACKGROUND } from "@/lib/xenaxio/backgrounds";
-import { BACKGROUND_TYPE, DEFAULT_LOOK, FOLLOW_CHANNEL, myChoiceFor, withMyChoice } from "@/lib/xenaxio/chat/room-background";
+import { RoomBackgroundSettings } from "./room-background-settings";
 
 export type DetailsTab = "info" | "members" | "pinned" | "integrations" | "background" | "settings";
 
@@ -69,7 +67,7 @@ export function ChannelDetails({ client, room, initialTab = "info", onClose, onI
           </button>
         </div>
       )}
-      {tab === "background" && <BackgroundTab client={client} room={room} />}
+      {tab === "background" && <RoomBackgroundSettings client={client} room={room} />}
       {tab === "settings" && <SettingsTab client={client} room={room} onClose={onClose} />}
     </Modal>
   );
@@ -388,86 +386,6 @@ function SettingsTab({ client, room, onClose }: { client: ChatClient; room: Room
           {t("chat.archive")}
         </button>
       </div>
-    </div>
-  );
-}
-
-/**
- * Step 107: the channel's background. Its managers (the creator and those they
- * named) set it for everyone, the company's admin through the platform; every
- * member chooses only for themselves — the channel's, the default look, or an
- * own one — and may hide every channel's background.
- */
-function BackgroundTab({ client, room }: { client: ChatClient; room: Room }) {
-  const t = useXT();
-  const { companyAdmin } = useChannelRights(client, room);
-  const direct = client.canSetState(room, BACKGROUND_TYPE);
-  const forAll = (direct || companyAdmin) && !room.archived;
-  const [busy, setBusy] = useState(false);
-  const mine = client.roomBackgrounds;
-  const channelBg = findBackground(room.background);
-  const nameOf = (code: string | null) => {
-    const bg = findBackground(code);
-    return bg ? t(`background.names.${bg.name}`) : null;
-  };
-
-  const setForAll = async (code: string | null) => {
-    const background = code === NO_BACKGROUND || code === null ? null : code;
-    if (background === room.background) return;
-    setBusy(true);
-    try {
-      if (direct) await client.setChannelBackground(room.id, background);
-      else await xenaxio.changeChatChannel(room.id, { background });
-      toast.success(t("chat.details_saved"));
-    } catch (err) {
-      toast.error(err instanceof XenaxioApiError ? errorText(t, err) : t("chat.error"));
-    } finally {
-      setBusy(false);
-    }
-  };
-  const saveMine = async (next: typeof mine) => {
-    setBusy(true);
-    try {
-      await client.setRoomBackgrounds(next);
-    } catch {
-      toast.error(t("chat.error"));
-    } finally {
-      setBusy(false);
-    }
-  };
-
-  const allChoices: BackgroundChoice[] = [{ code: NO_BACKGROUND, label: t("background.none"), bg: null }];
-  const myChoices: BackgroundChoice[] = [
-    { code: FOLLOW_CHANNEL, label: channelBg ? t("chat.background_follow_named", { name: nameOf(room.background) ?? "" }) : t("chat.background_follow"), bg: channelBg, caption: true },
-    { code: DEFAULT_LOOK, label: t("chat.background_default"), bg: null },
-  ];
-  const myChoice = myChoiceFor(mine, room.id);
-  return (
-    <div className="space-y-6 text-sm">
-      {forAll ? (
-        <section className="space-y-2">
-          <h3 className="font-semibold">{t("chat.background_for_all")}</h3>
-          <p className="text-muted-foreground">{t("chat.background_for_all_hint")}</p>
-          <BackgroundPicker value={room.background ?? NO_BACKGROUND} extra={allChoices} disabled={busy} onSelect={(c) => void setForAll(c)} />
-        </section>
-      ) : (
-        <p className="text-muted-foreground">
-          {channelBg ? t("chat.background_channel_has", { name: nameOf(room.background) ?? "" }) : t("chat.background_channel_none")} {t("chat.background_who")}
-        </p>
-      )}
-      <section className="space-y-2 border-t border-border pt-4">
-        <h3 className="font-semibold">{t("chat.background_mine")}</h3>
-        <p className="text-muted-foreground">{t("chat.background_mine_hint")}</p>
-        <BackgroundPicker value={myChoice} extra={myChoices} disabled={busy} onSelect={(c) => void saveMine(withMyChoice(mine, room.id, c ?? FOLLOW_CHANNEL))} />
-        {mine.hideAll && myChoice === FOLLOW_CHANNEL && <p className="text-xs text-muted-foreground">{t("chat.background_hidden_note")}</p>}
-        <label className="flex items-start gap-2 pt-2">
-          <input type="checkbox" className="mt-0.5" checked={mine.hideAll} disabled={busy} onChange={(e) => void saveMine({ ...mine, hideAll: e.target.checked })} />
-          <span>
-            {t("chat.background_hide_all")}
-            <span className="block text-xs text-muted-foreground">{t("chat.background_hide_all_hint")}</span>
-          </span>
-        </label>
-      </section>
     </div>
   );
 }

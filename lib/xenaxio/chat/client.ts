@@ -7,7 +7,7 @@ import { ChatError, mx, newTxnId, paths } from "./api";
 import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
 import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, keepPost, VOICE_TYPE } from "./extras";
 import type { ChannelRef } from "./format";
-import { BACKGROUND_TYPE, backgroundCodeOf, NO_ROOM_BACKGROUNDS, parseRoomBackgrounds, ROOM_BACKGROUNDS_TYPE, type RoomBackgrounds } from "./room-background";
+import { BACKGROUND_TYPE, backgroundCodeOf, backgroundImageOf, NO_ROOM_BACKGROUNDS, parseRoomBackgrounds, ROOM_BACKGROUNDS_TYPE, type RoomBackgrounds } from "./room-background";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
 /** A stable rule id per keyword (ids allow only a few characters). */
@@ -120,8 +120,10 @@ export interface Room {
   keepUnread?: boolean;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
   external: boolean;
-  /** Step 107: the channel's background (a code of lib/xenaxio/backgrounds.ts), or none. */
+  /** Step 107: the room's background (a code of lib/xenaxio/backgrounds.ts), or none. */
   background: string | null;
+  /** Step 107: or a picture uploaded for it ("mxc://…"). */
+  backgroundImage: string | null;
 }
 
 export interface PowerLevels {
@@ -377,6 +379,7 @@ function newRoom(id: string): Room {
     canvas: null,
     bookmarks: [],
     background: null,
+    backgroundImage: null,
   };
 }
 
@@ -650,6 +653,7 @@ export class ChatClient {
         break;
       case BACKGROUND_TYPE:
         room.background = backgroundCodeOf(c);
+        room.backgroundImage = backgroundImageOf(c);
         break;
       case DESCRIPTION_TYPE:
         room.description = typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 1000) : null;
@@ -1187,9 +1191,12 @@ export class ChatClient {
     await mx("PUT", paths.state(roomId, BOOKMARKS_TYPE), { items: items.slice(0, 20) });
   }
 
-  /** Step 107: the channel's background for everyone in it (its managers); null removes it. */
-  async setChannelBackground(roomId: string, background: string | null): Promise<void> {
-    await mx("PUT", paths.state(roomId, BACKGROUND_TYPE), { background });
+  /**
+   * Step 107: the room's background for everyone in it (a channel's managers,
+   * anyone in a direct conversation): a code, null (none), or an uploaded picture.
+   */
+  async setChannelBackground(roomId: string, value: { background: string | null } | { image: string }): Promise<void> {
+    await mx("PUT", paths.state(roomId, BACKGROUND_TYPE), value);
   }
 
   /** Step 107: the person's own view of channel backgrounds, kept on the server for every device. */

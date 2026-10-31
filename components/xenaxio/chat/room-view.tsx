@@ -4,7 +4,7 @@
 // members, pinned messages and settings; the timeline; who is typing; the
 // composer. Files can be dropped anywhere on it. Step 99: the channel's name
 // opens its details (name, topic, members, settings), as in Slack.
-import { IconBell, IconChevronDown, IconHash, IconLock, IconNotes, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
+import { IconBell, IconChevronDown, IconHash, IconLock, IconNotes, IconPhoto, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { type CSSProperties, useEffect, useState } from "react";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
@@ -26,6 +26,7 @@ import { ChannelDetails, type DetailsTab } from "./channel-details";
 import { SidebarExpandButton } from "./sidebar-toggle";
 // Styles of the background (room-background.css) come with chat-app.tsx, like code.css.
 import { roomBackgroundStyle, shownBackground } from "@/lib/xenaxio/chat/room-background";
+import { RoomBackgroundDialog } from "./room-background-settings";
 
 export function TypingLine({ room }: { room: Room }) {
   const t = useXT();
@@ -103,6 +104,8 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const [inviting, setInviting] = useState(false);
   const [integrations, setIntegrations] = useState(false);
   const [dragging, setDragging] = useState(false);
+  // Step 107: a direct conversation's background (a channel's is in its details).
+  const [backgroundOpen, setBackgroundOpen] = useState(false);
   const roomName = client.roomName(room);
   const partners = room.kind === "dm" ? client.dmPartners(room) : [];
   const joined = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).length;
@@ -228,6 +231,11 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
           </button>
           {menu === "pinned" && <PinnedMenu room={room} onClose={() => setMenu(null)} />}
         </span>
+        {room.kind === "dm" && (
+          <button type="button" onClick={() => setBackgroundOpen(true)} className="rounded p-1.5 text-muted-foreground hover:bg-accent" title={t("chat.details_background")} aria-label={t("chat.details_background")}>
+            <IconPhoto size={16} />
+          </button>
+        )}
         <span className="relative">
           <button type="button" onClick={() => setMenu(menu === "notify" ? null : "notify")} className="rounded p-1.5 text-muted-foreground hover:bg-accent" title={t("chat.notifications")} aria-label={t("chat.notifications")}>
             <IconBell size={16} />
@@ -272,6 +280,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
       {details && room.kind === "channel" && (
         <ChannelDetails client={client} room={room} initialTab={details} onClose={() => setDetails(null)} onInvite={() => setInviting(true)} onIntegrations={() => setIntegrations(true)} />
       )}
+      {backgroundOpen && room.kind === "dm" && <RoomBackgroundDialog client={client} room={room} onClose={() => setBackgroundOpen(false)} />}
       {integrations && <IntegrationsDialog room={room} roomName={roomName} onClose={() => setIntegrations(false)} />}
       {inviting && (
         <PeoplePicker
