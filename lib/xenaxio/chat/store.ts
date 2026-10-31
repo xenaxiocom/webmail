@@ -20,6 +20,8 @@ export type ChatView =
   | { kind: "threads" }
   | { kind: "mentions" }
   | { kind: "saved" }
+  /** Step 99, part E: unsent drafts of every channel and thread. */
+  | { kind: "drafts" }
   | { kind: "browse" }
   | { kind: "search"; query: string }
   | { kind: "home" };

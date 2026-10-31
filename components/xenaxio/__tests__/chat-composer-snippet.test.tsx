@@ -12,6 +12,9 @@ function setup() {
     can: () => true,
     roomName: () => "dev",
     setTyping: vi.fn(async () => undefined),
+    // Step 99, part E: drafts are kept by the client.
+    drafts: {},
+    setDraft: vi.fn(),
     send,
   } as unknown as ChatClient;
   const room = { id: "!dev:firma.de", members: new Map(), archived: false } as unknown as Room;
@@ -51,5 +54,25 @@ describe("snippets from the composer (step 99)", () => {
     box.setSelectionRange(0, 5);
     fireEvent.click(screen.getByRole("button", { name: "Code block" }));
     expect(box.value).toBe("```\na = 1\n```");
+  });
+
+  it("step 99, part E: each channel keeps its own draft; switching does not carry the text over", () => {
+    const setDraft = vi.fn();
+    const client = { userId: "@anna:firma.de", rooms: new Map(), can: () => true, roomName: () => "x", setTyping: vi.fn(async () => undefined), drafts: { "!b:firma.de|": { text: "Entwurf B", ts: 1 } }, setDraft, send: vi.fn() } as unknown as ChatClient;
+    const roomA = { id: "!a:firma.de", members: new Map(), archived: false } as unknown as Room;
+    const roomB = { id: "!b:firma.de", members: new Map(), archived: false } as unknown as Room;
+    const ui = render(
+      <ChatDialogsProvider>
+        <Composer room={roomA} client={client} placeholder="Nachricht" locale="en" />
+      </ChatDialogsProvider>,
+    );
+    fireEvent.change(screen.getByLabelText("Nachricht"), { target: { value: "Text A" } });
+    ui.rerender(
+      <ChatDialogsProvider>
+        <Composer room={roomB} client={client} placeholder="Nachricht" locale="en" />
+      </ChatDialogsProvider>,
+    );
+    expect((screen.getByLabelText("Nachricht") as HTMLTextAreaElement).value).toBe("Entwurf B");
+    expect(setDraft.mock.calls).toEqual([["!a:firma.de|", "Text A"]]);
   });
 });

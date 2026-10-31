@@ -100,6 +100,10 @@ export interface Room {
   /** Step 99: the channel's description (our state, next to the topic) and when it was made. */
   description: string | null;
   createdTs: number | null;
+  /** Step 99, part E: marked unread by hand (Matrix m.marked_unread); the "new" line goes after `readUpTo`. */
+  markedUnread: { readUpTo: string | null } | null;
+  /** Marked here and now: the open view does not mark it read again until it is left. */
+  keepUnread?: boolean;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
   external: boolean;
 }
@@ -226,6 +230,33 @@ export const ARCHIVED_TYPE = "com.xenaxio.archived";
 export const BY_FIELD = "com.xenaxio.by";
 /** Step 99: a channel's description; the platform writes the same type for the company admin. */
 export const DESCRIPTION_TYPE = "com.xenaxio.description";
+/** Step 99, part E: unsent messages of every channel and thread, kept in the account (the same on every device). */
+export const DRAFTS_TYPE = "com.xenaxio.drafts";
+export interface Draft {
+  text: string;
+  ts: number;
+}
+const MAX_DRAFTS = 40;
+const MAX_DRAFT_CHARS = 8000;
+
+/** Drafts from account data; anything odd is dropped. */
+export function parseDrafts(content: Record<string, unknown> | undefined): Record<string, Draft> {
+  const items = (content?.items ?? {}) as Record<string, unknown>;
+  const out: Record<string, Draft> = {};
+  if (!items || typeof items !== "object") return out;
+  for (const [key, v] of Object.entries(items).slice(0, MAX_DRAFTS)) {
+    const d = v as { text?: unknown; ts?: unknown };
+    if (/^![^|\s]{1,255}\|[^|\s]{0,255}$/.test(key) && typeof d?.text === "string" && d.text.trim())
+      out[key] = { text: d.text.slice(0, MAX_DRAFT_CHARS), ts: typeof d.ts === "number" ? d.ts : 0 };
+  }
+  return out;
+}
+
+/** Step 99, part E: "mark as unread" (Matrix 1.12; Element used the older name). */
+const MARKED_UNREAD = "m.marked_unread";
+const MARKED_UNREAD_OLD = "com.famedly.marked_unread";
+/** Our addition to it: the message before the first unread one, for the "new" line. */
+const READ_UP_TO = "com.xenaxio.read_up_to";
 /** Step 99: the level of a channel's managers (Matrix moderators). */
 export const MANAGER_LEVEL = 50;
 
@@ -323,6 +354,7 @@ function newRoom(id: string): Room {
     external: false,
     description: null,
     createdTs: null,
+    markedUnread: null,
   };
 }
 
@@ -340,6 +372,9 @@ export class ChatClient {
   saved: SavedItem[] = [];
   /** Step 99, part C: own sections, folded sections, order and filter of the sidebar. */
   sidebar: SidebarLayout = EMPTY_LAYOUT;
+  /** Step 99, part E: drafts per channel and thread ("roomId|threadRoot"). */
+  drafts: Record<string, Draft> = {};
+  private draftTimer: ReturnType<typeof setTimeout> | null = null;
   /** Channels with their own level (from the push rules on the server); the others follow `defaultLevel`. */
   roomLevels = new Map<string, NotifyLevel>();
   /** Step 99, part D: the default level for channels, and channels where @channel is ignored. */
@@ -448,6 +483,10 @@ export class ChatClient {
       for (const ev of data.ephemeral?.events ?? []) this.applyEphemeral(room, ev);
       for (const ev of data.account_data?.events ?? []) {
         if (ev.type === "m.tag") room.tags = ((ev.content.tags ?? {}) as Room["tags"]) ?? {};
+        if (ev.type === MARKED_UNREAD || ev.type === MARKED_UNREAD_OLD) {
+          const from = ev.content[READ_UP_TO];
+          room.markedUnread = ev.content.unread === true ? { readUpTo: typeof from === "string" ? from : null } : null;
+        }
       }
       if (data.unread_notifications) {
         room.notifications = data.unread_notifications.notification_count ?? 0;
@@ -514,6 +553,9 @@ export class ChatClient {
       this.ignored = ((ev.content ?? {}).ignored_users ?? {}) as Record<string, object>;
     } else if (ev.type === SAVED_TYPE) {
       this.saved = Array.isArray(ev.content.items) ? (ev.content.items as SavedItem[]) : [];
+    } else if (ev.type === DRAFTS_TYPE) {
+      // A draft being typed here wins over the server's copy until it is saved.
+      this.drafts = { ...parseDrafts(ev.content), ...(this.draftTimer ? this.drafts : {}) };
     } else if (ev.type === SIDEBAR_TYPE) {
       this.sidebar = parseLayout(ev.content);
     } else if (ev.type === "m.push_rules") {
@@ -901,6 +943,13 @@ export class ChatClient {
   async markRead(roomId: string, threadRoot?: string): Promise<void> {
     const room = this.rooms.get(roomId);
     if (!room) return;
+    // Step 99: marked unread in this very view; it stays so until the person leaves.
+    if (!threadRoot && room.keepUnread) return;
+    if (!threadRoot && room.markedUnread) {
+      room.markedUnread = null;
+      this.changed();
+      await mx("PUT", paths.roomAccountData(this.userId, roomId, MARKED_UNREAD), { unread: false }).catch(() => undefined);
+    }
     const list = threadRoot ? room.threads.get(threadRoot) ?? [] : room.timeline;
     const last = [...list].reverse().find((m) => !m.id.startsWith("~"));
     if (!last) return;
@@ -1186,9 +1235,67 @@ export class ChatClient {
     }
   }
 
+  /**
+   * Step 99, part E: marks a channel unread, from a message on (Slack: Alt+click)
+   * or as a whole. Kept on the server for every device.
+   */
+  async markUnread(roomId: string, fromId?: string): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const visible = room.timeline.filter((m) => !m.id.startsWith("~"));
+    // Without a message: the last one is unread, as in Slack.
+    const at = fromId ? visible.findIndex((m) => m.id === fromId) : visible.length - 1;
+    const readUpTo = at > 0 ? (visible[at - 1] as Message).id : null;
+    room.markedUnread = { readUpTo };
+    room.keepUnread = true;
+    this.changed();
+    await mx("PUT", paths.roomAccountData(this.userId, roomId, MARKED_UNREAD), { unread: true, ...(readUpTo ? { [READ_UP_TO]: readUpTo } : {}) });
+  }
+
+  /**
+   * Step 99, part E: every version of an edited message, oldest first: the
+   * original event, then each edit (Matrix m.replace relations) by its author.
+   */
+  async editHistory(roomId: string, eventId: string): Promise<{ ts: number; body: string }[]> {
+    const original = await mx<RawEvent>("GET", `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/event/${encodeURIComponent(eventId)}`);
+    const edits = await mx<{ chunk?: RawEvent[] }>("GET", `${paths.relations(roomId, eventId, "m.replace")}?limit=50`);
+    const body = (c: Record<string, unknown> | undefined) => (typeof c?.body === "string" ? c.body : "");
+    const versions = (edits.chunk ?? [])
+      // Only the author's own edits count (Matrix ignores others').
+      .filter((e) => e.sender === original.sender && e.type === "m.room.message")
+      .map((e) => ({ ts: e.origin_server_ts ?? 0, body: body(e.content["m.new_content"] as Record<string, unknown> | undefined) }))
+      .sort((a, b) => a.ts - b.ts);
+    return [{ ts: original.origin_server_ts ?? 0, body: body(original.content) }, ...versions];
+  }
+
+  /** Keeps a draft (empty text removes it); saved to the server a moment after typing stops. */
+  setDraft(key: string, text: string): void {
+    const current = this.drafts[key]?.text ?? "";
+    if (current === text) return;
+    const next = { ...this.drafts };
+    if (text.trim()) next[key] = { text: text.slice(0, MAX_DRAFT_CHARS), ts: Date.now() };
+    else delete next[key];
+    // The newest ones when there are too many.
+    const keys = Object.keys(next).sort((a, b) => (next[b] as Draft).ts - (next[a] as Draft).ts);
+    for (const k of keys.slice(MAX_DRAFTS)) delete next[k];
+    this.drafts = next;
+    this.changed();
+    if (this.draftTimer) clearTimeout(this.draftTimer);
+    this.draftTimer = setTimeout(() => {
+      this.draftTimer = null;
+      void mx("PUT", paths.accountData(this.userId, DRAFTS_TYPE), { items: this.drafts }).catch(() => undefined);
+    }, 800);
+  }
+
+  /** Has new messages, or was marked unread. */
+  isUnread(room: Room): boolean {
+    return room.notifications > 0 || room.highlights > 0 || !!room.markedUnread;
+  }
+
   /** Marks every channel and direct message as read (Slack: Shift+Esc). */
   async markAllRead(): Promise<void> {
-    const unread = [...this.rooms.values()].filter((r) => r.membership === "join" && (r.notifications > 0 || r.highlights > 0));
+    const unread = [...this.rooms.values()].filter((r) => r.membership === "join" && this.isUnread(r));
+    for (const r of unread) r.keepUnread = false;
     await Promise.all(unread.map((r) => this.markRead(r.id)));
   }
 

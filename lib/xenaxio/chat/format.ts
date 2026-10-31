@@ -177,6 +177,25 @@ export function messageHtml(content: Record<string, unknown>): string {
   return purifier().sanitize(withoutFallback, { ALLOWED_TAGS, ALLOWED_ATTR: ["href", "target", "rel", "data-mention", "class"], ALLOW_DATA_ATTR: false }) as string;
 }
 
+/**
+ * Step 99, part E: the first outside link of a message for its preview — not
+ * in code, not the chat's own address (those are links to messages).
+ */
+export function firstLink(body: string, ownOrigin: string | null = null): string | null {
+  const text = body.replace(/```[\s\S]*?```/g, " ").replace(/`[^`]*`/g, " ");
+  for (const m of text.matchAll(URL_RE)) {
+    const url = m[0];
+    if (!url.startsWith("https://")) continue;
+    try {
+      if (ownOrigin && new URL(url).origin === ownOrigin) continue;
+    } catch {
+      continue;
+    }
+    return url;
+  }
+  return null;
+}
+
 /** Does the message mention this person (or everyone)? */
 export function mentionsUser(content: Record<string, unknown>, userId: string): boolean {
   const m = content["m.mentions"] as { user_ids?: string[]; room?: boolean } | undefined;
@@ -258,4 +277,63 @@ export function emailShareContent(email: Omit<SharedEmail, "note">, note: string
   const sender = card.from && card.fromEmail && card.from !== card.fromEmail ? `${card.from} <${card.fromEmail}>` : card.from || card.fromEmail;
   const fallback = `📧 ${card.subject || noSubject} — ${sender}${card.preview ? `\n${card.preview}` : ""}`;
   return { msgtype: "m.text", body: card.note ? `${card.note}\n\n${fallback}` : fallback, "com.xenaxio.email": card };
+}
+
+// ---------------------------------------------------------------------------
+// Step 99, part E: forwarded messages ("Share message" in Slack).
+
+export const FORWARD_FIELD = "com.xenaxio.forward";
+
+export interface Forwarded {
+  roomId: string;
+  eventId: string;
+  sender: string;
+  senderName: string;
+  /** Channel name; null for a direct message. */
+  roomName: string | null;
+  ts: number;
+  /** Link to the original (opens for those who are in that channel). */
+  link: string;
+}
+
+/** Where a forwarded message comes from; other people's fields are checked, never trusted. */
+export function forwardedOf(content: Record<string, unknown>): Forwarded | null {
+  const f = content[FORWARD_FIELD] as Record<string, unknown> | undefined;
+  if (!f || typeof f !== "object" || typeof f.eventId !== "string" || typeof f.roomId !== "string") return null;
+  const link = typeof f.link === "string" && /^https:\/\//.test(f.link) ? f.link.slice(0, 1000) : "";
+  return {
+    roomId: clip(f.roomId, 255),
+    eventId: clip(f.eventId, 255),
+    sender: clip(f.sender, 255),
+    senderName: clip(f.senderName, 120) || clip(f.sender, 255),
+    roomName: typeof f.roomName === "string" && f.roomName ? f.roomName.slice(0, 120) : null,
+    ts: typeof f.ts === "number" && Number.isFinite(f.ts) ? f.ts : 0,
+    link,
+  };
+}
+
+/**
+ * The message that forwards another one. A file or picture goes along itself
+ * (same upload); text is quoted. Other Matrix clients read a quote in the body.
+ */
+export function forwardContent(original: Record<string, unknown>, source: Forwarded, note: string, label: string): Record<string, unknown> {
+  const field = { [FORWARD_FIELD]: source };
+  const media = ["m.image", "m.file", "m.video", "m.audio"].includes(String(original.msgtype));
+  const text = note.trim().slice(0, 4000);
+  if (media) {
+    const { "m.relates_to": _r, "m.new_content": _n, [FORWARD_FIELD]: _f, ...copy } = original;
+    return { ...copy, ...field, ...(text ? { "com.xenaxio.forward_note": text } : {}) };
+  }
+  const body = typeof original.body === "string" ? original.body : "";
+  const quote = body
+    .split("\n")
+    .map((l) => `> ${l}`)
+    .join("\n");
+  const head = `${label}: ${source.senderName}${source.roomName ? ` (#${source.roomName})` : ""}`;
+  return { msgtype: "m.text", body: `${text ? `${text}\n\n` : ""}${head}\n${quote}`, ...field, "com.xenaxio.forward_text": body.slice(0, 20000), ...(text ? { "com.xenaxio.forward_note": text } : {}), "m.mentions": {} };
+}
+
+/** The note and the forwarded text of a forwarded message, as our client shows them. */
+export function forwardParts(content: Record<string, unknown>): { note: string; text: string } {
+  return { note: clip(content["com.xenaxio.forward_note"], 4000), text: clip(content["com.xenaxio.forward_text"], 20000) };
 }

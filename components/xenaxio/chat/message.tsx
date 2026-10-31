@@ -11,7 +11,7 @@ import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
 import { BY_FIELD, isPlatformAccount, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { reportMessage } from "@/lib/xenaxio/chat/api";
 import { isJumboEmoji } from "@/lib/xenaxio/chat/emoji";
-import { appOf, messageHtml, mentionsUser, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
+import { appOf, firstLink, forwardedOf, forwardParts, messageHtml, mentionsUser, sharedEmailOf, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatDialogs } from "./dialogs";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -22,6 +22,9 @@ import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
 import { type MessageAction, MessageSheet, useLongPress } from "./message-sheet";
 import { RichHtml, SnippetCard } from "./code";
+import { LinkPreviewCard } from "./link-preview";
+import { ForwardDialog, ForwardedFrom } from "./forward";
+import { EditHistory } from "./edit-history";
 import { SnippetDialog } from "./snippet-dialog";
 import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
 import { ImageViewer } from "./image-viewer";
@@ -114,7 +117,7 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
   );
 }
 
-function Body({ message, me, onMention, onEditSnippet }: { message: Message; me: string; onMention: (userId: string) => void; onEditSnippet?: () => void }) {
+function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: Message; me: string; onMention: (userId: string) => void; onEditSnippet?: () => void; onHistory?: () => void }) {
   const t = useXT();
   const name = useDisplayName();
   const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
@@ -123,6 +126,26 @@ function Body({ message, me, onMention, onEditSnippet }: { message: Message; me:
   // Step 99, part A: a code snippet (in the message or, when large, in a file).
   const snippet = snippetOf(c);
   if (snippet) return <SnippetCard snippet={snippet} onEdit={snippet.code !== null && message.sender === me ? onEditSnippet : undefined} />;
+  // Step 99, part E: a forwarded message — the note, where it comes from, then the file or the quote.
+  const forwarded = forwardedOf(c);
+  if (forwarded) {
+    const { note, text } = forwardParts(c);
+    const media = c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio";
+    return (
+      <div className="text-sm">
+        {note && <RichHtml html={messageHtml({ body: note })} />}
+        <ForwardedFrom source={forwarded} />
+        {media ? (
+          <Attachment content={c} />
+        ) : (
+          <div className="mt-1 border-l-4 border-border pl-3 text-foreground/90">
+            <RichHtml html={messageHtml({ body: text })} />
+          </div>
+        )}
+        {message.edited && <span className="ml-1 text-xs text-muted-foreground">{t("chat.edited")}</span>}
+      </div>
+    );
+  }
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
   // Step 78, part D: a call in the room: its card, live.
   const call = callOf(c);
@@ -130,6 +153,8 @@ function Body({ message, me, onMention, onEditSnippet }: { message: Message; me:
   // An e-mail shared into the chat: what the person wrote, then the card.
   const email = sharedEmailOf(c);
   const html = email ? (email.note ? messageHtml({ body: email.note }) : "") : messageHtml(c);
+  // Step 99, part E: the first outside link gets a preview.
+  const link = !email && c.msgtype === "m.text" && typeof c.body === "string" ? firstLink(c.body, typeof window === "undefined" ? null : window.location.origin) : null;
   // Step 87: a few emoji alone are shown large.
   const jumbo = !email && c.msgtype === "m.text" && typeof c.body === "string" && isJumboEmoji(c.body);
   return (
@@ -150,8 +175,14 @@ function Body({ message, me, onMention, onEditSnippet }: { message: Message; me:
     >
       {c.msgtype === "m.emote" && <span>* {name(message.sender)} </span>}
       {html && <RichHtml html={html} />}
-      {message.edited && <span className="ml-1 text-xs text-muted-foreground">{t("chat.edited")}</span>}
+      {message.edited && (
+        // Step 99, part E: the earlier versions.
+        <button type="button" onClick={onHistory} className="ml-1 text-xs text-muted-foreground hover:underline" title={t("chat.edit_history")}>
+          {t("chat.edited")}
+        </button>
+      )}
       {email && <EmailCard email={email} />}
+      {link && <LinkPreviewCard url={link} />}
     </div>
   );
 }
@@ -269,7 +300,7 @@ function Editor({ message, client, onDone }: { message: Message; client: ChatCli
  * What can be done with a message. The hover toolbar shows the thread and
  * "save" as buttons and the rest in "⋯"; the sheet on phones (step 99) shows all.
  */
-function useMessageActions({ message, room, client, inThread, saved, onEdit, onReport }: { message: Message; room: Room; client: ChatClient; inThread?: boolean; saved: boolean; onEdit: () => void; onReport: () => Promise<void> }): MessageAction[] {
+function useMessageActions({ message, room, client, inThread, saved, onEdit, onReport, onForward }: { message: Message; room: Room; client: ChatClient; inThread?: boolean; saved: boolean; onEdit: () => void; onReport: () => Promise<void>; onForward: () => void }): MessageAction[] {
   const t = useXT();
   const locale = useLocale();
   const setPanel = useChatStore((s) => s.setPanel);
@@ -279,8 +310,12 @@ function useMessageActions({ message, room, client, inThread, saved, onEdit, onR
   const run = (job: () => Promise<unknown> | void) => () => void Promise.resolve(job()).catch(() => toast.error(t("chat.error")));
   const actions: (MessageAction | false)[] = [
     !inThread && { key: "thread", label: t("chat.reply_in_thread"), run: () => setPanel({ kind: "thread", roomId: room.id, rootId: message.id }) },
-    mine && textual && { key: "edit", label: t("chat.edit"), run: onEdit },
+    mine && textual && !forwardedOf(message.content) && { key: "edit", label: t("chat.edit"), run: onEdit },
     { key: "save", label: saved ? t("chat.unsave") : t("chat.save"), run: run(() => client.setSaved(room.id, message.id, !saved)) },
+    // Step 99, part E: forward to another channel or person (Slack's "Share message").
+    !message.redacted && { key: "forward", label: t("chat.forward"), run: onForward },
+    // Step 99, part E: Slack's "mark unread" (also Alt+click on the message).
+    !inThread && { key: "unread", label: t("chat.mark_unread_from"), run: run(() => client.markUnread(room.id, message.id)) },
     client.can(room, "pin") && !message.redacted && { key: "pin", label: pinned ? t("chat.unpin") : t("chat.pin"), run: run(() => client.setPinned(room.id, message.id, !pinned)) },
     {
       key: "link",
@@ -348,6 +383,8 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState(false);
   const [snippetEdit, setSnippetEdit] = useState(false);
+  const [forwarding, setForwarding] = useState(false);
+  const [history, setHistory] = useState(false);
   const snippet = snippetOf(message.content);
   const editSnippet = useCallback(() => setSnippetEdit(true), []);
   const saved = client.saved.some((s) => s.eventId === message.id);
@@ -360,7 +397,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     await reportMessage({ roomId: room.id, eventId: message.id, sender: message.sender, excerpt: String(message.content.body ?? "").slice(0, 500), reason: reason.trim() });
     toast.success(t("chat.report_sent"));
   };
-  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report });
+  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report, onForward: () => setForwarding(true) });
   const actionable = message.type === "m.room.message" && !message.id.startsWith("~") && !message.redacted && !editing;
   const longPress = useLongPress(() => setSheet(true), actionable);
   const closeSheet = useCallback(() => setSheet(false), []);
@@ -376,6 +413,12 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     <div
       id={`msg-${message.id}`}
       {...longPress}
+      onClick={(e) => {
+        if (e.altKey && !inThread && actionable) {
+          e.preventDefault();
+          void client.markUnread(room.id, message.id).catch(() => toast.error(t("chat.error")));
+        }
+      }}
       className={cn("group relative flex gap-2 px-5 hover:bg-muted/40 [-webkit-touch-callout:none]", sheet && "bg-muted/60", continued ? "py-0.5" : "pt-2 pb-0.5", highlighted && "bg-amber-100/60 dark:bg-amber-500/10", pinned && !inThread && "bg-amber-50/50 dark:bg-amber-500/5")}
     >
       <div className="w-9 shrink-0">
@@ -415,7 +458,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             )}
           </div>
         )}
-        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} />}
+        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} onHistory={() => setHistory(true)} />}
         {message.status === "sending" && <div className="text-xs text-muted-foreground">{t("chat.sending")}</div>}
         {message.status === "failed" && (
           <div className="flex items-center gap-2 text-xs text-destructive">
@@ -508,6 +551,8 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
           }}
         />
       )}
+      {history && <EditHistory client={client} message={message} onClose={() => setHistory(false)} />}
+      {forwarding && <ForwardDialog client={client} room={room} message={message} onClose={() => setForwarding(false)} />}
       {sheet && <MessageSheet actions={actions} onClose={closeSheet} onReact={(e) => void client.toggleReaction(room.id, message.id, e).catch(() => toast.error(t("chat.error")))} />}
     </div>
   );
