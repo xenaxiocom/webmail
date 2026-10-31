@@ -85,7 +85,10 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
   };
   const company = me?.tenant.name ?? "";
   // Administration stays in Xenaxio (the company's portal), in a new tab.
-  const adminUrl = me?.user.role === "admin" && me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
+  // Step 96: a company without email is managed right here; others in their Xenaxio portal.
+  const roomsOnly = me?.tenant.product === "rooms";
+  const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/rooms/people/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
+  const adminTarget = roomsOnly ? {} : { target: "_blank", rel: "noopener" };
 
   const tiles = accounts.map((account) => {
     const counts = unread[account.userId];
@@ -129,7 +132,7 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
         {addButton}
         <div className="ml-auto flex items-center gap-1">
           {adminUrl && (
-            <a href={adminUrl} target="_blank" rel="noopener" title={t("rooms.admin")} aria-label={t("rooms.admin")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
+            <a href={adminUrl} {...adminTarget} title={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} aria-label={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} className="rounded-lg p-1.5 text-muted-foreground hover:bg-muted hover:text-foreground">
               <IconSettings size={18} />
             </a>
           )}
@@ -150,7 +153,7 @@ export function RoomsRail({ horizontal = false }: { horizontal?: boolean }) {
         {addButton}
       </div>
       {adminUrl && (
-        <a href={adminUrl} target="_blank" rel="noopener" title={t("rooms.admin")} aria-label={t("rooms.admin")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
+        <a href={adminUrl} {...adminTarget} title={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} aria-label={t(roomsOnly ? "rooms.admin_here" : "rooms.admin")} className="rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground">
           <IconSettings size={20} />
         </a>
       )}

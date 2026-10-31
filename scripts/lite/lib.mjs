@@ -117,6 +117,11 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/chat/report",
   "/api/admin/chat/federation",
   "/api/admin/chat",
+  // Step 67: unread counts of the other companies in XenRooms.
+  "/api/chat/accounts",
+  // Step 96: XenRooms without email (company set-up, invitation and reset links, people).
+  "/api/rooms",
+  "/api/admin/rooms",
   // Step 48: calendars by link, both ways (components/xenaxio/calendar-links.tsx).
   "/api/calendar/subscriptions",
   "/api/calendar/feeds",

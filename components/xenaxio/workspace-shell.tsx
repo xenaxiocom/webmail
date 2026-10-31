@@ -6,7 +6,7 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import { Link, useRouter } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
-import { ChevronLeft, LogOut, Mail } from "@/components/icons";
+import { ChevronLeft, LogOut, Mail, MessageSquare } from "@/components/icons";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { openAccount, signOut as signOutAccount } from "@/lib/xenaxio/accounts";
 import { useDocumentTitle } from "@/hooks/use-document-title";
@@ -63,6 +63,10 @@ export function WorkspaceShell({
 
   // The way back to the mail app; not while a temporary password must still be changed.
   const toMail = !me.user.mustChangePassword;
+  // Step 96: a person without a mailbox (XenRooms) goes back to the chat.
+  const chatOnly = me.user.kind === "chat";
+  const home = chatOnly ? "/chat" : "/";
+  const appName = chatOnly ? "XenRooms" : t("common.app_name");
 
   const signOut = async () => {
     // Step 29: the next account signed in in this browser takes over.
@@ -83,11 +87,11 @@ export function WorkspaceShell({
           <div className="mx-auto max-w-4xl px-4 h-14 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               {toMail ? (
-                <Link href="/" className="text-sm font-semibold text-primary hover:underline">
-                  {t("common.app_name")}
+                <Link href={home} className="text-sm font-semibold text-primary hover:underline">
+                  {appName}
                 </Link>
               ) : (
-                <span className="text-sm font-semibold text-primary">{t("common.app_name")}</span>
+                <span className="text-sm font-semibold text-primary">{appName}</span>
               )}
               <span className="text-sm text-muted-foreground truncate">· {me.tenant.name}</span>
             </div>
@@ -95,11 +99,11 @@ export function WorkspaceShell({
               {toMail && (
                 // A link styled like the ghost button next to it (Button has no asChild).
                 <Link
-                  href="/"
+                  href={home}
                   className="inline-flex items-center justify-center rounded-md font-medium h-9 px-3 text-sm transition-all duration-200 hover:bg-accent hover:text-accent-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
                 >
-                  <Mail className="w-4 h-4 mr-1.5" />
-                  {t("common.to_mail")}
+                  {chatOnly ? <MessageSquare className="w-4 h-4 mr-1.5" /> : <Mail className="w-4 h-4 mr-1.5" />}
+                  {chatOnly ? t("rooms.to_chat") : t("common.to_mail")}
                 </Link>
               )}
               <Button variant="ghost" size="sm" onClick={signOut}>
