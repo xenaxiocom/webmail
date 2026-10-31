@@ -81,6 +81,8 @@ describe("step 107: settings on XenRooms", () => {
     expect(screen.getByText("profile form")).toBeTruthy();
     expect(screen.getByText("password").getAttribute("href")).toBe("/workspace/password");
     expect(screen.getByText("anna@acme.de")).toBeTruthy();
+    // Step 109: paid XenRooms — the own assistant from here.
+    expect(screen.getByText("Was sich der KI-Assistent über Sie merkt, Ihre Fähigkeiten und was er ohne Rückfrage tun darf.")).toBeTruthy();
     expect(screen.queryByText("mailbox account")).toBeNull();
   });
 

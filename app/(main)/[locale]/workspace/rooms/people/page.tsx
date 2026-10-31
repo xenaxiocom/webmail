@@ -16,9 +16,11 @@ import { useXT } from "@/lib/xenaxio/i18n";
 /** Gigabytes with one decimal (Free: 5 GB). */
 const gb = (bytes: number) => (bytes / 1024 ** 3).toLocaleString(undefined, { maximumFractionDigits: 1 });
 
-function Person({ person, isSelf, onChanged, onMessage }: {
+function Person({ person, isSelf, withAi, onChanged, onMessage }: {
   person: RoomsPerson;
   isSelf: boolean;
+  /** Step 109: paid XenRooms — the admin switches the AI per person. */
+  withAi: boolean;
   onChanged: () => Promise<void>;
   onMessage: (m: { kind: "error" | "success"; text: string }) => void;
 }) {
@@ -47,6 +49,7 @@ function Person({ person, isSelf, onChanged, onMessage }: {
           {person.displayName}
           {person.role === "admin" && <span className="ml-2 rounded bg-muted px-1.5 py-0.5 text-xs font-normal text-muted-foreground">{t("rooms.people_admin")}</span>}
           {person.invited && <span className="ml-2 rounded bg-amber-500/15 px-1.5 py-0.5 text-xs font-normal text-amber-700 dark:text-amber-400">{t("rooms.people_invited")}</span>}
+          {withAi && person.aiEnabled && <span className="ml-2 rounded bg-primary/10 px-1.5 py-0.5 text-xs font-normal text-primary">{t("rooms.people_ai_badge")}</span>}
           {blocked && <span className="ml-2 rounded bg-destructive/15 px-1.5 py-0.5 text-xs font-normal text-destructive">{person.blockedByOperator ? t("users.operator_blocked_badge") : t("rooms.people_blocked")}</span>}
         </p>
         <p className="text-sm text-muted-foreground truncate">{person.email}</p>
@@ -69,6 +72,11 @@ function Person({ person, isSelf, onChanged, onMessage }: {
         <Button size="sm" variant="outline" disabled={busy} aria-expanded={renaming} onClick={() => setRenaming((v) => !v)}>
           {t("name.rename")}
         </Button>
+        {withAi && (
+          <Button size="sm" variant="outline" disabled={busy} aria-pressed={!!person.aiEnabled} onClick={() => run(() => xenaxio.setUserAi(person.id, !person.aiEnabled))}>
+            {person.aiEnabled ? t("rooms.people_ai_off") : t("rooms.people_ai_on")}
+          </Button>
+        )}
       {!isSelf && (
         <>
           {person.invited && !blocked && (
@@ -205,7 +213,7 @@ function People() {
           </h2>
           <ul className="divide-y divide-border rounded-lg border border-border bg-card">
             {data.people.map((p) => (
-              <Person key={p.id} person={p} isSelf={p.id === me.user.id} onChanged={load} onMessage={setMessage} />
+              <Person key={p.id} person={p} isSelf={p.id === me.user.id} withAi={me.tenant.plan !== "free" && data.plan?.plan !== "free"} onChanged={load} onMessage={setMessage} />
             ))}
           </ul>
         </section>

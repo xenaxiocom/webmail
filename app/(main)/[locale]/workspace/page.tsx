@@ -7,8 +7,21 @@ import { Brain, Building, ChevronRight, FileText, Folder, Globe, Inbox, KeyRound
 import { Notice } from "@/components/xenaxio/ui";
 import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { useXT } from "@/lib/xenaxio/i18n";
+import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 
-function Tile({ href, icon, title, description }: { href: string; icon: ReactNode; title: string; description: string }) {
+function Tile({ href, icon, title, description, disabled }: { href: string; icon: ReactNode; title: string; description: string; disabled?: boolean }) {
+  // Step 109: a page the plan does not include yet — shown, with the reason, not linked.
+  if (disabled) {
+    return (
+      <div aria-disabled="true" className="flex items-center gap-3 rounded-lg border border-dashed border-border p-4 text-muted-foreground" data-testid="workspace-tile-disabled">
+        <span>{icon}</span>
+        <span className="flex-1 min-w-0">
+          <span className="block font-medium">{title}</span>
+          <span className="block text-sm">{description}</span>
+        </span>
+      </div>
+    );
+  }
   return (
     <Link href={href} className="flex items-center gap-3 rounded-lg border border-border bg-card p-4 hover:bg-accent transition-colors">
       <span className="text-primary">{icon}</span>
@@ -21,10 +34,40 @@ function Tile({ href, icon, title, description }: { href: string; icon: ReactNod
   );
 }
 
+/**
+ * Step 109: the overview of a company without email (XenRooms): the pages a
+ * team chat needs — people, Rooms, look, meetings, AI, audit log — and the own
+ * assistant. XenRooms Free has no AI: its tile says so.
+ */
+function RoomsOverview() {
+  const t = useXT();
+  const me = useMe();
+  const isAdmin = me.user.role === "admin";
+  const free = me.tenant.plan === "free";
+  return (
+    <div className="space-y-6">
+      <p className="text-sm text-muted-foreground">{t("workspace.signed_in_as", { email: me.user.email })}</p>
+      <div className="grid gap-3">
+        {isAdmin && <Tile href="/workspace/rooms/people" icon={<Users className="w-5 h-5" />} title={t("rooms.people_title")} description={t("workspace.rooms_people_desc")} />}
+        {isAdmin && <Tile href="/workspace/chat" icon={<MessagesSquare className="w-5 h-5" />} title={t("workspace.chat")} description={t("workspace.rooms_chat_desc")} />}
+        {isAdmin && <Tile href="/workspace/appearance" icon={<Palette className="w-5 h-5" />} title={t("workspace.rooms_appearance")} description={t("workspace.rooms_appearance_desc")} />}
+        {isAdmin && <Tile href="/workspace/meetings" icon={<Video className="w-5 h-5" />} title={t("workspace.meetings")} description={t("workspace.rooms_meetings_desc")} />}
+        {isAdmin && <Tile href="/workspace/ai" icon={<Sparkles className="w-5 h-5" />} title={t("workspace.ai")} description={free ? t("workspace.rooms_ai_free") : t("workspace.ai_desc")} disabled={free} />}
+        {isAdmin && <Tile href="/workspace/audit" icon={<FileText className="w-5 h-5" />} title={t("workspace.audit")} description={t("workspace.audit_desc")} />}
+        {!free && <Tile href="/workspace/assistant" icon={<Brain className="w-5 h-5" />} title={t("workspace.assistant")} description={t("workspace.assistant_desc")} />}
+        {!free && <Tile href="/workspace/mcp" icon={<Terminal className="w-5 h-5" />} title={t("workspace.mcp")} description={t("workspace.mcp_desc")} />}
+        {!free && <Tile href="/workspace/permissions" icon={<ShieldCheck className="w-5 h-5" />} title={t("workspace.permissions")} description={t("workspace.permissions_desc")} />}
+        <Tile href="/workspace/password" icon={<KeyRound className="w-5 h-5" />} title={t("workspace.password")} description={t("workspace.password_desc")} />
+      </div>
+    </div>
+  );
+}
+
 function Overview() {
   const t = useXT();
   const me = useMe();
   const isAdmin = me.user.role === "admin";
+  if (me.tenant.product === "rooms") return <RoomsOverview />;
   return (
     <div className="space-y-6">
       <p className="text-sm text-muted-foreground">{t("workspace.signed_in_as", { email: me.user.email })}</p>
@@ -56,8 +99,10 @@ function Overview() {
 
 export default function WorkspacePage() {
   const t = useXT();
+  // Step 109: in XenRooms this page is the administration ("Verwaltung").
+  const rooms = useXenaxioMe()?.tenant.product === "rooms";
   return (
-    <WorkspaceShell title={t("workspace.title")}>
+    <WorkspaceShell title={rooms ? t("rooms.admin_here") : t("workspace.title")}>
       <Overview />
     </WorkspaceShell>
   );

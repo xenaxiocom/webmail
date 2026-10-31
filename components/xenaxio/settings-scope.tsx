@@ -6,6 +6,7 @@
 // mail is set up right here. A person without a mailbox (XenRooms company)
 // has no mail session: Account (name, picture, sign-in address, password,
 // profile), General and Appearance.
+import { Link } from "@/i18n/navigation";
 import { SettingItem, SettingsSection } from "@/components/settings/settings-section";
 import { XenaxioNameSetting } from "@/components/xenaxio/name-setting";
 import { ProfilePictureSetting } from "@/components/xenaxio/profile-picture-setting";
@@ -55,6 +56,14 @@ export function ChatOnlyAccountSettings() {
           <span className="text-sm text-foreground">{me.user.email}</span>
         </SettingItem>
         <XenaxioPasswordSetting />
+        {/* Step 109: paid XenRooms has the AI — the own assistant (memory, skills, permissions). */}
+        {me.tenant.plan !== "free" && (
+          <SettingItem label={t("workspace.assistant")} description={t("profile_settings.assistant_intro")}>
+            <Link href="/workspace/assistant" className="text-sm font-medium text-primary hover:underline" data-testid="settings-assistant-link">
+              {t("profile_settings.assistant_open")}
+            </Link>
+          </SettingItem>
+        )}
       </SettingsSection>
       <XenaxioProfileSetting />
     </div>

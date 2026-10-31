@@ -11,7 +11,11 @@ const pictureSize = vi.hoisted(() => vi.fn(async () => ({ width: 4000, height: 3
 
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/i18n/navigation", () => ({ Link: ({ href, children }: { href: string; children: ReactNode }) => <a href={href}>{children}</a> }));
-vi.mock("@/components/xenaxio/workspace-shell", () => ({ WorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div> }));
+const product = vi.hoisted(() => ({ current: "workspace" as "workspace" | "rooms" }));
+vi.mock("@/components/xenaxio/workspace-shell", () => ({
+  WorkspaceShell: ({ children }: { children: ReactNode }) => <div>{children}</div>,
+  useMe: () => ({ user: { id: "u1", role: "admin" }, tenant: { id: "t1", product: product.current } }),
+}));
 vi.mock("@/lib/xenaxio/meet-nav", () => ({ setMeetNavEnabled: vi.fn() }));
 vi.mock("@/lib/xenaxio/meet", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet")>()), meet: api }));
 vi.mock("@/lib/xenaxio/meet-background", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet-background")>()), shrinkPicture, pictureSize }));
@@ -26,6 +30,7 @@ beforeEach(() => {
   api.recordings.mockResolvedValue([]);
   shrinkPicture.mockClear();
   pictureSize.mockClear();
+  product.current = "workspace";
 });
 
 describe("step 92: company background on the meetings page", () => {
@@ -131,5 +136,17 @@ describe("step 90, part D: the company's recordings", () => {
     fireEvent.click(screen.getByRole("button", { name: "Aufnahme von Kick-off löschen" }));
     await waitFor(() => expect(api.deleteRecording).toHaveBeenCalledWith("r1"));
     await waitFor(() => expect(screen.queryByText("Kick-off")).toBeNull());
+  });
+});
+
+describe("step 109: meetings in XenRooms", () => {
+  it("keeps the background for calls and leaves out recording (XenRooms has none)", async () => {
+    product.current = "rooms";
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: true, recording: false });
+    render(<MeetingsAdminPage />);
+    expect(await screen.findByText("Hintergrund der Firma")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ })).toBeNull();
+    expect(screen.queryByText("Aufnahmen")).toBeNull();
+    expect(api.recordings).not.toHaveBeenCalled();
   });
 });

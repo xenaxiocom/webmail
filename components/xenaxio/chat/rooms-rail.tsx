@@ -118,7 +118,8 @@ function useCompanies() {
   // Administration stays in Xenaxio (the company's portal), in a new tab.
   // Step 96: a company without email is managed right here; others in their Xenaxio portal.
   const roomsOnly = me?.tenant.product === "rooms";
-  const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/rooms/people/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
+  // Step 109: a company without email gets the administration's overview here (people, Rooms, look, meetings, AI, audit log).
+  const adminUrl = me?.user.role !== "admin" ? null : roomsOnly ? withBasePath(`/${locale}/workspace/`) : me.portal?.url ? `${me.portal.url}/${locale}/workspace/` : null;
   const adminTarget = roomsOnly ? {} : { target: "_blank", rel: "noopener" };
   const adminLabel = t(roomsOnly ? "rooms.admin_here" : "rooms.admin");
   // Step 107: everyone's own settings — the same pages as in Xenaxio, here on XenRooms.
