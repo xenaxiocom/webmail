@@ -4,6 +4,7 @@
 // is sanitized before it is shown (colleagues' messages are untrusted).
 import DOMPurify from "dompurify";
 import { emoticonsToEmoji } from "./emoji";
+import { languageOf, SNIPPET_FIELD } from "./snippet";
 
 export interface Mention {
   userId: string;
@@ -28,6 +29,11 @@ function inline(escaped: string, mentions: Mention[]): string {
       let out = part;
       // Links first, so the markers below do not touch addresses.
       const links: string[] = [];
+      // Step 96: [text](https://…) from the link button.
+      out = out.replace(/\[([^\]\n]{1,300})\]\((https?:\/\/[^\s<>"')]+)\)/g, (_, label: string, url: string) => {
+        links.push(`<a href="${url}">${label}</a>`);
+        return `\uE000${links.length - 1}\uE001`;
+      });
       out = out.replace(URL_RE, (url) => {
         links.push(`<a href="${url}">${url}</a>`);
         return `\uE000${links.length - 1}\uE001`;
@@ -61,11 +67,13 @@ export function toHtml(text: string, mentions: Mention[] = []): string | null {
         i++;
         continue;
       }
-      if (first) code.push(first);
+      // Step 96: ```python names the language (Matrix clients read class="language-…").
+      const lang = /^[\w+#.-]{1,20}$/.test(first) ? languageOf(first) : null;
+      if (first && !lang) code.push(first);
       i++;
       while (i < lines.length && !(lines[i] as string).trim().startsWith("```")) code.push(lines[i++] as string);
       i++;
-      out.push(`<pre><code>${escapeHtml(code.join("\n"))}</code></pre>`);
+      out.push(`<pre><code${lang && lang !== "plaintext" ? ` class="language-${lang}"` : ""}>${escapeHtml(code.join("\n"))}</code></pre>`);
       continue;
     }
     if (/^>\s?/.test(line)) {
@@ -122,7 +130,14 @@ function purifier() {
   if (!hooked) {
     hooked = true;
     DOMPurify.addHook("afterSanitizeAttributes", (node) => {
+      // Classes only for the language of code (step 96) and our mentions below.
+      if (node.tagName !== "A" && node.hasAttribute("class")) {
+        const lang = node.tagName === "CODE" ? /^language-([\w+#-]{1,20})$/.exec(node.getAttribute("class") ?? "") : null;
+        if (lang) node.setAttribute("class", `language-${lang[1]}`);
+        else node.removeAttribute("class");
+      }
       if (node.tagName === "A") {
+        node.removeAttribute("class");
         const href = node.getAttribute("href") ?? "";
         const target = /^https:\/\/matrix\.to\/#\/([^/?]+)/.exec(href);
         let user: string | null = null;
@@ -172,6 +187,12 @@ export function mentionsUser(content: Record<string, unknown>, userId: string): 
 export function plainPreview(content: Record<string, unknown>, max = 140): string {
   const type = content.msgtype;
   const body = typeof content.body === "string" ? content.body : "";
+  // Step 96: a snippet by its title.
+  const snippet = content[SNIPPET_FIELD] as { title?: unknown } | undefined;
+  if (snippet && typeof snippet === "object") {
+    const title = typeof snippet.title === "string" && snippet.title.trim() ? snippet.title.trim() : "Snippet";
+    return `</> ${title.length > max ? `${title.slice(0, max - 1)}…` : title}`;
+  }
   const prefix = type === "m.image" ? "🖼 " : type === "m.file" ? "📎 " : type === "m.video" ? "🎬 " : type === "m.audio" ? "🎵 " : "";
   const text = body.replace(/\s+/g, " ").trim();
   return prefix + (text.length > max ? `${text.slice(0, max - 1)}…` : text);

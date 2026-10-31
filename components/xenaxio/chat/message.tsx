@@ -21,6 +21,9 @@ import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } fr
 import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
 import { type MessageAction, MessageSheet, useLongPress } from "./message-sheet";
+import { RichHtml, SnippetCard } from "./code";
+import { SnippetDialog } from "./snippet-dialog";
+import { snippetContent, snippetOf } from "@/lib/xenaxio/chat/snippet";
 import { ImageViewer } from "./image-viewer";
 import { CallCard } from "@/components/xenaxio/meet/call";
 import { callOf } from "@/lib/xenaxio/meet-call";
@@ -111,12 +114,15 @@ function Attachment({ content }: { content: Record<string, unknown> }) {
   );
 }
 
-function Body({ message, me, onMention }: { message: Message; me: string; onMention: (userId: string) => void }) {
+function Body({ message, me, onMention, onEditSnippet }: { message: Message; me: string; onMention: (userId: string) => void; onEditSnippet?: () => void }) {
   const t = useXT();
   const name = useDisplayName();
   const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
+  // Step 96, part A: a code snippet (in the message or, when large, in a file).
+  const snippet = snippetOf(c);
+  if (snippet) return <SnippetCard snippet={snippet} onEdit={snippet.code !== null && message.sender === me ? onEditSnippet : undefined} />;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
   // Step 78, part D: a call in the room: its card, live.
   const call = callOf(c);
@@ -143,7 +149,7 @@ function Body({ message, me, onMention }: { message: Message; me: string; onMent
       }}
     >
       {c.msgtype === "m.emote" && <span>* {name(message.sender)} </span>}
-      {html && <span dangerouslySetInnerHTML={{ __html: html }} />}
+      {html && <RichHtml html={html} />}
       {message.edited && <span className="ml-1 text-xs text-muted-foreground">{t("chat.edited")}</span>}
       {email && <EmailCard email={email} />}
     </div>
@@ -288,7 +294,7 @@ function useMessageActions({ message, room, client, inThread, saved, onEdit, onR
       key: "text",
       label: t("chat.copy_text"),
       run: run(async () => {
-        await navigator.clipboard.writeText(String(message.content.body ?? ""));
+        await navigator.clipboard.writeText(snippetOf(message.content)?.code ?? String(message.content.body ?? ""));
         toast.success(t("chat.copied"));
       }),
     },
@@ -341,6 +347,9 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
   const [picker, setPicker] = useState(false);
   const [menu, setMenu] = useState(false);
   const [sheet, setSheet] = useState(false);
+  const [snippetEdit, setSnippetEdit] = useState(false);
+  const snippet = snippetOf(message.content);
+  const editSnippet = useCallback(() => setSnippetEdit(true), []);
   const saved = client.saved.some((s) => s.eventId === message.id);
   const openProfile = useCallback((userId: string) => setPanel({ kind: "profile", userId }), [setPanel]);
   const { prompt } = useChatDialogs();
@@ -351,7 +360,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     await reportMessage({ roomId: room.id, eventId: message.id, sender: message.sender, excerpt: String(message.content.body ?? "").slice(0, 500), reason: reason.trim() });
     toast.success(t("chat.report_sent"));
   };
-  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => setEditing(true), onReport: report });
+  const actions = useMessageActions({ message, room, client, inThread, saved, onEdit: () => (snippet?.code != null ? setSnippetEdit(true) : setEditing(true)), onReport: report });
   const actionable = message.type === "m.room.message" && !message.id.startsWith("~") && !message.redacted && !editing;
   const longPress = useLongPress(() => setSheet(true), actionable);
   const closeSheet = useCallback(() => setSheet(false), []);
@@ -406,7 +415,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             )}
           </div>
         )}
-        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} />}
+        {editing ? <Editor message={message} client={client} onDone={() => setEditing(false)} /> : <Body message={message} me={client.userId} onMention={openProfile} onEditSnippet={editSnippet} />}
         {message.status === "sending" && <div className="text-xs text-muted-foreground">{t("chat.sending")}</div>}
         {message.status === "failed" && (
           <div className="flex items-center gap-2 text-xs text-destructive">
@@ -477,6 +486,27 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             {menu && <MoreMenu actions={actions} onClose={() => setMenu(false)} />}
           </span>
         </div>
+      )}
+      {snippetEdit && snippet && (
+        <SnippetDialog
+          editing
+          initial={{ title: snippet.title, language: snippet.language, code: snippet.code ?? "" }}
+          onClose={() => setSnippetEdit(false)}
+          onSubmit={async (input) => {
+            const content = snippetContent(input);
+            if (!content) {
+              toast.error(t("chat.snippet_too_large_edit"));
+              return false;
+            }
+            try {
+              await client.edit(room.id, message.id, content);
+              return true;
+            } catch {
+              toast.error(t("chat.error"));
+              return false;
+            }
+          }}
+        />
       )}
       {sheet && <MessageSheet actions={actions} onClose={closeSheet} onReact={(e) => void client.toggleReaction(room.id, message.id, e).catch(() => toast.error(t("chat.error")))} />}
     </div>

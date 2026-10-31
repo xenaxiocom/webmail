@@ -5,8 +5,9 @@
 // "#" channels; files by paperclip, paste or drop; the draft of each channel
 // stays while switching. Step 62: files wait in the box (several, with text)
 // and go out together on "send". Step 87: ":" and a word suggests emoji;
-// typed emoticons (":)") go out as emoji.
-import { IconBold, IconCode, IconFile, IconItalic, IconList, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconStrikethrough, IconX } from "@tabler/icons-react";
+// typed emoticons (":)") go out as emoji. Step 96: code blocks, numbered
+// lists, links and code snippets (a long paste offers one, as in Slack).
+import { IconBold, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { uploadFile } from "@/lib/xenaxio/chat/api";
@@ -22,6 +23,9 @@ import { cn, formatFileSize } from "@/lib/utils";
 import { addPendingFiles, composerKey, MAX_FILE_BYTES, MAX_PENDING_FILES, removePendingFile, takePendingFiles, usePendingFiles } from "@/lib/xenaxio/chat/pending-files";
 import { PersonAvatar } from "./common";
 import { EmojiPicker } from "./emoji-picker";
+import { useChatDialogs } from "./dialogs";
+import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
+import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
 
 /** Drafts per channel and thread, for this page load. */
 const drafts = new Map<string, string>();
@@ -60,6 +64,33 @@ export async function sendFiles(client: ChatClient, roomId: string, files: File[
     }
   }
   return failed;
+}
+
+/**
+ * Sends a code snippet: one message when it fits, else a text file with the
+ * snippet's card. Returns whether it went out.
+ */
+export async function sendSnippet(client: ChatClient, roomId: string, input: SnippetInput, locale: string, threadRoot?: string): Promise<boolean> {
+  const opts = threadRoot ? { threadRoot } : {};
+  try {
+    const content = snippetContent(input);
+    if (content) {
+      await client.send(roomId, content, opts);
+      return true;
+    }
+    const name = snippetFileName(input.title, input.language);
+    const blob = new Blob([input.code], { type: "text/plain;charset=utf-8" });
+    if (blob.size > MAX_FILE_BYTES) {
+      toast.error(translate(locale, "chat.too_large", { name }));
+      return false;
+    }
+    const url = await uploadFile(blob, name);
+    await client.send(roomId, { msgtype: "m.file", body: name, filename: name, url, info: { mimetype: "text/plain", size: blob.size }, ...snippetFileFields(input) }, opts);
+    return true;
+  } catch {
+    toast.error(translate(locale, "chat.error"));
+    return false;
+  }
 }
 
 /** Puts files into a composer to send with the next message; says what does not fit. */
@@ -111,6 +142,9 @@ export function Composer({
   const [emoji, setEmoji] = useState(false);
   const [alsoChannel, setAlsoChannel] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [snippet, setSnippet] = useState<{ code: string; fromBox: boolean } | null>(null);
+  const [longPaste, setLongPaste] = useState<string | null>(null);
+  const { prompt } = useChatDialogs();
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -193,10 +227,71 @@ export function Composer({
     });
   };
 
+  /** Numbers the selected lines (or starts a numbered list). */
+  const numbered = () => {
+    const el = area.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e } = el;
+    const picked = text.slice(s, e);
+    const inserted = picked ? picked.split("\n").map((l, i) => `${i + 1}. ${l}`).join("\n") : "1. ";
+    setText(text.slice(0, s) + inserted + text.slice(e));
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(s + inserted.length, s + inserted.length);
+    });
+  };
+
+  /** A code block around the selection, on lines of its own. */
+  const codeBlock = () => {
+    const el = area.current;
+    if (!el) return;
+    const s = el.selectionStart;
+    wrap(`${s > 0 && text[s - 1] !== "\n" ? "\n" : ""}` + "```\n", "\n```");
+  };
+
+  /** The selected words become a link (Slack's link button). */
+  const link = async () => {
+    const el = area.current;
+    if (!el) return;
+    const { selectionStart: s, selectionEnd: e } = el;
+    const picked = text.slice(s, e).trim();
+    const url = (await prompt({ title: t("chat.format_link"), message: t("chat.link_prompt"), defaultValue: "https://", confirmText: t("chat.link_add") }))?.trim();
+    if (!url || !/^https?:\/\/\S+$/i.test(url)) return;
+    const inserted = picked ? `[${picked.replace(/[[\]]/g, "")}](${url})` : url;
+    setText(text.slice(0, s) + inserted + text.slice(e));
+    requestAnimationFrame(() => {
+      el.focus();
+      el.setSelectionRange(s + inserted.length, s + inserted.length);
+    });
+  };
+
+  const openSnippet = (code: string, fromBox: boolean) => {
+    setLongPaste(null);
+    setSnippet({ code, fromBox });
+  };
+
+  const submitSnippet = async (input: SnippetInput) => {
+    const ok = await sendSnippet(client, room.id, input, locale, threadRoot);
+    if (ok && snippet?.fromBox) {
+      setText("");
+      drafts.delete(key);
+    }
+    return ok;
+  };
+
+  /** A long paste goes into the box; the snippet takes it out again. */
+  const pasteAsSnippet = () => {
+    if (longPaste === null) return;
+    const at = text.lastIndexOf(longPaste);
+    if (at >= 0) setText(text.slice(0, at) + text.slice(at + longPaste.length));
+    openSnippet(longPaste, false);
+  };
+
   const send = async () => {
     const body = text.trim();
     if ((!body && !pending.length) || busy) return;
     setText("");
+    setLongPaste(null);
     drafts.delete(key);
     void client.setTyping(room.id, false);
     // Files first, then the text under them; one that fails goes back into the box.
@@ -270,8 +365,17 @@ export function Composer({
           <button type="button" className={tool} onClick={() => wrap("`")} title={t("chat.format_code")} aria-label={t("chat.format_code")}>
             <IconCode size={15} />
           </button>
+          <button type="button" className={tool} onClick={codeBlock} title={t("chat.format_code_block")} aria-label={t("chat.format_code_block")}>
+            <IconSourceCode size={15} />
+          </button>
+          <button type="button" className={tool} onClick={() => void link()} title={t("chat.format_link")} aria-label={t("chat.format_link")}>
+            <IconLink size={15} />
+          </button>
           <button type="button" className={tool} onClick={() => wrap("- ", "", true)} title={t("chat.format_list")} aria-label={t("chat.format_list")}>
             <IconList size={15} />
+          </button>
+          <button type="button" className={tool} onClick={numbered} title={t("chat.format_numbered")} aria-label={t("chat.format_numbered")}>
+            <IconListNumbers size={15} />
           </button>
           <button type="button" className={tool} onClick={() => wrap("> ", "", true)} title={t("chat.format_quote")} aria-label={t("chat.format_quote")}>
             <IconQuote size={15} />
@@ -296,7 +400,10 @@ export function Composer({
             if (pasted.length && !pastesAsText([...e.clipboardData.types], pasted)) {
               e.preventDefault();
               attach(pasted);
+              return;
             }
+            const plain = e.clipboardData.getData("text/plain");
+            if (plain && isLongPaste(plain)) setLongPaste(plain);
           }}
           onKeyDown={(e) => {
             if (options.length) {
@@ -320,6 +427,12 @@ export function Composer({
                 return;
               }
             }
+            // Slack: Ctrl+Shift+Enter makes a snippet of what is in the box.
+            if (e.key === "Enter" && e.shiftKey && (e.ctrlKey || e.metaKey)) {
+              e.preventDefault();
+              openSnippet(text, true);
+              return;
+            }
             if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
               e.preventDefault();
               void send();
@@ -338,8 +451,29 @@ export function Composer({
               e.preventDefault();
               wrap("_");
             }
+            // Slack's shortcuts: Ctrl+Shift+X strike, Ctrl+Shift+C code, Ctrl+Alt+Shift+C code block.
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyX") {
+              e.preventDefault();
+              wrap("~~");
+            }
+            if ((e.ctrlKey || e.metaKey) && e.shiftKey && e.code === "KeyC") {
+              e.preventDefault();
+              if (e.altKey) codeBlock();
+              else wrap("`");
+            }
           }}
         />
+        {longPaste !== null && (
+          <div className="mx-2.5 mb-2 flex flex-wrap items-center gap-2 rounded-md bg-muted/60 px-2.5 py-1.5 text-xs" role="status">
+            <span className="text-muted-foreground">{t("chat.long_paste")}</span>
+            <button type="button" onClick={pasteAsSnippet} className="h-6 rounded bg-primary px-2 text-primary-foreground">
+              {t("chat.long_paste_snippet")}
+            </button>
+            <button type="button" onClick={() => setLongPaste(null)} className="h-6 rounded px-2 hover:bg-accent">
+              {t("chat.long_paste_keep")}
+            </button>
+          </div>
+        )}
         {pending.length > 0 && (
           <ul className="flex flex-wrap gap-2 px-2.5 pb-2" aria-label={t("chat.attached_files")}>
             {pending.map((p) => (
@@ -401,6 +535,9 @@ export function Composer({
               />
             )}
           </span>
+          <button type="button" className={tool} onClick={() => openSnippet("", false)} title={t("chat.snippet_title")} aria-label={t("chat.snippet_title")}>
+            <IconFileCode size={16} />
+          </button>
           {threadRoot && (
             <label className="ml-2 flex items-center gap-1.5 text-xs text-muted-foreground">
               <input type="checkbox" checked={alsoChannel} onChange={(e) => setAlsoChannel(e.target.checked)} />
@@ -419,6 +556,7 @@ export function Composer({
           </button>
         </div>
       </div>
+      {snippet && <SnippetDialog initial={{ code: snippet.code }} onClose={() => setSnippet(null)} onSubmit={submitSnippet} />}
     </div>
   );
 }

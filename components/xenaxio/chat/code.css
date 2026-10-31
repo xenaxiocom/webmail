@@ -1,0 +1,47 @@
+/* Step 96, part A: colours of highlighted code (highlight.js classes), light and dark. */
+.xen-code {
+  --code-keyword: #cf222e;
+  --code-string: #0a3069;
+  --code-number: #0550ae;
+  --code-comment: #6e7781;
+  --code-title: #8250df;
+  --code-attr: #116329;
+  --code-meta: #953800;
+}
+.dark .xen-code {
+  --code-keyword: #ff7b72;
+  --code-string: #a5d6ff;
+  --code-number: #79c0ff;
+  --code-comment: #8b949e;
+  --code-title: #d2a8ff;
+  --code-attr: #7ee787;
+  --code-meta: #ffa657;
+}
+.xen-code .hljs-keyword,
+.xen-code .hljs-selector-tag,
+.xen-code .hljs-built_in,
+.xen-code .hljs-type,
+.xen-code .hljs-doctag { color: var(--code-keyword); }
+.xen-code .hljs-string,
+.xen-code .hljs-regexp,
+.xen-code .hljs-addition { color: var(--code-string); }
+.xen-code .hljs-number,
+.xen-code .hljs-literal,
+.xen-code .hljs-variable,
+.xen-code .hljs-symbol,
+.xen-code .hljs-bullet { color: var(--code-number); }
+.xen-code .hljs-comment,
+.xen-code .hljs-quote { color: var(--code-comment); font-style: italic; }
+.xen-code .hljs-title,
+.xen-code .hljs-section,
+.xen-code .hljs-name { color: var(--code-title); }
+.xen-code .hljs-attr,
+.xen-code .hljs-attribute,
+.xen-code .hljs-selector-class,
+.xen-code .hljs-selector-id,
+.xen-code .hljs-tag { color: var(--code-attr); }
+.xen-code .hljs-meta,
+.xen-code .hljs-params,
+.xen-code .hljs-deletion { color: var(--code-meta); }
+.xen-code .hljs-emphasis { font-style: italic; }
+.xen-code .hljs-strong { font-weight: 600; }

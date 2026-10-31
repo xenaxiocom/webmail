@@ -32,6 +32,8 @@ import { RoomView } from "./room-view";
 import { ChatSidePanel } from "./side-panels";
 import { ChatSidebar } from "./sidebar";
 import { BrowseView, HomeView, MentionsView, SavedView, SearchView, ThreadsView } from "./views";
+// Step 96: colours of highlighted code in messages and snippets.
+import "./code.css";
 
 const STATUS_POLL_MS = 5000;
 
