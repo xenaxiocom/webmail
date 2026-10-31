@@ -3,6 +3,7 @@
 // visitors open without an account.
 import { apiFetch } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
+import { tapStats } from "@/lib/xenaxio/stats";
 
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
 const BOOKING = "/api/booking";
@@ -234,9 +235,9 @@ export const booking = {
   slots: (user: string, type: string, from: Date, to: Date) =>
     call<{ slots: string[] }>("GET", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/slots?from=${seg(from.toISOString())}&to=${seg(to.toISOString())}`),
   book: (user: string, type: string, input: Guest & { start: string; timeZone: string; locale: string; website?: string; page?: string }) =>
-    call<BookedResult>("POST", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/bookings`, input),
+    call<BookedResult>("POST", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/bookings`, input).then(tapStats("booking-done")),
   request: (user: string, type: string, input: Guest & { proposals: string[]; timeZone: string; locale: string; website?: string; page?: string }) =>
-    call<{ status: "requested"; proposals: string[] }>("POST", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/requests`, input),
+    call<{ status: "requested"; proposals: string[] }>("POST", `${PUBLIC_BOOK}/${seg(user)}/${seg(type)}/requests`, input).then(tapStats("booking-requested")),
   manage: (token: string) => call<{ booking: ManageView }>("POST", `${PUBLIC_BOOK}/manage`, { token }),
   manageSlots: (token: string, from: Date, to: Date) => call<{ slots: string[] }>("POST", `${PUBLIC_BOOK}/manage/slots`, { token, from: from.toISOString(), to: to.toISOString() }),
   reschedule: (token: string, start: string) => call<{ booking: ManageView }>("POST", `${PUBLIC_BOOK}/manage/reschedule`, { token, start }),

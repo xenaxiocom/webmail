@@ -52,6 +52,7 @@ import { toast } from "@/stores/toast-store";
 import { useToolLabel } from "./tool-permissions";
 import { isSettingProposal, SettingCard } from "./setting-card";
 import { useAssistantScreen } from "./use-assistant-screen";
+import { statsEvent } from "@/lib/xenaxio/stats";
 import { type Screen, screenSuggestions } from "@/lib/xenaxio/assistant-screen";
 
 type ProposalState = "pending" | "running" | "done" | "done_invited" | "invite_failed" | "rejected" | "expired" | "already" | "failed" | "memory_full" | "memory_off" | "schedule_limit";
@@ -453,6 +454,13 @@ export function AssistantPanel() {
   useEffect(() => setNoScreen(false), [screenKey]);
   const [available, setAvailable] = useState(false);
   const [open, setOpen] = useState(false);
+  // Step 102: opening the panel is counted (not its restore after a page change).
+  const openRef = useRef(open);
+  openRef.current = open;
+  const openPanel = useCallback(() => {
+    if (!openRef.current) statsEvent("assistant-open");
+    setOpen(true);
+  }, []);
   const [turns, setTurns] = useState<Turn[]>([]);
   const [conversationId, setConversationId] = useState<string | undefined>();
   const [input, setInput] = useState("");
@@ -700,10 +708,10 @@ export function AssistantPanel() {
 
   const summarize = useCallback(
     (threadId: string, subject: string) => {
-      setOpen(true);
+      openPanel();
       void run((signal) => assistant.summarize(threadId, signal), null, t("assistant.summary_title", { subject }));
     },
-    [run, t],
+    [openPanel, run, t],
   );
 
   const draftReply = async () => {
@@ -727,7 +735,7 @@ export function AssistantPanel() {
 
   // Step 43, part D: a question from elsewhere (the chat's "Zusammenfassen").
   const ask = (text: string) => {
-    setOpen(true);
+    openPanel();
     void run((signal) => assistant.chat(text, conversationId, context, signal, []), text);
     setNoScreen(false);
   };
@@ -738,17 +746,17 @@ export function AssistantPanel() {
   useEffect(() => {
     const onCommand = (ev: Event) => {
       const cmd = (ev as CustomEvent<AssistantCommand>).detail;
-      if (cmd.action === "open") setOpen(true);
+      if (cmd.action === "open") openPanel();
       if (cmd.action === "summarize") summarize(cmd.threadId, cmd.subject ?? "");
       if (cmd.action === "ask" && cmd.text.trim()) askRef.current(cmd.text.trim());
       if (cmd.action === "reply") {
-        setOpen(true);
+        openPanel();
         void draftReplyRef.current();
       }
     };
     window.addEventListener(ASSISTANT_COMMAND_EVENT, onCommand);
     return () => window.removeEventListener(ASSISTANT_COMMAND_EVENT, onCommand);
-  }, [summarize]);
+  }, [openPanel, summarize]);
 
   const newChat = () => {
     abort.current?.abort();
@@ -803,15 +811,15 @@ export function AssistantPanel() {
     params.delete(ASSISTANT_OPEN_PARAM);
     const rest = params.toString();
     window.history.replaceState(window.history.state, "", `${window.location.pathname}${rest ? `?${rest}` : ""}${window.location.hash}`);
-    setOpen(true);
+    openPanel();
     void (id === ASSISTANT_WAITING ? loadWaiting() : loadConversation(id));
-  }, [available, loadConversation, loadWaiting, pathname]);
+  }, [available, openPanel, loadConversation, loadWaiting, pathname]);
 
   if (!available || HIDDEN.test(pathname)) return null;
 
   if (!open) {
     const dot = unread + waiting;
-    return <AssistantButton label={dot ? t("assistant.open_unread", { count: dot }) : t("assistant.open")} unread={dot > 0} onOpen={() => setOpen(true)} />;
+    return <AssistantButton label={dot ? t("assistant.open_unread", { count: dot }) : t("assistant.open")} unread={dot > 0} onOpen={() => openPanel()} />;
   }
 
   return (

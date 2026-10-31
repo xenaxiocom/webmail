@@ -3,6 +3,7 @@
 // httpOnly cookie that only the BFF can read (spec A1, A4).
 import { apiFetch } from "@/lib/browser-navigation";
 import type { AssistantDevice, AssistantPositions, AssistantSpot } from "@/lib/xenaxio/assistant-position";
+import { tapStats } from "@/lib/xenaxio/stats";
 
 export class XenaxioApiError extends Error {
   constructor(
@@ -93,7 +94,14 @@ export interface Me {
   /** Step 96: kind "chat" — a person without a mailbox (XenRooms only). */
   user: { id: string; email: string; displayName: string; role: "user" | "admin"; mustChangePassword: boolean; kind?: "mailbox" | "chat" };
   /** Step 96: product "rooms" — a company without email (XenRooms). */
-  tenant: { id: string; name: string; status: "onboarding" | "active" | "blocked"; product?: "workspace" | "rooms" };
+  tenant: {
+    id: string;
+    name: string;
+    status: "onboarding" | "active" | "blocked";
+    product?: "workspace" | "rooms";
+    /** Step 102: XenRooms Free or paid (null for Xenaxio). */
+    plan?: "free" | "paid" | null;
+  };
   edition: "cloud" | "onprem";
   /** The user's own domain; mail works only once it is "active" (DNS checked). */
   domain?: { name: string; status: "pending" | "active" } | null;
@@ -173,11 +181,16 @@ export interface PortalInfo {
 }
 
 /** Step 17: whose address this page was opened on. */
+/** Step 102: the Umami website this address counts its visits in (none on-prem). */
+export interface PortalStats {
+  stats?: { websiteId: string; product: "xenaxio" | "xenrooms" };
+}
+
 export type PortalState =
-  | ({ kind: "tenant" } & PortalInfo)
-  | { kind: "app"; portals: boolean; baseDomain: string | null }
+  | ({ kind: "tenant" } & PortalInfo & PortalStats)
+  | ({ kind: "app"; portals: boolean; baseDomain: string | null } & PortalStats)
   /** Step 67: XenRooms (only the team chat), one address for every company. */
-  | { kind: "rooms" }
+  | ({ kind: "rooms" } & PortalStats)
   | { kind: "moved"; url: string }
   | { kind: "unknown" };
 
@@ -1011,16 +1024,16 @@ export const xenaxio = {
       password,
       ...(locale === "de" || locale === "en" ? { locale } : {}),
       ...(add ? { add: true, next: add.next } : {}),
-    }),
+    }).then(tapStats("sign-in")),
   /** Step 17: whose address this is (no sign-in needed). */
   portal: () => request<PortalState>("GET", "/api/portal"),
   /** Step 17: a one-time link that moves the session to the company portal (or `next` when already there). */
   handoff: (next: string) => request<{ url: string }>("POST", "/api/auth/handoff", { next }),
   /** Step 29: the next account takes over at `url` (null when nobody is left); `all` signs everyone out. */
-  logout: (opts: { all?: boolean; next?: string } = {}) => request<{ ok: true; url: string | null }>("POST", "/api/auth/logout", opts),
+  logout: (opts: { all?: boolean; next?: string } = {}) => request<{ ok: true; url: string | null }>("POST", "/api/auth/logout", opts).then(tapStats("sign-out")),
   /** Step 29: the accounts signed in in this browser, the active one first. */
   accounts: () => request<{ accounts: BrowserAccount[]; max: number }>("GET", "/api/auth/accounts"),
-  switchAccount: (userId: string, next: string) => request<{ url: string }>("POST", "/api/auth/switch", { userId, next }),
+  switchAccount: (userId: string, next: string) => request<{ url: string }>("POST", "/api/auth/switch", { userId, next }).then(tapStats("account-switch")),
   forgetAccount: (userId: string) => request<{ ok: true }>("POST", "/api/auth/forget", { userId }),
   /** Step 67: unread counts of the other accounts of this browser. */
   accountsUnread: () => request<{ accounts: AccountUnread[] }>("GET", "/api/chat/accounts/unread"),
@@ -1037,10 +1050,10 @@ export const xenaxio = {
     return request<{ domain: string; suggestion: string | null; slug?: string; problem?: SlugProblem | null }>("GET", `/api/rooms/onboarding/slug?${params}`);
   },
   roomsOnboard: (input: { token: string; companyName: string; slug: string; adminName: string; email: string; password: string; locale: "de" | "en"; chatDomain?: string }) =>
-    request<Me>("POST", "/api/rooms/onboarding", input),
+    request<Me>("POST", "/api/rooms/onboarding", input).then(tapStats("invitation-accepted")),
   roomsLink: (kind: "invite" | "reset", token: string) => request<RoomsLinkInfo>("GET", `/api/rooms/link?kind=${kind}&token=${encodeURIComponent(token)}`),
   roomsUseLink: (kind: "invite" | "reset", token: string, password: string, locale?: string) =>
-    request<Me>("POST", "/api/rooms/link", { kind, token, password, ...(locale === "de" || locale === "en" ? { locale } : {}) }),
+    request<Me>("POST", "/api/rooms/link", { kind, token, password, ...(locale === "de" || locale === "en" ? { locale } : {}) }).then(kind === "invite" ? tapStats("invitation-accepted") : (me) => me),
   roomsForgot: (email: string) => request<{ ok: true }>("POST", "/api/rooms/password/forgot", { email }),
   roomsPeople: () => request<{ people: RoomsPerson[]; limit: number | null; chatDomain: string | null; plan?: RoomsPlanInfo | null }>("GET", "/api/admin/rooms/people"),
   // --- Step 97: sign-up without the operator (XenRooms Free) ---
@@ -1052,9 +1065,12 @@ export const xenaxio = {
     return request<{ domain: string; suggestion: string | null; slug?: string; problem?: SlugProblem | null }>("GET", `/api/rooms/signup/slug?${params}`);
   },
   roomsSignup: (input: { displayName: string; email: string; companyName: string; slug: string; password: string; locale: "de" | "en"; homepage?: string }) =>
-    request<{ ok: true }>("POST", "/api/rooms/signup", input),
-  roomsSignupInfo: (token: string) => request<{ status: "valid" | "used" | "expired" | "unknown"; email?: string; company?: string }>("GET", `/api/rooms/signup/confirm?token=${encodeURIComponent(token)}`),
-  roomsSignupConfirm: (token: string) => request<Me>("POST", "/api/rooms/signup/confirm", { token }),
+    request<{ ok: true }>("POST", "/api/rooms/signup", input).then(tapStats("signup-start")),
+  roomsSignupInfo: (token: string) =>
+    request<{ status: "valid" | "used" | "expired" | "unknown"; email?: string; company?: string }>("GET", `/api/rooms/signup/confirm?token=${encodeURIComponent(token)}`).then(
+      (info) => (info.status === "valid" ? tapStats<typeof info>("signup-verified")(info) : info),
+    ),
+  roomsSignupConfirm: (token: string) => request<Me>("POST", "/api/rooms/signup/confirm", { token }).then(tapStats("signup-done")),
   roomsInvite: (input: { email: string; displayName: string; role?: "user" | "admin" }) => request<RoomsPerson>("POST", "/api/admin/rooms/people", input),
   roomsResend: (id: string) => request<{ ok: true }>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/resend`, {}),
   roomsSetStatus: (id: string, status: "active" | "disabled") => request<RoomsPerson>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/status`, { status }),
@@ -1063,7 +1079,7 @@ export const xenaxio = {
   invitationStatus: (token: string) =>
     request<{ status: "valid" | "used" | "expired" | "unknown" }>("GET", `/api/onboarding/invitation?token=${encodeURIComponent(token)}`),
   onboard: (input: { token: string; companyName: string; domain: string; adminName: string; adminLocalPart: string; password: string; slug?: string }) =>
-    request<Me & { portalUrl: string }>("POST", "/api/onboarding", input),
+    request<Me & { portalUrl: string }>("POST", "/api/onboarding", input).then(tapStats("invitation-accepted")),
   /** Step 17: suggestion from the company name and whether a typed address is free. */
   onboardingSlug: (token: string, q: { name?: string; slug?: string }) => {
     const params = new URLSearchParams({ token });
