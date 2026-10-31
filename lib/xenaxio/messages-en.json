@@ -2964,6 +2964,9 @@
     "plan_free_title": "XenRooms Free",
     "plan_free_usage": "{people} of {maxPeople} people · {used} of {storage} GB for files",
     "plan_free_federation": "Chat with other companies opens on {date}.",
-    "plan_free_more": "More people or space? Ask us"
+    "plan_free_more": "More people or space? Ask us",
+    "own_domain": "Use our own domain for chat addresses",
+    "own_domain_label": "Your domain",
+    "own_domain_hint": "Chat addresses then end with it, e.g. @anna:mueller.de. Your email stays where it is. The chat starts at once; other companies reach it once you put a small file on your website or a DNS record – shown under Administration → Rooms. It cannot be changed later."
   }
 }

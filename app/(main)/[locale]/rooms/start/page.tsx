@@ -27,6 +27,9 @@ function StartForm() {
   const [slugEdited, setSlugEdited] = useState(false);
   const [domain, setDomain] = useState<string | null>(null);
   const [slugProblem, setSlugProblem] = useState<SlugProblem | null>(null);
+  // Step 96: the company's own domain as its chat address (instead of <name>.<XenRooms address>).
+  const [ownDomain, setOwnDomain] = useState(false);
+  const [chatDomain, setChatDomain] = useState("");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
@@ -82,7 +85,7 @@ function StartForm() {
     setError(null);
     setFieldErrors({});
     try {
-      await xenaxio.roomsOnboard({ token, ...form, email: form.email.trim(), slug, locale: locale === "de" ? "de" : "en" });
+      await xenaxio.roomsOnboard({ token, ...form, email: form.email.trim(), slug, locale: locale === "de" ? "de" : "en", ...(ownDomain && chatDomain.trim() ? { chatDomain: chatDomain.trim() } : {}) });
       setForm((f) => ({ ...f, password: "" }));
       window.location.assign(withBasePath(roomsStart(locale)));
     } catch (err) {
@@ -130,6 +133,22 @@ function StartForm() {
             <span className="text-sm text-muted-foreground truncate max-w-[55%]">.{domain ?? "…"}</span>
           </div>
         </Field>
+        <label className="flex items-start gap-2 text-sm">
+          <input type="checkbox" className="mt-1" checked={ownDomain} onChange={(e) => setOwnDomain(e.target.checked)} />
+          <span>{t("rooms.own_domain")}</span>
+        </label>
+        {ownDomain && (
+          <TextField
+            label={t("rooms.own_domain_label")}
+            hint={t("rooms.own_domain_hint")}
+            value={chatDomain}
+            onChange={(e) => setChatDomain(e.target.value.toLowerCase().replace(/\s/g, ""))}
+            placeholder="mueller.de"
+            autoCapitalize="none"
+            spellCheck={false}
+            error={fieldErrors.chatDomain}
+          />
+        )}
         <TextField label={t("onboarding.admin_name")} value={form.adminName} onChange={set("adminName")} autoComplete="name" error={fieldErrors.adminName} required />
         <TextField
           label={t("rooms.work_email")}
@@ -142,7 +161,7 @@ function StartForm() {
           required
         />
         <PasswordField label={t("onboarding.password")} hint={t("password.hint")} autoComplete="new-password" value={form.password} onChange={set("password")} error={fieldErrors.password} required />
-        <Button type="submit" className="w-full" disabled={busy || !form.companyName.trim() || !slug || !!slugProblem || !form.adminName.trim() || !form.email.includes("@") || form.password.length < 10}>
+        <Button type="submit" className="w-full" disabled={busy || !form.companyName.trim() || !slug || !!slugProblem || (ownDomain && !chatDomain.includes(".")) || !form.adminName.trim() || !form.email.includes("@") || form.password.length < 10}>
           {busy ? t("onboarding.submitting") : t("rooms.start_submit")}
         </Button>
       </form>
