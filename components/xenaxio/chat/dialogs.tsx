@@ -41,7 +41,7 @@ export function useChatDialogs() {
   return value;
 }
 
-export function Modal({ title, onClose, children, wide }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean }) {
+export function Modal({ title, onClose, children, wide, size }: { title: string; onClose: () => void; children: ReactNode; wide?: boolean; size?: "full" }) {
   const t = useXT();
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
@@ -52,7 +52,7 @@ export function Modal({ title, onClose, children, wide }: { title: string; onClo
   }, [onClose]);
   return (
     <div className="fixed inset-0 z-50 flex items-start justify-center bg-black/40 p-4 pt-[10vh]" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <div role="dialog" aria-modal="true" aria-label={title} className={cn("w-full rounded-lg border border-border bg-background shadow-xl", wide ? "max-w-xl" : "max-w-md")}>
+      <div role="dialog" aria-modal="true" aria-label={title} className={cn("w-full rounded-lg border border-border bg-background shadow-xl", size === "full" ? "max-w-5xl" : wide ? "max-w-xl" : "max-w-md")}>
         <div className="flex items-center justify-between border-b border-border px-4 py-3">
           <h2 className="text-base font-semibold">{title}</h2>
           <button type="button" onClick={onClose} aria-label={t("chat.close")} className="rounded p-1 hover:bg-accent">
