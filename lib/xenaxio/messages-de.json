@@ -772,14 +772,10 @@
       "out_on_done": "Abwesenheitsnotiz eingeschaltet.",
       "out_off_done": "Abwesenheitsnotiz ausgeschaltet.",
       "failed": "Konnte nicht gespeichert werden.",
-      "link": "In den Einstellungen ansehen",
-      "sender_name_title": "Absendername ändern",
-      "sender_name_done": "Absendername geändert.",
-      "sender_name_note": "So sehen Empfänger Sie in neuen E-Mails. Ihr Name in Xenaxio (Rooms, Kalender, Personen) bleibt, wie er ist."
+      "link": "In den Einstellungen ansehen"
     },
     "tool_find_setting": "Suche die Einstellung…",
     "tool_set_signature": "Bereite eine neue Signatur vor…",
-    "tool_set_sender_name": "Bereite den Absendernamen vor…",
     "tool_set_out_of_office": "Bereite die Abwesenheitsnotiz vor…",
     "screen": {
       "context": "Kontext: {where}",
@@ -3011,7 +3007,6 @@
       "delete_schedule": "Geplante Aufgabe löschen",
       "find_setting": "Einstellung finden",
       "set_signature": "Signatur ändern",
-      "set_sender_name": "Absendername ändern",
       "set_out_of_office": "Abwesenheitsnotiz ändern",
       "list_flow_tasks": "Sehen, was in Flows auf meine Entscheidung wartet",
       "list_flow_runs": "Vorgänge von Flows sehen",
@@ -3019,7 +3014,13 @@
       "start_flow": "Einen Vorgang starten",
       "update_flow": "Einstellungen eigener Flows ändern",
       "add_flow_person": "Personen zu eigenen Flows hinzufügen",
-      "remove_flow_person": "Personen aus eigenen Flows entfernen"
+      "remove_flow_person": "Personen aus eigenen Flows entfernen",
+      "get_meeting_transcript": "Aufzeichnung einer Besprechung lesen",
+      "set_chat_notifications": "Chat-Benachrichtigungen: Xenaxio oder XenRooms",
+      "set_display_name": "Eigenen Namen ändern",
+      "rename_user": "Namen von Mitarbeitenden ändern (Admin)",
+      "get_profile": "Profil ansehen",
+      "update_profile": "Eigenes Profil ändern"
     },
     "admin_title": "KI-Berechtigungen der Firma",
     "admin_intro": "Obergrenze für alle in der Firma. Mitarbeitende können für sich nur strenger einstellen. Lesende Werkzeuge bleiben bei „Höchstens nachfragen“ erlaubt.",

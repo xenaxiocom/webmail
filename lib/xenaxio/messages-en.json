@@ -772,14 +772,10 @@
       "out_on_done": "Out-of-office reply switched on.",
       "out_off_done": "Out-of-office reply switched off.",
       "failed": "Could not be saved.",
-      "link": "See in the settings",
-      "sender_name_title": "Change sender name",
-      "sender_name_done": "Sender name changed.",
-      "sender_name_note": "This is how recipients see you in new emails. Your name in Xenaxio (Rooms, calendar, people) stays as it is."
+      "link": "See in the settings"
     },
     "tool_find_setting": "Looking for the setting…",
     "tool_set_signature": "Preparing a new signature…",
-    "tool_set_sender_name": "Preparing the sender name…",
     "tool_set_out_of_office": "Preparing the out-of-office reply…",
     "screen": {
       "context": "Context: {where}",
@@ -3011,7 +3007,6 @@
       "delete_schedule": "Delete a scheduled task",
       "find_setting": "Find a setting",
       "set_signature": "Change signature",
-      "set_sender_name": "Change sender name",
       "set_out_of_office": "Change out-of-office reply",
       "list_flow_tasks": "See what waits for my decision in flows",
       "list_flow_runs": "See runs of flows",
@@ -3019,7 +3014,13 @@
       "start_flow": "Start a run of a flow",
       "update_flow": "Change settings of own flows",
       "add_flow_person": "Add a person to own flows",
-      "remove_flow_person": "Remove a person from own flows"
+      "remove_flow_person": "Remove a person from own flows",
+      "get_meeting_transcript": "Read a meeting transcript",
+      "set_chat_notifications": "Chat notifications: Xenaxio or XenRooms",
+      "set_display_name": "Change your own name",
+      "rename_user": "Change an employee's name (admin)",
+      "get_profile": "View a profile",
+      "update_profile": "Change your own profile"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",
