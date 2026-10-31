@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { appOf, emailShareContent, messageHtml, mentionsUser, plainPreview, sharedEmailOf, textContent, toHtml } from "../format";
+import { appOf, chatLinkTarget, emailShareContent, messageHtml, mentionsUser, plainPreview, sharedEmailOf, textContent, toHtml } from "../format";
 
 describe("composer text → message", () => {
   it("sends plain text without HTML", () => {
@@ -69,5 +69,52 @@ describe("integrations and shared e-mails (step 43, part D)", () => {
     expect(sharedEmailOf({ "com.xenaxio.email": { emailId: "../../admin" } })).toBeNull();
     expect(sharedEmailOf({ "com.xenaxio.email": { emailId: "M1", subject: 5, date: "nope" } })).toMatchObject({ subject: "", date: null });
     expect(sharedEmailOf({ body: "x" })).toBeNull();
+  });
+});
+
+describe("#channel links (step 99)", () => {
+  const channels = [
+    { roomId: "!gen:acme.de", name: "general" },
+    { roomId: "!dev:acme.de", name: "dev" },
+    { roomId: "!devteam:acme.de", name: "dev-team" },
+  ];
+  const link = (id: string, label: string) => `<a href="https://matrix.to/#/${encodeURIComponent(id)}?via=acme.de">${label}</a>`;
+
+  it("links a known channel as a Matrix permalink", () => {
+    const c = textContent("schau in #general vorbei", [], channels);
+    expect(c.formatted_body).toBe(`schau in ${link("!gen:acme.de", "#general")} vorbei`);
+    expect(c.body).toBe("schau in #general vorbei");
+  });
+
+  it("takes the longest name and leaves unknown names, words and addresses alone", () => {
+    expect(toHtml("#dev-team und #dev, #devs", [], channels)).toBe(`${link("!devteam:acme.de", "#dev-team")} und ${link("!dev:acme.de", "#dev")}, #devs`);
+    expect(toHtml("Issue#general und https://x.de/#general", [], channels)).toBe('Issue#general und <a href="https://x.de/#general">https://x.de/#general</a>');
+    expect(toHtml("`#general` **#general**", [], channels)).toBe(`<code>#general</code> <strong>${link("!gen:acme.de", "#general")}</strong>`);
+    expect(textContent("nur #random", [], channels).formatted_body).toBeUndefined();
+  });
+
+  it("shows a channel link as a channel, not as an outside link", () => {
+    const html = messageHtml(textContent("in #general", [], channels));
+    expect(html).toContain('data-room="!gen:acme.de"');
+    expect(html).toContain('class="chat-channel"');
+    expect(html).not.toContain("href=");
+    // Other clients link an address (#alias:server).
+    expect(messageHtml({ body: "x", format: "org.matrix.custom.html", formatted_body: '<a href="https://matrix.to/#/%23general%3Aacme.de">#general</a>' })).toContain('data-room="#general:acme.de"');
+  });
+
+  it("links channels in plain text of other clients and older messages", () => {
+    const html = messageHtml({ msgtype: "m.text", body: "siehe #general\nund https://x.de/#dev" }, channels);
+    expect(html).toContain('data-room="!gen:acme.de"');
+    expect(html).toContain('href="https://x.de/#dev"');
+    expect(html).not.toContain('data-room="!dev:acme.de"');
+  });
+
+  it("opens links to this chat here", () => {
+    const origin = "https://app.acme.de";
+    expect(chatLinkTarget(`${origin}/de/chat/?room=${encodeURIComponent("!gen:acme.de")}`, origin)).toEqual({ roomId: "!gen:acme.de", eventId: null });
+    expect(chatLinkTarget(`${origin}/de/chat/?room=%21gen%3Aacme.de&event=%24e1`, origin)).toEqual({ roomId: "!gen:acme.de", eventId: "$e1" });
+    expect(chatLinkTarget(`https://other.de/de/chat/?room=%21gen%3Aacme.de`, origin)).toBeNull();
+    expect(chatLinkTarget(`${origin}/de/chat/?room=%21gen%3Aacme.de&as=u2`, origin)).toBeNull();
+    expect(chatLinkTarget(`${origin}/de/mail/?room=%21gen%3Aacme.de`, origin)).toBeNull();
   });
 });

@@ -17,7 +17,7 @@ import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
 import { cn } from "@/lib/utils";
-import { formatSize, messageLink, PersonAvatar, useChatTime, useDisplayName } from "./common";
+import { formatSize, messageLink, PersonAvatar, useChatLinkClick, useChatTime, useDisplayName } from "./common";
 import { EmailCard } from "./email-card";
 import { EmojiPicker, quickReactions } from "./emoji-picker";
 import { type MessageAction, MessageSheet, useLongPress } from "./message-sheet";
@@ -121,6 +121,10 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
   const t = useXT();
   const name = useDisplayName();
   const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
+  // Step 99: "#name" of a channel is a link (also in plain text from other clients).
+  const chat = useChatStore((s) => s.client);
+  const channels = chat?.channelRefs() ?? [];
+  const onLink = useChatLinkClick();
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
   // Step 99, part A: a code snippet (in the message or, when large, in a file).
@@ -132,14 +136,14 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
     const { note, text } = forwardParts(c);
     const media = c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio";
     return (
-      <div className="text-sm">
-        {note && <RichHtml html={messageHtml({ body: note })} />}
+      <div className="text-sm" onClick={onLink}>
+        {note && <RichHtml html={messageHtml({ body: note }, channels)} />}
         <ForwardedFrom source={forwarded} />
         {media ? (
           <Attachment content={c} />
         ) : (
           <div className="mt-1 border-l-4 border-border pl-3 text-foreground/90">
-            <RichHtml html={messageHtml({ body: text })} />
+            <RichHtml html={messageHtml({ body: text }, channels)} />
           </div>
         )}
         {message.edited && <span className="ml-1 text-xs text-muted-foreground">{t("chat.edited")}</span>}
@@ -152,7 +156,7 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
   if (call) return <CallCard code={call.code} roomId={message.roomId} title="" dm={dm} mine={message.sender === me} />;
   // An e-mail shared into the chat: what the person wrote, then the card.
   const email = sharedEmailOf(c);
-  const html = email ? (email.note ? messageHtml({ body: email.note }) : "") : messageHtml(c);
+  const html = email ? (email.note ? messageHtml({ body: email.note }, channels) : "") : messageHtml(c, channels);
   // Step 99, part E: the first outside link gets a preview.
   const link = !email && c.msgtype === "m.text" && typeof c.body === "string" ? firstLink(c.body, typeof window === "undefined" ? null : window.location.origin) : null;
   // Step 87: a few emoji alone are shown large.
@@ -164,6 +168,7 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
         "[&_code]:rounded [&_code]:bg-muted [&_code]:px-1 [&_code]:py-0.5 [&_code]:text-[0.85em] [&_pre]:my-1 [&_pre]:rounded-md [&_pre]:bg-muted [&_pre]:p-2 [&_pre]:overflow-x-auto [&_pre_code]:bg-transparent [&_pre_code]:p-0",
         "[&_blockquote]:border-l-4 [&_blockquote]:border-border [&_blockquote]:pl-3 [&_blockquote]:text-muted-foreground [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5",
         "[&_.chat-mention]:rounded [&_.chat-mention]:bg-primary/10 [&_.chat-mention]:px-0.5 [&_.chat-mention]:text-primary [&_.chat-mention]:cursor-pointer [&_.chat-mention]:font-medium",
+        "[&_.chat-channel]:rounded [&_.chat-channel]:bg-primary/10 [&_.chat-channel]:px-0.5 [&_.chat-channel]:text-primary [&_.chat-channel]:cursor-pointer [&_.chat-channel]:font-medium hover:[&_.chat-channel]:underline",
         mentionsUser(c, me) && "[&_.chat-mention]:bg-amber-200/60 dark:[&_.chat-mention]:bg-amber-500/30",
         c.msgtype === "m.emote" && "italic",
         jumbo && "text-4xl leading-tight",
@@ -171,6 +176,7 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
       onClick={(e) => {
         const el = (e.target as HTMLElement).closest("[data-mention]");
         if (el) onMention(el.getAttribute("data-mention") as string);
+        else onLink(e);
       }}
     >
       {c.msgtype === "m.emote" && <span>* {name(message.sender)} </span>}
@@ -262,7 +268,7 @@ function Editor({ message, client, onDone }: { message: Message; client: ChatCli
     if (!body || body === message.content.body) return onDone();
     const mentions = [...colleagues.values()].map((c) => ({ userId: c.address, displayName: c.displayName }));
     try {
-      await client.edit(message.roomId, message.id, textContent(body, mentions));
+      await client.edit(message.roomId, message.id, textContent(body, mentions, client.channelRefs()));
     } catch {
       toast.error(t("chat.error"));
     }

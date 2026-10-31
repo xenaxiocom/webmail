@@ -16,6 +16,9 @@ function setup() {
     drafts: {},
     setDraft: vi.fn(),
     send,
+    // Step 99: "#name" links.
+    loadChannelDirectory: async () => undefined,
+    channelRefs: () => [],
   } as unknown as ChatClient;
   const room = { id: "!dev:firma.de", members: new Map(), archived: false } as unknown as Room;
   render(
@@ -58,7 +61,7 @@ describe("snippets from the composer (step 99)", () => {
 
   it("step 99, part E: each channel keeps its own draft; switching does not carry the text over", () => {
     const setDraft = vi.fn();
-    const client = { userId: "@anna:firma.de", rooms: new Map(), can: () => true, roomName: () => "x", setTyping: vi.fn(async () => undefined), drafts: { "!b:firma.de|": { text: "Entwurf B", ts: 1 } }, setDraft, send: vi.fn() } as unknown as ChatClient;
+    const client = { userId: "@anna:firma.de", rooms: new Map(), can: () => true, roomName: () => "x", setTyping: vi.fn(async () => undefined), drafts: { "!b:firma.de|": { text: "Entwurf B", ts: 1 } }, setDraft, send: vi.fn(), loadChannelDirectory: async () => undefined, channelRefs: () => [] } as unknown as ChatClient;
     const roomA = { id: "!a:firma.de", members: new Map(), archived: false } as unknown as Room;
     const roomB = { id: "!b:firma.de", members: new Map(), archived: false } as unknown as Room;
     const ui = render(

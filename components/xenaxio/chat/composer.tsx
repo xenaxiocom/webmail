@@ -183,6 +183,9 @@ export function Composer({
     return [...byId.values()];
   }, [colleagues, room.members, client.userId]);
 
+  // "#name" of an open channel I am not in links too (step 99).
+  useEffect(() => void client.loadChannelDirectory(), [client]);
+
   const suggestion = suggestionAt(text, cursor);
   const options = useMemo<Suggestion[]>(() => {
     if (!suggestion) return [];
@@ -197,10 +200,14 @@ export function Composer({
       return [...found, ...special];
     }
     if (suggestion.trigger === ":") return searchEmoji(q).map((e) => ({ key: e.emoji, label: `:${e.word}:`, insert: e.emoji, emoji: e.emoji }));
-    return [...client.rooms.values()]
-      .filter((r) => r.kind === "channel" && r.membership === "join" && client.roomName(r).toLowerCase().includes(q))
+    // Mine first, then the company's open channels.
+    const joined = (id: string) => client.rooms.get(id)?.membership === "join";
+    return client
+      .channelRefs()
+      .filter((c) => c.name.toLowerCase().includes(q))
+      .sort((a, b) => Number(joined(b.roomId)) - Number(joined(a.roomId)) || a.name.localeCompare(b.name))
       .slice(0, 8)
-      .map((r) => ({ key: r.id, label: `#${client.roomName(r)}`, insert: `#${client.roomName(r)} ` }));
+      .map((c) => ({ key: c.roomId, label: `#${c.name}`, insert: `#${c.name} ` }));
   }, [suggestion, people, colleagues, client, room]);
 
   useEffect(() => setSelected(0), [suggestion?.query, suggestion?.trigger]);
@@ -313,7 +320,7 @@ export function Composer({
       }
     }
     if (!body) return;
-    const content = textContent(body, people);
+    const content = textContent(body, people, client.channelRefs());
     try {
       await client.send(room.id, content, threadRoot ? { threadRoot } : {});
       if (threadRoot && alsoChannel) await client.send(room.id, { ...content, "com.xenaxio.thread": threadRoot });
