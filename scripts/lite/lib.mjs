@@ -127,6 +127,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   // Step 78: video meetings (lib/xenaxio/meet.ts, workspace/meetings page).
   "/api/meet",
   "/api/admin/meetings",
+  // Step 90, part D: the admin and the employees' files.
+  "/api/admin/files",
   // Step F1: Xenaxio Agent Flows (workspace/flows page); step F1.1: the Flows section.
   "/api/admin/flows",
   "/api/flows",

@@ -3,6 +3,7 @@
 // the subscription; the platform turns it into a pusher of this browser
 // session's chat device and sends Web Push itself (no outside relay).
 import { apiFetch, withBasePath } from "@/lib/browser-navigation";
+import { loadPortal } from "@/lib/xenaxio/portal";
 
 const SW_FILE = "/xenaxio-chat-sw.js";
 const SW_SCOPE = "/__xenaxio-chat-push/";
@@ -66,9 +67,15 @@ function sameKey(a: ArrayBuffer | null | undefined, b: Uint8Array): boolean {
   return view.every((x, i) => x === b[i]);
 }
 
-/** Registers (or updates) the chat's worker; the locale is for the link a click opens. */
+/** The worker's query: the locale for the link a click opens; step 67: XenRooms shows its own icon. */
+async function workerQuery(locale: string): Promise<string> {
+  const rooms = (await loadPortal()).kind === "rooms";
+  return `?locale=${encodeURIComponent(locale)}${rooms ? "&app=rooms" : ""}`;
+}
+
+/** Registers (or updates) the chat's worker. */
 async function ensureRegistration(locale: string): Promise<ServiceWorkerRegistration> {
-  const reg = await navigator.serviceWorker.register(`${withBasePath(SW_FILE)}?locale=${encodeURIComponent(locale)}`, { scope: withBasePath(SW_SCOPE) });
+  const reg = await navigator.serviceWorker.register(`${withBasePath(SW_FILE)}${await workerQuery(locale)}`, { scope: withBasePath(SW_SCOPE) });
   if (reg.active) return reg;
   const worker = reg.installing ?? reg.waiting;
   if (worker)
@@ -135,7 +142,7 @@ export async function resumeChatPush(locale: string): Promise<void> {
   const sub = await reg?.pushManager.getSubscription();
   if (!reg || !sub) return;
   const scriptUrl = reg.active?.scriptURL ?? "";
-  if (!scriptUrl.endsWith(`?locale=${encodeURIComponent(locale)}`)) await ensureRegistration(locale);
+  if (!scriptUrl.endsWith(await workerQuery(locale))) await ensureRegistration(locale);
   const { publicKey, endpoints } = await serverInfo();
   if (!publicKey || endpoints.includes(sub.endpoint)) return;
   if (!sameKey(sub.options.applicationServerKey, keyBytes(publicKey))) {
@@ -143,6 +150,12 @@ export async function resumeChatPush(locale: string): Promise<void> {
     return;
   }
   await sendSubscription(sub);
+}
+
+/** Step 67: tells the worker which account is open here, so it still shows the other companies' notifications. */
+export async function tellChatWorker(account: string): Promise<void> {
+  if (!chatPushSupported()) return;
+  (await registration())?.active?.postMessage({ kind: "xenaxio-chat-account", account });
 }
 
 export async function loadChatSettings(): Promise<ChatNotifySettings> {

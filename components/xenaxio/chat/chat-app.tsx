@@ -18,6 +18,7 @@ import { useIsMobile } from "@/hooks/use-media-query";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
 import { useSidebarApps } from "@/hooks/use-sidebar-apps";
 import { useChatBadge } from "@/lib/xenaxio/chat/nav";
+import { usePortal } from "@/lib/xenaxio/portal";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
@@ -30,12 +31,26 @@ import { ChatDialogsProvider, CreateChannelDialog, PeoplePicker, QuickSwitcher }
 import { NotifySettingsDialog, PushBanner, useChatNotifyLoader } from "./notifications";
 import { RoomView } from "./room-view";
 import { ChatSidePanel } from "./side-panels";
+import { RoomsRail } from "./rooms-rail";
+import { tellChatWorker } from "@/lib/xenaxio/chat/push";
+import { openAccount } from "@/lib/xenaxio/accounts";
 import { ChatSidebar } from "./sidebar";
 import { BrowseView, HomeView, MentionsView, SavedView, SearchView, ThreadsView } from "./views";
-// Step 96: colours of highlighted code in messages and snippets.
+// Step 98: colours of highlighted code in messages and snippets.
 import "./code.css";
 
 const STATUS_POLL_MS = 5000;
+
+/** Step 67: opens a message of another account of this browser (XenRooms): switch, then the chat there. */
+async function openAs(account: string, roomId: string, eventId?: string): Promise<void> {
+  const q = new URLSearchParams({ room: roomId, ...(eventId ? { event: eventId } : {}) });
+  try {
+    const { url } = await xenaxio.switchAccount(account, `${window.location.pathname}?${q}`);
+    openAccount(url);
+  } catch {
+    // Signed out there meanwhile: stay with the open company.
+  }
+}
 
 function Notice({ title, text }: { title: string; text?: string }) {
   return (
@@ -84,24 +99,39 @@ function ChatInside() {
     return () => clearInterval(timer);
   }, [status, loadStatus, connect]);
 
-  // A link to a message (?room=…&event=…) opens it.
+  // Step 67: the worker shows the other companies' notifications even while this one is open.
+  useEffect(() => {
+    if (me?.user.id) void tellChatWorker(me.user.id).catch(() => undefined);
+  }, [me?.user.id, client?.ready]);
+
+  // A link to a message (?room=…&event=…) opens it; step 67: `as` is the account it belongs to.
   useEffect(() => {
     if (!client?.ready) return;
     const q = new URLSearchParams(window.location.search);
     const room = q.get("room");
+    const as = q.get("as");
+    if (as && me && as !== me.user.id && room) {
+      void openAs(as, room, q.get("event") ?? undefined);
+      return;
+    }
     if (!room) return;
     setView({ kind: "room", roomId: room });
     const event = q.get("event");
     if (event) setFocus({ roomId: room, eventId: event });
     window.history.replaceState(null, "", window.location.pathname);
-  }, [client?.ready, setView, setFocus]);
+  }, [client?.ready, setView, setFocus, me]);
 
   // A click on a chat notification while the chat is open: switch the channel, no reload.
+  // Step 67: on XenRooms another company's notification switches to that company first.
   useEffect(() => {
     if (!client?.ready || !("serviceWorker" in navigator)) return;
     const onMessage = (e: MessageEvent) => {
-      const data = e.data as { kind?: string; roomId?: string; eventId?: string } | null;
+      const data = e.data as { kind?: string; roomId?: string; eventId?: string; account?: string } | null;
       if (data?.kind !== "xenaxio-chat-open" || !data.roomId) return;
+      if (data.account && me && data.account !== me.user.id) {
+        void openAs(data.account, data.roomId, data.eventId);
+        return;
+      }
       setView({ kind: "room", roomId: data.roomId });
       setPanel(null);
       if (data.eventId) setFocus({ roomId: data.roomId, eventId: data.eventId });
@@ -109,7 +139,7 @@ function ChatInside() {
     navigator.serviceWorker.addEventListener("message", onMessage);
     navigator.serviceWorker.startMessages();
     return () => navigator.serviceWorker.removeEventListener("message", onMessage);
-  }, [client?.ready, setView, setPanel, setFocus]);
+  }, [client?.ready, setView, setPanel, setFocus, me]);
 
   // Focus is used once.
   useEffect(() => {
@@ -242,12 +272,17 @@ export function ChatApp() {
   const [signedIn, setSignedIn] = useState(false);
   const isMobile = useIsMobile();
   const isEmbedded = useIsEmbedded();
-  const mvShell = useMountainViewShell(isEmbedded);
+  // Step 67: on XenRooms (xenrooms.app) the chat stands alone: the companies on
+  // the left instead of mail, calendar and files.
+  const portal = usePortal();
+  const rooms = portal?.kind === "rooms";
+  const mvShell = useMountainViewShell(isEmbedded) && !rooms;
 
   // The chat needs only the platform session, not the mail connection (so it
   // also works on its own later); the mail session loads in the background for
   // the navigation.
   useEffect(() => {
+    if (!portal) return;
     let cancelled = false;
     xenaxio
       .me()
@@ -259,11 +294,11 @@ export function ChatApp() {
           redirectToLogin();
         } else setSignedIn(true);
       });
-    if (!useAuthStore.getState().isAuthenticated) void checkAuth().catch(() => undefined);
+    if (!rooms && !useAuthStore.getState().isAuthenticated) void checkAuth().catch(() => undefined);
     return () => {
       cancelled = true;
     };
-  }, [checkAuth]);
+  }, [checkAuth, portal, rooms]);
 
   if (!signedIn) return null;
 
@@ -272,19 +307,21 @@ export function ChatApp() {
       <AppTopBannerSlot />
       {mvShell && <MvTopBar showMenuButton={false} onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />}
       <div data-mv-card={mvShell ? "" : undefined} className={cn("flex min-h-0 flex-1 overflow-hidden", mvShell && "mx-4 mb-4 bg-background")}>
-        {!isMobile && !isEmbedded && !mvShell && (
+        {rooms && !isEmbedded && !isMobile && <RoomsRail />}
+        {!rooms && !isMobile && !isEmbedded && !mvShell && (
           <div data-app-rail="" className="flex w-14 flex-shrink-0 flex-col bg-secondary" style={{ borderRight: "1px solid rgba(128, 128, 128, 0.3)" }}>
             <NavigationRail collapsed quota={quota} isPushConnected={isPushConnected} onLogout={logout} onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />
           </div>
         )}
         <div className="flex min-w-0 flex-1 flex-col">
+          {rooms && !isEmbedded && isMobile && <RoomsRail horizontal />}
           {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
           <div className={cn("flex min-h-0 flex-1", inlineApp && "hidden")}>
             <ChatDialogsProvider>
               <ChatInside />
             </ChatDialogsProvider>
           </div>
-          {isMobile && !isEmbedded && <NavigationRail orientation="horizontal" onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />}
+          {isMobile && !isEmbedded && !rooms && <NavigationRail orientation="horizontal" onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />}
         </div>
       </div>
       <SidebarAppsModal isOpen={showAppsModal} onClose={closeAppsModal} />

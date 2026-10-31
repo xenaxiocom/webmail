@@ -16,7 +16,7 @@ import { clearAssistantState } from "@/lib/xenaxio/assistant";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { safeNextPath } from "@/lib/xenaxio/brand";
-import { goToPortal, shouldHandOff, usePortal } from "@/lib/xenaxio/portal";
+import { goToPortal, roomsStart, shouldHandOff, usePortal } from "@/lib/xenaxio/portal";
 import { openAccount, otherCompanyPortal } from "@/lib/xenaxio/accounts";
 
 function LoginForm() {
@@ -36,7 +36,11 @@ function LoginForm() {
   const [otherPortal, setOtherPortal] = useState<string | null>(null);
   const portal = usePortal();
   const company = portal?.kind === "tenant" ? portal : null;
-  useDocumentTitle(add ? t("login.add_title") : t("login.title"), { withAccount: false });
+  // Step 67: XenRooms — the chat for all of a person's companies, always here.
+  const rooms = portal?.kind === "rooms";
+  const home = rooms ? roomsStart(locale) : `/${locale}/`;
+  const title = rooms ? t(add ? "rooms.add_title" : "rooms.login_title") : add ? t("login.add_title") : t("login.title");
+  useDocumentTitle(title, { withAccount: false });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -45,7 +49,7 @@ function LoginForm() {
     setOtherPortal(null);
     try {
       // Step 51: added from an AI chat's consent screen, it goes back there.
-      const me = await xenaxio.login(email.trim(), password, locale, add ? { next: next ?? `/${locale}/` } : undefined);
+      const me = await xenaxio.login(email.trim(), password, locale, add ? { next: next ?? home } : undefined);
       setPassword("");
       // A new sign-in never inherits an assistant chat left in this tab.
       clearAssistantState();
@@ -53,11 +57,11 @@ function LoginForm() {
       if (add && me.url) return openAccount(me.url);
       // Step 17: signed in on the shared address — continue on the company's own one
       // (not when sign-in was for something specific here, e.g. an AI chat's consent).
-      const target = me.user.mustChangePassword ? `/${locale}/workspace/password/` : `/${locale}/`;
-      if (!next && shouldHandOff(me.portalUrl, window.location.origin, window.location.pathname) && (await goToPortal(target))) return;
+      const target = me.user.mustChangePassword ? `/${locale}/workspace/password/` : home;
+      if (!next && !rooms && shouldHandOff(me.portalUrl, window.location.origin, window.location.pathname) && (await goToPortal(target))) return;
       // Full navigation: the mail app restores the session from the new cookie on load.
       if (me.user.mustChangePassword) router.replace("/workspace/password");
-      else window.location.assign(withBasePath(next ?? `/${locale}/`));
+      else window.location.assign(withBasePath(next ?? home));
     } catch (err) {
       setOtherPortal(otherCompanyPortal(err));
       setError(t(errorKey(err)));
@@ -67,8 +71,16 @@ function LoginForm() {
 
   return (
     <AuthCard
-      title={add ? t("login.add_title") : t("login.title")}
-      subtitle={add ? t("login.add_subtitle") : company ? t("portal.login_subtitle", { company: company.name }) : t("login.subtitle")}
+      title={title}
+      subtitle={
+        rooms
+          ? t(add ? "rooms.add_subtitle" : "rooms.login_subtitle")
+          : add
+            ? t("login.add_subtitle")
+            : company
+              ? t("portal.login_subtitle", { company: company.name })
+              : t("login.subtitle")
+      }
     >
       <form onSubmit={submit} className="space-y-4" noValidate>
         {error && (
@@ -105,7 +117,7 @@ function LoginForm() {
           {busy ? t("login.submitting") : t("login.submit")}
         </Button>
         {add && (
-          <Button type="button" variant="ghost" className="w-full" onClick={() => window.location.assign(withBasePath(`/${locale}/`))}>
+          <Button type="button" variant="ghost" className="w-full" onClick={() => window.location.assign(withBasePath(home))}>
             {t("common.cancel")}
           </Button>
         )}

@@ -5,7 +5,7 @@
 // "#" channels; files by paperclip, paste or drop; the draft of each channel
 // stays while switching. Step 62: files wait in the box (several, with text)
 // and go out together on "send". Step 87: ":" and a word suggests emoji;
-// typed emoticons (":)") go out as emoji. Step 96: code blocks, numbered
+// typed emoticons (":)") go out as emoji. Step 98: code blocks, numbered
 // lists, links and code snippets (a long paste offers one, as in Slack).
 import { IconBold, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";

@@ -4,13 +4,16 @@
 // page for every meeting link; it reads the code from the address. People of
 // the company (signed in) enter directly; guests give their name and wait in
 // the lobby until someone of the company lets them in. Step 79: a webinar has
-// no lobby; a guest gives a name and watches (no camera check).
+// no lobby; a guest gives a name and watches (no camera check). Step 90: a
+// meeting that records says so before anyone enters; after it, the organizer
+// and the people in it see where the recording went.
 import { type CSSProperties, type FormEvent, useCallback, useEffect, useState } from "react";
 import { Input } from "@/components/ui/input";
+import { Link } from "@/i18n/navigation";
 import { withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { contrastRatio, usePortal } from "@/lib/xenaxio/portal";
-import { type GuestKey, type JoinGrant, loadGuestVisit, meet, type MeetingInfo, meetingCode, personalLink, saveGuestVisit } from "@/lib/xenaxio/meet";
+import { type GuestKey, type JoinGrant, loadGuestVisit, meet, type MeetingInfo, type MeetingRecording, meetingCode, type MeetingTranscript, personalLink, type RecordingState, saveGuestVisit } from "@/lib/xenaxio/meet";
 import { type Lang, MeetLangProvider, meetError, useMeetLang } from "./lang";
 import { type Choices, PreJoin } from "./prejoin";
 import { type LeaveReason, MeetingRoom } from "./room";
@@ -98,6 +101,142 @@ export function Summary({ code, info: first, leftAt, title = true }: { code: str
       {title && <p className="font-medium text-white">{info.title}</p>}
       {when && <p>{when}</p>}
       {people && <p>{people}</p>}
+    </div>
+  );
+}
+
+/** Step 90: the meeting records now; whoever enters is recorded too. */
+function RecordingNotice() {
+  const { t } = useMeetLang();
+  return (
+    <p role="alert" className="mx-auto mb-4 flex max-w-md items-start gap-2 rounded-lg border border-red-500/60 bg-red-950/60 px-3 py-2 text-left text-sm text-white">
+      <span className="mt-1.5 h-2.5 w-2.5 shrink-0 rounded-full bg-red-500" aria-hidden />
+      <span>{t("recording_before")}</span>
+    </p>
+  );
+}
+
+/** How long the page waits for the recording to reach Files and be transcribed before it stops asking. */
+const RECORDING_WAIT_MS = 10 * 60_000;
+
+/** The recording or its transcript is still on its way. */
+function busy(state: RecordingState): boolean {
+  const last = state.recordings[0];
+  return state.recording || last?.status === "processing" || last?.transcript?.status === "pending" || last?.transcript?.status === "running";
+}
+
+/** Step 90, part B: the transcript of the recording: on its way, readable here, or why there is none. */
+function TranscriptPart({ recording, organizer, onRetried }: { recording: MeetingRecording; organizer: boolean; onRetried: () => void }) {
+  const { lang, t } = useMeetLang();
+  const [text, setText] = useState<MeetingTranscript | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const status = recording.transcript?.status ?? "none";
+  if (status === "none") return null;
+  const show = async () => {
+    try {
+      setText(await meet.transcript(recording.id));
+    } catch (err) {
+      setError(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+    }
+  };
+  const retry = async () => {
+    try {
+      await meet.retryTranscript(recording.id);
+      onRetried();
+    } catch (err) {
+      setError(meetError(t, err instanceof XenaxioApiError ? err.code : "internal"));
+    }
+  };
+  const clock = (at: string) => new Date(at).toLocaleTimeString(lang === "de" ? "de-DE" : "en-GB", { timeZone: text?.timeZone, hour: "2-digit", minute: "2-digit", second: "2-digit" });
+  const why = recording.transcript?.error === "ai_disabled" ? "transcript_off_ai" : recording.transcript?.error === "transcription_off" ? "transcript_off_company" : "transcript_off";
+  return (
+    <div className="mt-3 border-t border-white/10 pt-3">
+      {status === "pending" || status === "running" ? (
+        <p>{t("transcript_running")}</p>
+      ) : status === "done" ? (
+        text ? (
+          <div className="max-h-80 space-y-2 overflow-y-auto pr-1">
+            {text.lines.length === 0 && <p>{t("transcript_empty")}</p>}
+            {text.lines.map((l, i) => (
+              <p key={i}>
+                <span className="text-white/50">{clock(l.at)}</span> <span className="font-medium text-white">{l.speaker}:</span> {l.text}
+              </p>
+            ))}
+          </div>
+        ) : (
+          <button type="button" onClick={() => void show()} className="text-[var(--meet-accent,#60a5fa)] underline">
+            {t("transcript_show")}
+          </button>
+        )
+      ) : (
+        <>
+          <p>{t(status === "failed" ? "transcript_failed" : status === "deleted" ? "transcript_deleted" : why)}</p>
+          {organizer && (
+            <button type="button" onClick={() => void retry()} className="mt-2 text-[var(--meet-accent,#60a5fa)] underline">
+              {t("transcript_retry")}
+            </button>
+          )}
+        </>
+      )}
+      {error && <p className="mt-2 text-red-300">{error}</p>}
+    </div>
+  );
+}
+
+/**
+ * Step 90: after the meeting, the last recording the person may see (the
+ * organizer, and the people of the company who were in it): being saved,
+ * saved (the organizer opens the folder in Files), or failed.
+ */
+export function RecordingResult({ code }: { code: string }) {
+  const { t } = useMeetLang();
+  const [state, setState] = useState<RecordingState | null>(null);
+  // Asking again after "try again" restarts the waiting.
+  const [round, setRound] = useState(0);
+  useEffect(() => {
+    let stop = false;
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const until = Date.now() + RECORDING_WAIT_MS;
+    const load = async () => {
+      try {
+        const next = await meet.recording(code);
+        if (stop) return;
+        setState(next);
+        if (busy(next) && Date.now() < until) timer = setTimeout(() => void load(), 5000);
+      } catch {
+        // Guests and other companies see nothing.
+      }
+    };
+    void load();
+    return () => {
+      stop = true;
+      clearTimeout(timer);
+    };
+  }, [code, round]);
+  const last = state?.recordings[0];
+  if (!state || (!last && !state.recording)) return null;
+  const folder = last?.status === "stored" ? last.folder : null;
+  return (
+    <div className="mx-auto mt-3 max-w-sm rounded-lg border border-white/10 bg-white/5 px-4 py-3 text-left text-sm text-white/80">
+      <p className="mb-1 flex items-center gap-2 font-medium text-white">
+        <span className="h-2 w-2 rounded-full bg-red-500" aria-hidden />
+        {t("recording_title")}
+      </p>
+      {state.recording || last?.status === "processing" ? (
+        <p>{t("recording_saving")}</p>
+      ) : last?.status === "failed" ? (
+        <p>{t("recording_failed")}</p>
+      ) : folder && state.canControl ? (
+        <>
+          <p>{t("recording_saved", { folder })}</p>
+          <Link href={`/files/${folder.split("/").map(encodeURIComponent).join("/")}`} className="mt-2 inline-block text-[var(--meet-accent,#60a5fa)] underline">
+            {t("recording_open")}
+          </Link>
+        </>
+      ) : (
+        <p>{t("recording_saved_organizer")}</p>
+      )}
+      {last?.status === "stored" && <TranscriptPart key={`${last.id}-${round}`} recording={last} organizer={state.canControl} onRetried={() => setRound((n) => n + 1)} />}
     </div>
   );
 }
@@ -281,6 +420,7 @@ function Page() {
           role={step.grant.role ?? (step.info.member ? "member" : "guest")}
           guest={step.guest !== undefined ? step.guest : step.info.member ? null : loadGuestVisit(code)}
           companyBackground={step.info.background ?? null}
+          recording={!!step.info.recording}
           onLeave={(r) => left(step.info, r)}
         />
       </div>
@@ -296,12 +436,14 @@ function Page() {
           <h1 className="mb-2 text-xl font-semibold">{step.info.title}</h1>
           <p className="text-white/80">{t(`state_${step.info.state}`, { company: step.info.company })}</p>
           {step.info.state === "ended" && code && <Summary code={code} info={step.info} title={false} />}
+          {step.info.member && code && <RecordingResult code={code} />}
           {step.info.member && <BackToApp />}
         </div>
       )}
       {step.kind === "prejoin" && step.info.kind === "webinar" && step.info.webinar && !step.info.member && (
         <>
           <WebinarIntro info={step.info} />
+          {step.info.recording && <RecordingNotice />}
           {personal ? (
             <Registered code={code ?? ""} id={personal.id} regKey={personal.key} cancel={personal.cancel} busy={busy} onJoin={() => void enterRegistered(step.info)} />
           ) : !step.info.guests ? (
@@ -318,6 +460,7 @@ function Page() {
         <>
           {step.info.webinar ? <WebinarIntro info={step.info} /> : <h1 className="mb-1 text-center text-xl font-semibold">{step.info.title}</h1>}
           {!step.info.webinar && <p className="mb-4 text-center text-sm text-white/60">{t("by_company", { company: step.info.company })}</p>}
+          {step.info.recording && <RecordingNotice />}
           {!step.info.member && !step.info.guests ? (
             <p className="max-w-md text-center text-white/80">{meetError(t, "guests_off")}</p>
           ) : step.info.kind === "webinar" && !step.info.member ? (
@@ -341,6 +484,7 @@ function Page() {
         <div className="max-w-md text-center">
           <h1 className="mb-2 text-xl font-semibold">{t(step.info.kind === "webinar" ? "connecting" : "waiting_title")}</h1>
           {step.info.kind !== "webinar" && <p className="text-white/80">{t("waiting_text", { company: step.info.company })}</p>}
+          {step.info.recording && <div className="mt-4"><RecordingNotice /></div>}
           <div className="mx-auto mt-6 h-2 w-40 overflow-hidden rounded-full bg-white/10">
             <div className="h-full w-1/3 animate-pulse rounded-full bg-[var(--meet-accent,#2563eb)]" />
           </div>
@@ -350,6 +494,7 @@ function Page() {
         <div className="max-w-md text-center">
           <h1 className="mb-2 text-xl font-semibold">{t(`after_${step.reason}`)}</h1>
           {WAS_IN.has(step.reason) && code && <Summary code={code} info={step.info} leftAt={step.leftAt} />}
+          {WAS_IN.has(step.reason) && step.info.member && code && <RecordingResult code={code} />}
           <div className="flex flex-wrap justify-center gap-3">
             {(step.reason === "left" || step.reason === "lost" || step.reason === "failed" || step.reason === "full") && (
               <button type="button" onClick={() => void load()} className="mt-4 rounded-lg bg-[var(--meet-accent,#2563eb)] px-4 py-2 text-[var(--meet-accent-text,#fff)]">

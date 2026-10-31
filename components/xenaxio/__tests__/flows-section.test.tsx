@@ -13,6 +13,10 @@ const flows = vi.hoisted(() => ({
   runs: vi.fn(),
   setConnection: vi.fn(),
   removeConnection: vi.fn(),
+  tasks: vi.fn(async () => ({ tasks: [] as FlowTask[], count: 0 })),
+  answerTask: vi.fn(),
+  run: vi.fn(),
+  fileUrl: vi.fn((runId: string, n: number) => `/api/flows/runs/${runId}/files/${n}`),
   sendAs: vi.fn(async () => ({ on: false, expiresAt: null })),
   setSendAs: vi.fn(async (on: boolean) => ({ on, expiresAt: on ? "2027-01-28T00:00:00Z" : null })),
 }));
@@ -21,7 +25,7 @@ vi.mock("@/lib/xenaxio/api", async (orig) => ({
   xenaxio: { flows },
 }));
 
-import { type FlowDetail, type FlowsOverview, XenaxioApiError } from "@/lib/xenaxio/api";
+import { type FlowDetail, type FlowsOverview, type FlowTask, XenaxioApiError } from "@/lib/xenaxio/api";
 import { FlowsSection } from "../flows/flows-app";
 
 const overview = (patch: Partial<FlowsOverview> = {}): FlowsOverview => ({
@@ -126,6 +130,52 @@ describe("Flows section (step F1.1)", () => {
     await waitFor(() => expect(flows.setConnection).toHaveBeenCalledWith("f1", "crm", { baseUrl: "https://api.crm.example", secret: { token: "secret-token" } }));
     expect(await screen.findByText("Eingerichtet")).toBeTruthy();
     expect((screen.getByLabelText("Token") as HTMLInputElement).value).toBe("");
+  });
+
+  it("shows decisions waiting for me and answers them like Telegram buttons (stage E2, part C)", async () => {
+    const task = (patch: Partial<FlowTask> = {}): FlowTask => ({
+      key: "k1",
+      flowId: "f9",
+      flowTitle: "Einkauf Lviv",
+      runId: "r1",
+      runNumber: "1-1",
+      kind: "decide",
+      title: "Entscheidung nötig",
+      text: "Rechnung 1187",
+      show: { total: 8400 },
+      options: [
+        { id: "approve", label: "Freigeben", comment: false },
+        { id: "question", label: "Rückfrage", comment: true },
+      ],
+      askedAt: "2026-10-30T10:00:00Z",
+      ...patch,
+    });
+    flows.overview.mockResolvedValueOnce(overview({ working: [{ id: "f9", flow: "procurement", title: "Einkauf Lviv", status: "active" }] }));
+    flows.tasks.mockResolvedValueOnce({ tasks: [task(), task({ key: "k2", runNumber: "2-1" })], count: 2 });
+    render(<FlowsSection />);
+    expect(await screen.findByText("Wartet auf mich (2)")).toBeTruthy();
+    expect(screen.getByText("Flows, in denen ich mitarbeite")).toBeTruthy();
+    expect(screen.getAllByText("8400")).toHaveLength(2);
+
+    // A question back needs a comment first.
+    fireEvent.click(screen.getAllByRole("button", { name: "Rückfrage" })[0]!);
+    const send = screen.getByRole("button", { name: "Senden" }) as HTMLButtonElement;
+    expect(send.disabled).toBe(true);
+    fireEvent.change(screen.getByLabelText("Ihr Kommentar"), { target: { value: "Warum teurer?" } });
+    flows.answerTask.mockResolvedValueOnce({ ok: true });
+    flows.tasks.mockResolvedValueOnce({ tasks: [task({ key: "k2", runNumber: "2-1" })], count: 1 });
+    fireEvent.click(send);
+    await waitFor(() => expect(flows.answerTask).toHaveBeenCalledWith("k1", "question", "Warum teurer?"));
+    expect(await screen.findByText("Beantwortet: Nr. 1-1.")).toBeTruthy();
+    expect(await screen.findByText("Wartet auf mich (1)")).toBeTruthy();
+
+    // Someone else answered first: "already decided".
+    flows.answerTask.mockRejectedValueOnce(new XenaxioApiError(409, "flow_task_closed"));
+    flows.tasks.mockResolvedValueOnce({ tasks: [], count: 0 });
+    fireEvent.click(screen.getByRole("button", { name: "Freigeben" }));
+    await waitFor(() => expect(flows.answerTask).toHaveBeenCalledWith("k2", "approve", undefined));
+    expect(await screen.findByText(/Schon entschieden/)).toBeTruthy();
+    expect(await screen.findByText("Nichts wartet auf Ihre Entscheidung.")).toBeTruthy();
   });
 
   it("says when the company has no flows", async () => {

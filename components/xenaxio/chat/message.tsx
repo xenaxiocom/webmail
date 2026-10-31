@@ -120,7 +120,7 @@ function Body({ message, me, onMention, onEditSnippet }: { message: Message; me:
   const dm = useChatStore((s) => s.client?.rooms.get(message.roomId)?.kind === "dm");
   if (message.redacted) return <div className="text-sm italic text-muted-foreground">{t("chat.deleted")}</div>;
   const c = message.content;
-  // Step 96, part A: a code snippet (in the message or, when large, in a file).
+  // Step 98, part A: a code snippet (in the message or, when large, in a file).
   const snippet = snippetOf(c);
   if (snippet) return <SnippetCard snippet={snippet} onEdit={snippet.code !== null && message.sender === me ? onEditSnippet : undefined} />;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
@@ -267,7 +267,7 @@ function Editor({ message, client, onDone }: { message: Message; client: ChatCli
 
 /**
  * What can be done with a message. The hover toolbar shows the thread and
- * "save" as buttons and the rest in "⋯"; the sheet on phones (step 96) shows all.
+ * "save" as buttons and the rest in "⋯"; the sheet on phones (step 98) shows all.
  */
 function useMessageActions({ message, room, client, inThread, saved, onEdit, onReport }: { message: Message; room: Room; client: ChatClient; inThread?: boolean; saved: boolean; onEdit: () => void; onReport: () => Promise<void> }): MessageAction[] {
   const t = useXT();

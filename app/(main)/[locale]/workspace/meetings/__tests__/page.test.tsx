@@ -4,7 +4,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 // Step 92: the admin's company background for meetings — upload (made smaller
 // in the browser first), remove, and "employees start with it".
-const api = vi.hoisted(() => ({ settings: vi.fn(), saveSettings: vi.fn(), uploadBackground: vi.fn(), removeBackground: vi.fn() }));
+const api = vi.hoisted(() => ({ settings: vi.fn(), saveSettings: vi.fn(), uploadBackground: vi.fn(), removeBackground: vi.fn(), recordings: vi.fn(async (): Promise<unknown[]> => []), deleteRecording: vi.fn() }));
 const shrunk = vi.hoisted(() => new Blob(["jpeg"], { type: "image/jpeg" }));
 const shrinkPicture = vi.hoisted(() => vi.fn(async () => shrunk));
 const pictureSize = vi.hoisted(() => vi.fn(async () => ({ width: 4000, height: 3000 })));
@@ -23,6 +23,7 @@ const picture = { url: "/api/meet/background?v=1", default: false };
 
 beforeEach(() => {
   for (const fn of Object.values(api)) fn.mockReset();
+  api.recordings.mockResolvedValue([]);
   shrinkPicture.mockClear();
   pictureSize.mockClear();
 });
@@ -88,5 +89,47 @@ describe("step 92: company background on the meetings page", () => {
     await screen.findByText("Hintergrund der Firma");
     fireEvent.change(container.querySelector('input[type="file"]')!, { target: { files: [new File(["x"], "a.png", { type: "image/png" })] } });
     expect(await screen.findByText("Die Datei ist zu groß (Bild höchstens 2 MB, Animation oder Panorama 10 MB).")).toBeInTheDocument();
+  });
+});
+
+describe("step 90: recording meetings", () => {
+  it("the admin forbids and allows it; without a recorder or when the operator blocked it there is nothing to switch", async () => {
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: true, recording: true });
+    api.saveSettings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: true, recording: false });
+    const { unmount } = render(<MeetingsAdminPage />);
+    const box = await screen.findByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ });
+    expect(box).toBeChecked();
+    fireEvent.click(box);
+    await waitFor(() => expect(api.saveSettings).toHaveBeenCalledWith({ recording: false }));
+    expect(await screen.findByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ })).not.toBeChecked();
+    unmount();
+
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: true, recordingAllowed: false, recording: true });
+    const blocked = render(<MeetingsAdminPage />);
+    expect(await screen.findByRole("checkbox", { name: /Aufnahme von Besprechungen erlauben/ })).toBeDisabled();
+    expect(screen.getByText(/Betreiber hat Aufnahmen/)).toBeInTheDocument();
+    blocked.unmount();
+
+    api.settings.mockResolvedValue({ ...base, recordingAvailable: false });
+    render(<MeetingsAdminPage />);
+    expect(await screen.findByText("Hintergrund der Firma")).toBeInTheDocument();
+    expect(screen.queryByRole("checkbox", { name: /Aufnahme/ })).toBeNull();
+  });
+});
+
+describe("step 90, part D: the company's recordings", () => {
+  it("lists them and deletes one", async () => {
+    api.settings.mockResolvedValue(base);
+    api.recordings.mockResolvedValue([
+      { id: "r1", meeting: "Kick-off", organizer: "Anna Schmidt", startedAt: "2026-10-30T13:42:00Z", stoppedAt: "2026-10-30T14:05:00Z", status: "stored", transcript: "done", folder: "Meetings/x", bytes: 5 * 1024 * 1024, speakers: ["Anna"] },
+    ]);
+    api.deleteRecording.mockResolvedValue({ ok: true });
+    vi.spyOn(window, "confirm").mockReturnValue(true);
+    render(<MeetingsAdminPage />);
+    expect(await screen.findByText("Kick-off")).toBeInTheDocument();
+    expect(screen.getByText(/Anna Schmidt · 5 MB · Transkript/)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Aufnahme von Kick-off löschen" }));
+    await waitFor(() => expect(api.deleteRecording).toHaveBeenCalledWith("r1"));
+    await waitFor(() => expect(screen.queryByText("Kick-off")).toBeNull());
   });
 });

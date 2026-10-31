@@ -128,6 +128,19 @@ export interface BrowserAccount {
   company: string;
   portalUrl: string;
   active: boolean;
+  /** Step 67: the company's colour and logo for the XenRooms switcher. */
+  color?: string | null;
+  logoUrl?: string | null;
+}
+
+/** Step 67: unread counts of the browser's other accounts (XenRooms switcher). */
+export interface AccountUnread {
+  userId: string;
+  /** Rooms with anything unread. */
+  unread: number;
+  /** Mentions and direct messages: the red count. */
+  important: number;
+  available: boolean;
 }
 
 /** Step 23: settings for mail apps; the password is the one for xenaxio. */
@@ -161,6 +174,8 @@ export interface PortalInfo {
 export type PortalState =
   | ({ kind: "tenant" } & PortalInfo)
   | { kind: "app"; portals: boolean; baseDomain: string | null }
+  /** Step 67: XenRooms (only the team chat), one address for every company. */
+  | { kind: "rooms" }
   | { kind: "moved"; url: string }
   | { kind: "unknown" };
 
@@ -366,7 +381,7 @@ export interface AiAdmin {
   /** Step 84: which model each profile uses (missing: the company's model). */
   profiles?: { map: Partial<Record<ModelProfile, string>>; options: string[]; names: ModelProfile[] };
   /** Step 86: how audio files are transcribed (absent: not on this installation). */
-  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null };
+  transcription?: { mode: TranscriptionMode; platformModel: string | null; customModel: string | null; ownServer?: SpeechServerSettings | null };
   users: { id: string; email: string; displayName: string; status: "active" | "disabled"; aiEnabled: boolean; tokens: number }[];
 }
 
@@ -421,7 +436,34 @@ function skillApi(base: string): SkillApi {
   };
 }
 /** Step 86: the platform's speech model, one on the company's own server, or off. */
-export type TranscriptionMode = "xenaxio" | "custom" | "off";
+export type TranscriptionMode = "xenaxio" | "custom" | "own_server" | "off";
+
+/** Step 90, part F: the installation's models as the operator sees them (the deploy's values in fromConfig). */
+export interface InstallationModels {
+  platformKey: boolean;
+  chat: { model: string; models: string[]; fromConfig: { model: string; models: string[] } };
+  speech:
+    | { source: "mistral"; model: string; fromConfig: string }
+    | { source: "own"; baseUrl: string; profile: "openai" | "mistral"; model: string; hasKey: boolean; fromConfig: string };
+  updatedAt: string | null;
+}
+
+/** Step 90, part E: the company's own speech server (its own connection, not the chat model's). */
+export interface SpeechServerCheck {
+  ok: boolean;
+  error: "address_not_allowed" | "unreachable" | "timeout" | "unauthorized" | "model_not_found" | "bad_response" | null;
+  status: number | null;
+  ms: number | null;
+  text: string | null;
+}
+export interface SpeechServerSettings {
+  baseUrl: string;
+  profile: "openai" | "mistral";
+  model: string;
+  hasKey: boolean;
+  check: SpeechServerCheck | null;
+  checkedAt: string | null;
+}
 
 export const companySkills = skillApi("/api/admin/ai/skills");
 export const ownSkills = skillApi("/api/ai/skills");
@@ -532,6 +574,8 @@ export interface OperatorTenant {
   meetingsMaxHours?: number | null;
   /** Step 79: webinars (only on a media server of its own) and their viewers (null: the installation's default). */
   webinarsAllowed?: boolean;
+  /** Step 90: recording meetings allowed for the company. */
+  meetingsRecordingAllowed?: boolean;
   webinarsMaxViewers?: number | null;
   /** Step F1: Xenaxio Agent Flows switched on by the operator. */
   flowsEnabled?: boolean;
@@ -771,9 +815,42 @@ export interface FlowRunSummary {
   result: string | null;
   step: string;
   waiting: string | null;
+  /** Stage E2, part C: the run (or one of its branches) waits for my decision or confirmation. */
+  waitingForMe?: boolean;
+  /** Started by me or waiting for me. */
+  mine?: boolean;
   initiator: string | null;
   createdAt: string;
   updatedAt: string;
+}
+/** Stage E2, part C: a document of a run (an invoice, a photo from Telegram). */
+export interface FlowFile {
+  n: number;
+  name: string;
+  mimeType: string;
+  size: number | null;
+}
+export interface FlowRunDetail extends FlowRunSummary {
+  flowId: string;
+  card: Record<string, unknown>;
+  branches: (FlowRunSummary & { card: Record<string, unknown> })[];
+  journal: FlowJournalEntry[];
+  files: FlowFile[];
+}
+/** Stage E2, part C: a decision or confirmation waiting for me ("Wartet auf mich"). */
+export interface FlowTask {
+  key: string;
+  flowId: string;
+  flowTitle: string;
+  runId: string;
+  runNumber: string;
+  kind: "decide" | "confirm";
+  title: string;
+  text: string;
+  show: Record<string, unknown>;
+  /** `comment`: the option needs a text (a question back, a correction). */
+  options: { id: string; label: string; comment: boolean }[];
+  askedAt: string;
 }
 export interface FlowJournalEntry {
   runId: string;
@@ -789,6 +866,8 @@ export interface FlowsOverview {
   admin: boolean;
   templates: FlowTemplateInfo[];
   installations: FlowInstallation[];
+  /** Stage E2, part C: flows I work in as a person (their runs, not their settings). */
+  working?: { id: string; flow: string; title: string; status: "active" | "paused" }[];
   employees: FlowEmployee[];
   /** Shared mailboxes this employee may send from: the only ones their flows may write from. */
   mailboxes: { id: string; email: string }[];
@@ -811,7 +890,7 @@ export interface FileTranscript {
 }
 
 /** Why this person cannot transcribe now. */
-export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "ai_limit_reached";
+export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "speech_server_missing" | "ai_limit_reached";
 
 export interface TranscriptLookup {
   available: boolean;
@@ -903,6 +982,8 @@ export const xenaxio = {
   accounts: () => request<{ accounts: BrowserAccount[]; max: number }>("GET", "/api/auth/accounts"),
   switchAccount: (userId: string, next: string) => request<{ url: string }>("POST", "/api/auth/switch", { userId, next }),
   forgetAccount: (userId: string) => request<{ ok: true }>("POST", "/api/auth/forget", { userId }),
+  /** Step 67: unread counts of the other accounts of this browser. */
+  accountsUnread: () => request<{ accounts: AccountUnread[] }>("GET", "/api/chat/accounts/unread"),
   changePassword: (currentPassword: string, newPassword: string) =>
     request<{ ok: true }>("POST", "/api/me/password", { currentPassword, newPassword }),
 
@@ -981,6 +1062,11 @@ export const xenaxio = {
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
   setTranscription: (change: { mode: TranscriptionMode; model?: string | null }) =>
     request<{ mode: TranscriptionMode; customModel: string | null }>("PUT", "/api/admin/ai/transcription", change),
+  // Step 90, part E: the own speech server; a key left out keeps the stored one.
+  saveSpeechServer: (input: { baseUrl: string; profile: "openai" | "mistral"; model: string; apiKey?: string | null }) =>
+    request<SpeechServerSettings>("PUT", "/api/admin/ai/speech-server", input),
+  testSpeechServer: () => request<{ result: SpeechServerCheck; settings: SpeechServerSettings }>("POST", "/api/admin/ai/speech-server/test"),
+  removeSpeechServer: () => request<{ ok: true }>("DELETE", "/api/admin/ai/speech-server"),
   saveCustomModel: (input: CustomModelInput) => request<{ custom: CustomModel }>("PUT", "/api/admin/ai/custom", input),
   testCustomModel: (model?: string) => request<{ check: CustomModelCheck; custom: CustomModel | null }>("POST", "/api/admin/ai/custom/test", model ? { model } : {}),
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
@@ -1013,9 +1099,13 @@ export const xenaxio = {
       request<{ rows: number }>("PUT", `${FLOW}/${encodeURIComponent(id)}/directories/${encodeURIComponent(directory)}`, { csv }),
     connectTelegram: (id: string, token: string) => request<{ botName: string }>("PUT", `${FLOW}/${encodeURIComponent(id)}/telegram`, { token }),
     disconnectTelegram: (id: string) => request<{ ok: true }>("DELETE", `${FLOW}/${encodeURIComponent(id)}/telegram`),
-    runs: (id: string) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs`),
-    run: (id: string) =>
-      request<FlowRunSummary & { card: Record<string, unknown>; branches: FlowRunSummary[]; journal: FlowJournalEntry[] }>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    runs: (id: string, mine = false) => request<{ runs: FlowRunSummary[] }>("GET", `${FLOW}/${encodeURIComponent(id)}/runs${mine ? "?mine=1" : ""}`),
+    run: (id: string) => request<FlowRunDetail>("GET", `${FLOW}/runs/${encodeURIComponent(id)}`),
+    fileUrl: (runId: string, n: number) => `${FLOW}/runs/${encodeURIComponent(runId)}/files/${n}`,
+    // Stage E2, part C: decisions and confirmations waiting for me; whoever answers first decides.
+    tasks: () => request<{ tasks: FlowTask[]; count: number }>("GET", `${FLOW}/tasks`),
+    answerTask: (key: string, option: string, comment?: string) =>
+      request<{ ok: true }>("POST", `${FLOW}/tasks/${encodeURIComponent(key)}/answer`, { option, ...(comment ? { comment } : {}) }),
     // Stage E2 (B1): connections to outside APIs; without `secret` the stored key stays.
     setConnection: (id: string, name: string, body: { baseUrl: string; secret?: Record<string, string> }) =>
       request<FlowDetail>("PUT", `${FLOW}/${encodeURIComponent(id)}/connections/${encodeURIComponent(name)}`, body),
@@ -1055,11 +1145,21 @@ export const xenaxio = {
         meetingsMaxParticipants?: number | null;
         meetingsMaxHours?: number | null;
         webinarsAllowed?: boolean;
+        meetingsRecordingAllowed?: boolean;
         webinarsMaxViewers?: number | null;
         flowsEnabled?: boolean;
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
+    // Step 90, part F: the installation's models.
+    models: () => request<InstallationModels>("GET", "/api/operator/models"),
+    availableModels: () => request<{ models: string[] }>("GET", "/api/operator/models/available").then((r) => r.models),
+    saveModels: (change: {
+      chatModel?: string | null;
+      models?: string[] | null;
+      speech?: { source: "mistral"; model?: string | null } | { source: "own"; baseUrl: string; profile: "openai" | "mistral"; model: string; apiKey?: string | null };
+    }) => request<InstallationModels>("PUT", "/api/operator/models", change),
+    testModels: (kind: "chat" | "speech", model?: string) => request<{ ok: boolean; error: string | null; ms: number | null }>("POST", "/api/operator/models/test", { kind, ...(model ? { model } : {}) }),
     setTenantSlug: (id: string, slug: string) => request<{ id: string; slug: string }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/slug`, { slug }),
     revokeInvitation: (id: string) => request<{ id: string; revokedAt: string }>("POST", `/api/operator/invitations/${encodeURIComponent(id)}/revoke`, {}),
     createInvitation: (note: string, locale: "de" | "en") =>

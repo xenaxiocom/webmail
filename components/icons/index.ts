@@ -180,6 +180,7 @@ export {
   IconPlayerPlay as Play,
   IconPlayerPlay as PlayCircle,
   IconPlayerPause as Pause,
+  IconPlayerRecord as Record,
   IconPlus as Plus,
   IconPower as Power,
   IconPower as PowerOff,

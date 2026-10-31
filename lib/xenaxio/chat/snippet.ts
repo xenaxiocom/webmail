@@ -1,4 +1,4 @@
-// Step 96, part A: code snippets, as in Slack. A snippet is an ordinary Matrix
+// Step 98, part A: code snippets, as in Slack. A snippet is an ordinary Matrix
 // text message — a code block in `body` and `<pre><code class="language-…">`
 // in the HTML, so every Matrix client shows it — plus our field with the title
 // and the language. One too large for a message goes out as a text file with

@@ -1,6 +1,6 @@
 "use client";
 
-// Step 96, part 0: on a phone there is no hover, so the toolbar of a message
+// Step 98, part 0: on a phone there is no hover, so the toolbar of a message
 // never shows. A long press opens this sheet instead, as Slack does on phones:
 // quick reactions (and all emoji), then the actions of the message.
 import { IconMoodPlus } from "@tabler/icons-react";

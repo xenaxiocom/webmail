@@ -1,6 +1,6 @@
 "use client";
 
-// Step 96, part A: create or edit a code snippet — title, language
+// Step 98, part A: create or edit a code snippet — title, language
 // (guessed when "automatic") and the text with line numbers.
 import { IconLoader2 } from "@tabler/icons-react";
 import { useState } from "react";
