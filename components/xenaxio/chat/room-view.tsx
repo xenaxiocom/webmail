@@ -2,25 +2,25 @@
 
 // Step 43, part B: a channel or direct conversation — header with topic,
 // members, pinned messages and settings; the timeline; who is typing; the
-// composer. Files can be dropped anywhere on it.
+// composer. Files can be dropped anywhere on it. Step 99: the channel's name
+// opens its details (name, topic, members, settings), as in Slack.
 import { IconBell, IconChevronDown, IconHash, IconLock, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { useEffect, useState } from "react";
-import { type ChatClient, isPlatformAccount, type Room, serverOfUser } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
 import { plainPreview } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { toast } from "@/stores/toast-store";
-import { type ChatChannelChange, errorText, xenaxio, XenaxioApiError } from "@/lib/xenaxio/api";
-import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { cn } from "@/lib/utils";
 import { PersonAvatar, presenceOf, useDisplayName } from "./common";
 import { addToComposer, Composer } from "./composer";
 import { composerKey } from "@/lib/xenaxio/chat/pending-files";
-import { PeoplePicker, useChatDialogs } from "./dialogs";
+import { PeoplePicker } from "./dialogs";
 import { IntegrationsDialog } from "./integrations";
 import { MessageList } from "./message-list";
 import { CallButton } from "@/components/xenaxio/meet/call";
+import { ChannelDetails, type DetailsTab } from "./channel-details";
 
 export function TypingLine({ room }: { room: Room }) {
   const t = useXT();
@@ -49,90 +49,18 @@ function NotificationMenu({ client, room, onClose }: { client: ChatClient; room:
           {level === l && <span>✓</span>}
         </button>
       ))}
-    </div>
-  );
-}
-
-function ChannelMenu({ client, room, onClose, onInvite, onIntegrations }: { client: ChatClient; room: Room; onClose: () => void; onInvite: () => void; onIntegrations: () => void }) {
-  const t = useXT();
-  const { confirm, prompt } = useChatDialogs();
-  const setView = useChatStore((s) => s.setView);
-  const name = client.roomName(room);
-  const moderator = client.can(room, "state");
-  // Step 63: the company admin manages every channel of the company through the platform.
-  const me = useXenaxioMe();
-  const companyAdmin = me?.user.role === "admin" && !!room.creator && serverOfUser(room.creator) === client.homeServer;
-  const isAdmin = moderator || companyAdmin;
-  const asAdmin = (change: ChatChannelChange) => xenaxio.changeChatChannel(room.id, change);
-  const item = "block w-full px-3 py-1.5 text-left text-sm hover:bg-accent";
-  const run = (job: () => Promise<unknown>) => () => {
-    onClose();
-    void job().catch((err: unknown) => toast.error(err instanceof XenaxioApiError ? errorText(t, err) : t("chat.error")));
-  };
-  return (
-    <div className="absolute left-0 top-9 z-40 w-60 rounded-md border border-border bg-popover py-1 shadow-lg" onMouseLeave={onClose}>
-      {room.kind === "channel" && client.can(room, "invite") && !room.archived && (
-        <button type="button" className={item} onClick={() => (onClose(), onInvite())}>
-          {t("chat.invite")}
-        </button>
-      )}
-      {room.kind === "channel" && isAdmin && !room.archived && (
-        <>
-          <button
-            type="button"
-            className={item}
-            onClick={run(async () => {
-              const next = await prompt({ title: t("chat.rename"), defaultValue: room.name ?? "", confirmText: t("chat.save_edit") });
-              if (next?.trim()) await (moderator ? client.rename(room.id, next.trim()) : asAdmin({ name: next.trim() }));
-            })}
-          >
-            {t("chat.rename")}
-          </button>
-          <button
-            type="button"
-            className={item}
-            onClick={run(async () => {
-              const next = await prompt({ title: t("chat.set_topic"), defaultValue: room.topic ?? "", confirmText: t("chat.save_edit") });
-              if (next !== null) await (moderator ? client.setTopic(room.id, next.trim()) : asAdmin({ topic: next.trim() }));
-            })}
-          >
-            {t("chat.set_topic")}
-          </button>
-        </>
-      )}
-      {room.kind === "channel" && !room.archived && (
-        <button type="button" className={item} onClick={() => (onClose(), onIntegrations())}>
-          {t("chat.hooks_menu")}
-        </button>
-      )}
+      {/* Step 99, part D: as in Slack, a channel's @channel / @here can be ignored. */}
       {room.kind === "channel" && (
         <button
           type="button"
-          className={item}
-          onClick={run(async () => {
-            if (await confirm({ title: t("chat.leave"), message: t("chat.leave_confirm", { name }), confirmText: t("chat.leave") })) {
-              await client.leave(room.id);
-              setView({ kind: "home" });
-            }
-          })}
+          onClick={() => {
+            onClose();
+            void client.setIgnoreRoomMentions(room.id, !client.ignoredRoomMentions.has(room.id)).catch(() => toast.error(t("chat.error")));
+          }}
+          className={cn("flex w-full items-center justify-between border-t border-border px-3 py-1.5 text-left text-sm hover:bg-accent", client.ignoredRoomMentions.has(room.id) && "font-semibold")}
         >
-          {t("chat.leave")}
-        </button>
-      )}
-      {room.kind === "channel" && isAdmin && !room.archived && (
-        <button
-          type="button"
-          className={cn(item, "text-destructive")}
-          onClick={run(async () => {
-            if (await confirm({ title: t("chat.archive"), message: t("chat.archive_confirm", { name }), confirmText: t("chat.archive"), variant: "destructive" })) await (moderator ? client.archive(room.id) : asAdmin({ archived: true }));
-          })}
-        >
-          {t("chat.archive")}
-        </button>
-      )}
-      {room.kind === "channel" && companyAdmin && room.archived && (
-        <button type="button" className={item} onClick={run(() => asAdmin({ archived: false }))}>
-          {t("chat.restore")}
+          {t("chat.notify_ignore_room")}
+          {client.ignoredRoomMentions.has(room.id) && <span>✓</span>}
         </button>
       )}
     </div>
@@ -164,7 +92,9 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const locale = useLocale();
   const setPanel = useChatStore((s) => s.setPanel);
   const setEditing = useChatStore((s) => s.setEditing);
-  const [menu, setMenu] = useState<"channel" | "notify" | "pinned" | null>(null);
+  const [menu, setMenu] = useState<"notify" | "pinned" | null>(null);
+  // Step 99, part B: a click on the channel's name opens its details, as in Slack.
+  const [details, setDetails] = useState<DetailsTab | null>(null);
   const [inviting, setInviting] = useState(false);
   const [integrations, setIntegrations] = useState(false);
   const [dragging, setDragging] = useState(false);
@@ -223,7 +153,13 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
     >
       <header className="flex h-14 shrink-0 items-center gap-2 border-b border-border px-4">
         <div className="relative min-w-0">
-          <button type="button" onClick={() => setMenu(menu === "channel" ? null : "channel")} className="flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-base font-bold hover:bg-accent">
+          <button
+            type="button"
+            onClick={() => (room.kind === "dm" ? partners[0] && setPanel({ kind: "profile", userId: partners[0] }) : setDetails("info"))}
+            className="flex min-w-0 items-center gap-1 rounded px-1.5 py-1 text-base font-bold hover:bg-accent"
+            aria-haspopup="dialog"
+            title={room.kind === "dm" ? undefined : t("chat.details_open")}
+          >
             {room.kind === "dm" ? (
               partners[0] && <PersonAvatar userId={partners[0]} name={roomName} size="sm" presence={presenceOf(client, partners[0])} className="mr-1" />
             ) : room.external ? (
@@ -235,14 +171,17 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
             )}
             <span className="truncate">{roomName}</span>
             {room.external && <span className="ml-1 rounded bg-primary/10 px-1.5 text-[10px] font-semibold uppercase text-primary">{t("chat.external")}</span>}
-            <IconChevronDown size={14} className="text-muted-foreground" />
+            {room.kind !== "dm" && <IconChevronDown size={14} className="text-muted-foreground" />}
           </button>
-          {menu === "channel" && <ChannelMenu client={client} room={room} onClose={() => setMenu(null)} onInvite={() => setInviting(true)} onIntegrations={() => setIntegrations(true)} />}
         </div>
         <button type="button" onClick={() => void toggleStar()} className="rounded p-1 text-muted-foreground hover:bg-accent" title={starred ? t("chat.unstar") : t("chat.star")} aria-label={starred ? t("chat.unstar") : t("chat.star")}>
           {starred ? <IconStarFilled size={16} className="text-amber-500" /> : <IconStar size={16} />}
         </button>
-        {room.topic && <span className="hidden min-w-0 truncate text-sm text-muted-foreground md:block">{room.topic}</span>}
+        {room.topic && (
+          <button type="button" onClick={() => setDetails("info")} className="hidden min-w-0 truncate text-left text-sm text-muted-foreground hover:text-foreground md:block">
+            {room.topic}
+          </button>
+        )}
         {room.kind === "dm" && partners[0] && client.people.get(partners[0])?.statusMsg && (
           <span className="hidden min-w-0 truncate text-sm text-muted-foreground md:block">{client.people.get(partners[0])?.statusMsg}</span>
         )}
@@ -284,6 +223,9 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
         <div className="pointer-events-none absolute inset-2 z-30 flex items-center justify-center rounded-lg border-2 border-dashed border-primary bg-primary/5 text-sm font-medium text-primary">
           {t("chat.drop_files")}
         </div>
+      )}
+      {details && room.kind === "channel" && (
+        <ChannelDetails client={client} room={room} initialTab={details} onClose={() => setDetails(null)} onInvite={() => setInviting(true)} onIntegrations={() => setIntegrations(true)} />
       )}
       {integrations && <IntegrationsDialog room={room} roomName={roomName} onClose={() => setIntegrations(false)} />}
       {inviting && (

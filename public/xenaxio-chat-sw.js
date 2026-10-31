@@ -90,9 +90,11 @@ async function handlePush(event) {
   if (sameAccount && open.some((c) => c.focused && c.visibilityState === "visible" && isChatWindow(c))) return;
 
   const title = typeof data.title === "string" && data.title ? data.title : "Rooms";
-  const body = typeof data.body === "string" ? data.body : "";
+  // Step 99: the person may hide the text (only who wrote where) and turn the sound off.
+  const body = data.hidden === true ? (LOCALE === "de" ? "Neue Nachricht" : "New message") : typeof data.body === "string" ? data.body : "";
   await self.registration.showNotification(title, {
     body,
+    silent: data.silent === true,
     // One notification per channel: a new message replaces the older one.
     tag: `xenaxio-chat:${data.roomId || ""}`,
     renotify: true,

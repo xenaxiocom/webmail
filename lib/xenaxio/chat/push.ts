@@ -23,6 +23,31 @@ export interface ChatNotifySettings {
   emailDigest: boolean;
   /** Step 98: which installed app shows chat notifications; auto = XenRooms when installed. */
   chatApp?: "auto" | "workspace" | "rooms";
+  /** Step 99: phones like the computer, only mentions and direct messages, or nothing. */
+  mobileLevel?: "same" | "mentions" | "none";
+  sound?: boolean;
+  /** The start of the message in the notification (else only who wrote where). */
+  preview?: boolean;
+  /** How soon unread mentions come by e-mail. */
+  emailFrequency?: "never" | "15m" | "hourly" | "daily";
+  /** The person's time zone for quiet hours (this browser's, saved with the settings). */
+  timeZone?: string | null;
+}
+
+/** Step 99: a phone or tablet notifies as the person chose for phones. */
+export function deviceKind(): "desktop" | "mobile" {
+  if (typeof window === "undefined") return "desktop";
+  const ua = navigator.userAgent;
+  return /Android|iPhone|iPad|iPod|Mobile/i.test(ua) || (window.matchMedia?.("(pointer: coarse)").matches && !window.matchMedia?.("(pointer: fine)").matches) ? "mobile" : "desktop";
+}
+
+/** This browser's time zone (quiet hours are kept in it). */
+export function browserTimeZone(): string | null {
+  try {
+    return Intl.DateTimeFormat().resolvedOptions().timeZone || null;
+  } catch {
+    return null;
+  }
 }
 
 const json = { Accept: "application/json", "Content-Type": "application/json", "x-xenaxio-csrf": "1" };
@@ -59,7 +84,7 @@ async function sendSubscription(sub: PushSubscription): Promise<void> {
     method: "POST",
     credentials: "same-origin",
     headers: json,
-    body: JSON.stringify({ endpoint: data.endpoint, keys: { p256dh: data.keys?.p256dh, auth: data.keys?.auth } }),
+    body: JSON.stringify({ endpoint: data.endpoint, keys: { p256dh: data.keys?.p256dh, auth: data.keys?.auth }, device: deviceKind() }),
   });
   if (!res.ok) throw new Error(`push subscribe ${res.status}`);
 }
@@ -175,7 +200,9 @@ export async function loadChatSettings(): Promise<ChatNotifySettings> {
 }
 
 export async function saveChatSettings(settings: ChatNotifySettings): Promise<ChatNotifySettings> {
-  const res = await apiFetch("/api/chat/settings", { method: "PUT", credentials: "same-origin", headers: json, body: JSON.stringify(settings) });
+  // Step 99: quiet hours count in the person's own time zone.
+  const body = { ...settings, timeZone: browserTimeZone() ?? settings.timeZone ?? null };
+  const res = await apiFetch("/api/chat/settings", { method: "PUT", credentials: "same-origin", headers: json, body: JSON.stringify(body) });
   if (!res.ok) throw new Error(`settings ${res.status}`);
   return (await res.json()) as ChatNotifySettings;
 }

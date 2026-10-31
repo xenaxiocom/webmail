@@ -305,7 +305,8 @@ export interface ChatChannelAdmin {
   general: boolean;
 }
 
-export type ChatChannelChange = { name?: string; topic?: string; archived?: boolean };
+/** Step 63; step 99 adds description, privacy, who writes and who may @channel. */
+export type ChatChannelChange = { name?: string; topic?: string; archived?: boolean; description?: string; isPublic?: boolean; posting?: "everyone" | "managers"; channelMentions?: "everyone" | "managers" };
 
 /** Step 44: result of the connection test of a company's own model. */
 export interface CustomModelCheck {

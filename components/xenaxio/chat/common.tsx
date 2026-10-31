@@ -83,6 +83,12 @@ export function messageLink(locale: string, roomId: string, eventId: string): st
   return `${prefix}${withBasePath(`/${locale}/chat/`)}?room=${encodeURIComponent(roomId)}&event=${encodeURIComponent(eventId)}`;
 }
 
+/** Step 99: a link others can open to the channel itself. */
+export function channelLink(locale: string, roomId: string): string {
+  const prefix = typeof window === "undefined" ? "" : window.location.origin;
+  return `${prefix}${withBasePath(`/${locale}/chat/`)}?room=${encodeURIComponent(roomId)}`;
+}
+
 /** Step 43, part D: whether the AI assistant is on for this person (its chat buttons show only then). */
 export function useAssistant(): boolean {
   const [available, setAvailable] = useState(false);

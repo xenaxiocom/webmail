@@ -97,6 +97,9 @@ export interface Room {
   tags: Record<string, { order?: number }>;
   lastTs: number;
   archived: boolean;
+  /** Step 99: the channel's description (our state, next to the topic) and when it was made. */
+  description: string | null;
+  createdTs: number | null;
   /** Step 43, part E: made for people of other companies ("externer Kanal" or a conversation with them). */
   external: boolean;
 }
@@ -110,6 +113,8 @@ export interface PowerLevels {
   redact: number;
   invite: number;
   kick: number;
+  /** Who may notify everyone (@room, our @channel / @here). */
+  notifications?: { room?: number };
 }
 
 export interface SavedItem {
@@ -142,10 +147,87 @@ const SYNC_TIMEOUT_MS = 30_000;
 export const SERVICE_LOCALPART = "xenaxio";
 /** Our own account data: messages saved for later. */
 export const SAVED_TYPE = "com.xenaxio.saved";
+/** Step 99, part C: the sidebar's own sections, order and filters (account data: the same on every device). */
+export const SIDEBAR_TYPE = "com.xenaxio.sidebar";
+export type SectionSort = "manual" | "alpha" | "activity";
+export interface SidebarSection {
+  id: string;
+  name: string;
+  /** Rooms in the order the person put them. */
+  rooms: string[];
+}
+export interface SidebarLayout {
+  sections: SidebarSection[];
+  /** Folded sections: "starred", "channels", "direct" or an own section's id. */
+  collapsed: string[];
+  /** Order per section; unset: own sections as put, channels by name, direct messages by activity. */
+  sort: Record<string, SectionSort>;
+  unreadOnly: boolean;
+}
+export const EMPTY_LAYOUT: SidebarLayout = { sections: [], collapsed: [], sort: {}, unreadOnly: false };
+
+/** The layout from account data; anything odd is dropped (another client may have written it). */
+export function parseLayout(content: Record<string, unknown> | undefined): SidebarLayout {
+  const c = content ?? {};
+  const str = (v: unknown, max: number) => (typeof v === "string" ? v.slice(0, max) : "");
+  const sections = (Array.isArray(c.sections) ? c.sections : [])
+    .filter((x): x is Record<string, unknown> => !!x && typeof x === "object")
+    .map((x) => ({ id: str(x.id, 40), name: str(x.name, 80).trim(), rooms: (Array.isArray(x.rooms) ? x.rooms : []).filter((r): r is string => typeof r === "string" && r.startsWith("!")).slice(0, 500) }))
+    .filter((x) => /^s[a-z0-9]{1,30}$/.test(x.id) && x.name)
+    .slice(0, 30);
+  const collapsed = (Array.isArray(c.collapsed) ? c.collapsed : []).filter((x): x is string => typeof x === "string").slice(0, 40);
+  const sort: Record<string, SectionSort> = {};
+  if (c.sort && typeof c.sort === "object")
+    for (const [k, v] of Object.entries(c.sort as Record<string, unknown>)) if (v === "manual" || v === "alpha" || v === "activity") sort[k.slice(0, 40)] = v;
+  return { sections, collapsed, sort, unreadOnly: c.unreadOnly === true };
+}
+
+export type NotifyLevel = "all" | "mentions" | "none";
+type PushRule = { rule_id?: string; enabled?: boolean; actions?: unknown[] };
+
+/**
+ * Each channel's own level from the push rules (our rules, see setNotifications):
+ * muted, mentions only, or — when the default is lower — all messages.
+ */
+export function roomLevelsOf(content: Record<string, unknown> | undefined): Map<string, NotifyLevel> {
+  const global = (content?.global ?? {}) as { override?: PushRule[]; room?: PushRule[] };
+  const levels = new Map<string, NotifyLevel>();
+  for (const r of global.room ?? [])
+    if (r.rule_id?.startsWith("!") && r.enabled !== false) levels.set(r.rule_id, (r.actions ?? []).includes("notify") ? "all" : "mentions");
+  for (const r of global.override ?? []) if (r.rule_id?.startsWith(MUTE_PREFIX) && r.enabled !== false) levels.set(r.rule_id.slice(MUTE_PREFIX.length), "none");
+  return levels;
+}
+
+/**
+ * Step 99, part D: the default for channels, as in Slack — all new messages;
+ * direct messages, mentions and keywords; or nothing. It is the person's own
+ * push rules on the chat server: "nothing" is the master rule, "mentions"
+ * turns off the rule for ordinary messages in channels.
+ */
+export function defaultLevelOf(content: Record<string, unknown> | undefined): NotifyLevel {
+  const global = (content?.global ?? {}) as { override?: PushRule[]; underride?: PushRule[] };
+  if (global.override?.find((r) => r.rule_id === ".m.rule.master")?.enabled === true) return "none";
+  if (global.underride?.find((r) => r.rule_id === ".m.rule.message")?.enabled === false) return "mentions";
+  return "all";
+}
+
+/** Channels where @channel / @here do not notify this person (step 99). */
+export function ignoredRoomMentionsOf(content: Record<string, unknown> | undefined): Set<string> {
+  const global = (content?.global ?? {}) as { override?: PushRule[] };
+  return new Set((global.override ?? []).filter((r) => r.rule_id?.startsWith(NOROOM_PREFIX) && r.enabled !== false).map((r) => (r.rule_id as string).slice(NOROOM_PREFIX.length)));
+}
+
+const MUTE_PREFIX = "xenaxio-mute-";
+const NOROOM_PREFIX = "xenaxio-noroom-";
+
 /** Our own room state: an archived channel (read-only, out of the directory). */
 export const ARCHIVED_TYPE = "com.xenaxio.archived";
 /** Step 63: on a change the platform made in a channel, the admin who asked for it. */
 export const BY_FIELD = "com.xenaxio.by";
+/** Step 99: a channel's description; the platform writes the same type for the company admin. */
+export const DESCRIPTION_TYPE = "com.xenaxio.description";
+/** Step 99: the level of a channel's managers (Matrix moderators). */
+export const MANAGER_LEVEL = 50;
 
 /** The platform's own account (it sets channels up; never shown as a person). */
 export function isPlatformAccount(userId: string): boolean {
@@ -239,6 +321,8 @@ function newRoom(id: string): Room {
     lastTs: 0,
     archived: false,
     external: false,
+    description: null,
+    createdTs: null,
   };
 }
 
@@ -254,6 +338,13 @@ export class ChatClient {
   /** m.direct: partner → their DM rooms. */
   direct: Record<string, string[]> = {};
   saved: SavedItem[] = [];
+  /** Step 99, part C: own sections, folded sections, order and filter of the sidebar. */
+  sidebar: SidebarLayout = EMPTY_LAYOUT;
+  /** Channels with their own level (from the push rules on the server); the others follow `defaultLevel`. */
+  roomLevels = new Map<string, NotifyLevel>();
+  /** Step 99, part D: the default level for channels, and channels where @channel is ignored. */
+  defaultLevel: NotifyLevel = "all";
+  ignoredRoomMentions = new Set<string>();
   /** People I blocked (Matrix ignore list). */
   ignored: Record<string, object> = {};
   ready = false;
@@ -423,6 +514,12 @@ export class ChatClient {
       this.ignored = ((ev.content ?? {}).ignored_users ?? {}) as Record<string, object>;
     } else if (ev.type === SAVED_TYPE) {
       this.saved = Array.isArray(ev.content.items) ? (ev.content.items as SavedItem[]) : [];
+    } else if (ev.type === SIDEBAR_TYPE) {
+      this.sidebar = parseLayout(ev.content);
+    } else if (ev.type === "m.push_rules") {
+      this.roomLevels = roomLevelsOf(ev.content);
+      this.defaultLevel = defaultLevelOf(ev.content);
+      this.ignoredRoomMentions = ignoredRoomMentionsOf(ev.content);
     }
   }
 
@@ -449,6 +546,7 @@ export class ChatClient {
     switch (ev.type) {
       case "m.room.create":
         room.creator = (c.creator as string) ?? ev.sender;
+        if (typeof ev.origin_server_ts === "number") room.createdTs = ev.origin_server_ts;
         if (c.type === "m.space") room.kind = "space";
         room.external = c[EXTERNAL_MARK] === true && c["m.federate"] !== false;
         break;
@@ -469,6 +567,9 @@ export class ChatClient {
         break;
       case ARCHIVED_TYPE:
         room.archived = c.archived === true;
+        break;
+      case DESCRIPTION_TYPE:
+        room.description = typeof c.description === "string" && c.description.trim() ? c.description.trim().slice(0, 1000) : null;
         break;
       case "m.room.member": {
         const userId = ev.state_key as string;
@@ -846,8 +947,8 @@ export class ChatClient {
       preset: input.isPublic ? "public_chat" : "private_chat",
       visibility: input.isPublic ? "public" : "private",
       invite: input.invite ?? [],
-      // Everyone in the channel may pin messages, as in Slack.
-      power_level_content_override: { events: { "m.room.pinned_events": 0 } },
+      // Everyone in the channel may pin messages and notify everyone with @channel, as in Slack (step 99).
+      power_level_content_override: { events: { "m.room.pinned_events": 0 }, notifications: { room: 0 } },
     });
     return res.room_id;
   }
@@ -930,6 +1031,56 @@ export class ChatClient {
     await mx("PUT", paths.state(roomId, "m.room.name"), { name });
   }
 
+  // --- Step 99: channel details, as in Slack ----------------------------------
+
+  async setDescription(roomId: string, description: string): Promise<void> {
+    await mx("PUT", paths.state(roomId, DESCRIPTION_TYPE), { description });
+  }
+
+  /** Open (in the directory, anyone of the company joins) or closed (invitation only). */
+  async setPublic(roomId: string, isPublic: boolean): Promise<void> {
+    await mx("PUT", paths.state(roomId, "m.room.join_rules"), { join_rule: isPublic ? "public" : "invite" });
+    await mx("PUT", `/_matrix/client/v3/directory/list/room/${encodeURIComponent(roomId)}`, { visibility: isPublic ? "public" : "private" }).catch(() => undefined);
+  }
+
+  /** Who writes (everyone or the managers) and who may notify everyone. */
+  async setRoomRules(roomId: string, rules: { posting?: "everyone" | "managers"; channelMentions?: "everyone" | "managers" }): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const pl = room.powerLevels;
+    const events = { ...pl.events };
+    if (rules.posting) events["m.room.message"] = rules.posting === "managers" ? MANAGER_LEVEL : pl.events_default;
+    const notifications = { ...(pl.notifications ?? {}), ...(rules.channelMentions ? { room: rules.channelMentions === "managers" ? MANAGER_LEVEL : 0 } : {}) };
+    await mx("PUT", paths.state(roomId, "m.room.power_levels"), { ...pl, events, notifications });
+  }
+
+  /** Makes someone a manager of the channel, or takes it back. */
+  async setManager(roomId: string, userId: string, on: boolean): Promise<void> {
+    const room = this.rooms.get(roomId);
+    if (!room) return;
+    const users = { ...room.powerLevels.users };
+    if (on) users[userId] = Math.max(MANAGER_LEVEL, users[userId] ?? 0);
+    else delete users[userId];
+    await mx("PUT", paths.state(roomId, "m.room.power_levels"), { ...room.powerLevels, users });
+  }
+
+  /** Removes someone from the channel (they can be invited again). */
+  async kick(roomId: string, userId: string): Promise<void> {
+    await mx("POST", `/_matrix/client/v3/rooms/${encodeURIComponent(roomId)}/kick`, { user_id: userId });
+  }
+
+  /** Is this person a manager of the channel (moderator or higher)? */
+  isManager(room: Room, userId: string): boolean {
+    return this.powerOf(room, userId) >= MANAGER_LEVEL;
+  }
+
+  /** Who writes and who may notify everyone, read from the room's levels. */
+  roomRules(room: Room): { posting: "everyone" | "managers"; channelMentions: "everyone" | "managers" } {
+    const pl = room.powerLevels;
+    const writeLevel = pl.events["m.room.message"] ?? pl.events_default;
+    return { posting: writeLevel > 0 ? "managers" : "everyone", channelMentions: (pl.notifications?.room ?? 50) > 0 ? "managers" : "everyone" };
+  }
+
   /** Archived: read-only for everyone and gone from the directory; messages stay. */
   async archive(roomId: string): Promise<void> {
     const room = this.rooms.get(roomId);
@@ -973,12 +1124,72 @@ export class ChatClient {
   }
 
   /** Mute a channel ("Nichts") or hear only mentions; back to everything with "all". */
-  async setNotifications(roomId: string, level: "all" | "mentions" | "none"): Promise<void> {
-    const muteId = `xenaxio-mute-${roomId}`;
+  async setNotifications(roomId: string, level: NotifyLevel): Promise<void> {
+    const muteId = `${MUTE_PREFIX}${roomId}`;
     await mx("DELETE", paths.pushRule("override", muteId)).catch(() => undefined);
     await mx("DELETE", paths.pushRule("room", roomId)).catch(() => undefined);
-    if (level === "mentions") await mx("PUT", paths.pushRule("room", roomId), { actions: [] });
-    if (level === "none") await mx("PUT", paths.pushRule("override", muteId), { actions: [], conditions: [{ kind: "event_match", key: "room_id", pattern: roomId }] });
+    // Step 99: a channel at the default level has no rule of its own; "all" under a lower default has one.
+    const own = level !== this.defaultLevel;
+    if (own && level === "all") await mx("PUT", paths.pushRule("room", roomId), { actions: ["notify", { set_tweak: "sound", value: "default" }] });
+    if (own && level === "mentions") await mx("PUT", paths.pushRule("room", roomId), { actions: [] });
+    if (own && level === "none") await mx("PUT", paths.pushRule("override", muteId), { actions: [], conditions: [{ kind: "event_match", key: "room_id", pattern: roomId }] });
+    const levels = new Map(this.roomLevels);
+    if (own) levels.set(roomId, level);
+    else levels.delete(roomId);
+    this.roomLevels = levels;
+    this.changed();
+  }
+
+  /** The level a channel notifies at: its own, else the default. */
+  levelOf(roomId: string): NotifyLevel {
+    return this.roomLevels.get(roomId) ?? this.defaultLevel;
+  }
+
+  /** Step 99, part D: the default for channels (direct messages and mentions notify unless "nothing"). */
+  async setDefaultLevel(level: NotifyLevel): Promise<void> {
+    await mx("PUT", `${paths.pushRule("override", ".m.rule.master")}/enabled`, { enabled: level === "none" });
+    await mx("PUT", `${paths.pushRule("underride", ".m.rule.message")}/enabled`, { enabled: level === "all" });
+    this.defaultLevel = level;
+    this.changed();
+  }
+
+  /** Step 99, part D: @channel / @here in this channel do not notify me. */
+  async setIgnoreRoomMentions(roomId: string, ignore: boolean): Promise<void> {
+    const id = `${NOROOM_PREFIX}${roomId}`;
+    if (ignore)
+      await mx("PUT", paths.pushRule("override", id), {
+        actions: [],
+        conditions: [
+          { kind: "event_match", key: "room_id", pattern: roomId },
+          { kind: "event_property_is", key: "content.m\\.mentions.room", value: true },
+        ],
+      });
+    else await mx("DELETE", paths.pushRule("override", id)).catch(() => undefined);
+    const next = new Set(this.ignoredRoomMentions);
+    if (ignore) next.add(roomId);
+    else next.delete(roomId);
+    this.ignoredRoomMentions = next;
+    this.changed();
+  }
+
+  /** Step 99, part C: the sidebar's layout, kept on the server for every device. */
+  async setSidebar(next: SidebarLayout): Promise<void> {
+    const previous = this.sidebar;
+    this.sidebar = next;
+    this.changed();
+    try {
+      await mx("PUT", paths.accountData(this.userId, SIDEBAR_TYPE), next);
+    } catch (err) {
+      this.sidebar = previous;
+      this.changed();
+      throw err;
+    }
+  }
+
+  /** Marks every channel and direct message as read (Slack: Shift+Esc). */
+  async markAllRead(): Promise<void> {
+    const unread = [...this.rooms.values()].filter((r) => r.membership === "join" && (r.notifications > 0 || r.highlights > 0));
+    await Promise.all(unread.map((r) => this.markRead(r.id)));
   }
 
   /** Own keywords: a message containing one notifies like a mention (Slack's "My keywords"). */
@@ -997,19 +1208,9 @@ export class ChatClient {
   }
 
   /** The current notification level of a channel. */
-  async notificationLevel(roomId: string): Promise<"all" | "mentions" | "none"> {
-    try {
-      await mx("GET", paths.pushRule("override", `xenaxio-mute-${roomId}`));
-      return "none";
-    } catch {
-      // No mute rule.
-    }
-    try {
-      await mx("GET", paths.pushRule("room", roomId));
-      return "mentions";
-    } catch {
-      return "all";
-    }
+  /** The current level of a channel (the push rules come with the sync). */
+  async notificationLevel(roomId: string): Promise<NotifyLevel> {
+    return this.levelOf(roomId);
   }
 
   async publicChannels(): Promise<{ roomId: string; name: string; topic: string | null; members: number }[]> {
@@ -1060,7 +1261,7 @@ export class ChatClient {
     return room.powerLevels.users[userId] ?? room.powerLevels.users_default;
   }
 
-  can(room: Room, action: "send" | "state" | "redact" | "invite" | "pin"): boolean {
+  can(room: Room, action: "send" | "state" | "redact" | "invite" | "pin" | "kick" | "mentionRoom"): boolean {
     const mine = this.powerOf(room, this.userId);
     const pl = room.powerLevels;
     switch (action) {
@@ -1074,6 +1275,10 @@ export class ChatClient {
         return mine >= pl.invite;
       case "pin":
         return mine >= (pl.events["m.room.pinned_events"] ?? pl.state_default);
+      case "kick":
+        return mine >= pl.kick;
+      case "mentionRoom":
+        return mine >= (pl.notifications?.room ?? 50);
     }
   }
 
