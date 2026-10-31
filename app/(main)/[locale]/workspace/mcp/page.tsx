@@ -12,7 +12,7 @@ import { Link } from "@/i18n/navigation";
 import { Button } from "@/components/ui/button";
 import { CopyButton } from "@/components/xenaxio/copy-button";
 import { Notice, Spinner, TextField } from "@/components/xenaxio/ui";
-import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
+import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { errorKey, type McpTokenInfo, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { claudeCodeCommand, jsonConfig } from "@/lib/xenaxio/mcp";
@@ -33,6 +33,8 @@ function Snippet({ label, value }: { label: string; value: string }) {
 
 function Tokens() {
   const t = useXT();
+  // Step 96: a person without a mailbox (XenRooms) connects the team chat only.
+  const rooms = useMe().user.kind === "chat";
   const locale = useLocale();
   const [data, setData] = useState<{ mcpUrl: string; sharedMcpUrl?: string; enabled: boolean; tokens: McpTokenInfo[] } | null>(null);
   const [name, setName] = useState("");
@@ -72,7 +74,7 @@ function Tokens() {
   };
 
   const revoke = async (token: McpTokenInfo) => {
-    if (!window.confirm(t("mcp.revoke_confirm", { name: token.name }))) return;
+    if (!window.confirm(t(rooms ? "mcp.revoke_confirm_rooms" : "mcp.revoke_confirm", { name: token.name }))) return;
     setError(null);
     try {
       await xenaxio.revokeMcpToken(token.id);
@@ -84,10 +86,10 @@ function Tokens() {
 
   if (!data) return error ? <Notice kind="error">{error}</Notice> : <Spinner label={t("common.loading")} />;
 
-  const howto = ["mcp.howto_1", "mcp.howto_2", "mcp.howto_3", "mcp.howto_4"];
+  const howto = ["mcp.howto_1", "mcp.howto_2", "mcp.howto_3", rooms ? "mcp.howto_4_rooms" : "mcp.howto_4"];
   return (
     <div className="max-w-2xl space-y-6">
-      <p className="text-sm text-muted-foreground">{t("mcp.intro")}</p>
+      <p className="text-sm text-muted-foreground">{t(rooms ? "mcp.intro_rooms" : "mcp.intro")}</p>
       <p className="text-sm text-muted-foreground">{t("mcp.chat_note")}</p>
       {/* Step 85: what connected AI chats may do, per tool. */}
       <Link href="/workspace/permissions" className="block text-sm text-primary underline underline-offset-4">

@@ -877,7 +877,10 @@
     "several_text": "Claude accepts each address only once. Every company has its own address (above). For a second account of the same company, add a name, for example:",
     "several_hint": "When connecting, sign in with the account Claude should use. Claude learns which account is behind which connector.",
     "address": "Address: {address}",
-    "chat_note": "If your company uses Rooms, the team chat, the AI chat can also read and search it (only your channels and direct messages). It cannot write there."
+    "chat_note": "If your company uses Rooms, the team chat, the AI chat can also read and search it (only your channels and direct messages). It cannot write there.",
+    "intro_rooms": "Connect your AI chat, for example Claude, to XenRooms. Then ask what you missed in the team chat or search what was said – right in your AI chat. It cannot write in the chat.",
+    "howto_4_rooms": "Done. Ask Claude, for example: “What did I miss in the team chat today?”",
+    "revoke_confirm_rooms": "Disconnect “{name}”? The chat loses access to your team chat at once."
   },
   "aiadmin": {
     "title": "AI settings",
@@ -1100,7 +1103,10 @@
     "others": "Connect another account?",
     "switch": "Connect this one instead",
     "other_company": "This account belongs to another address. In your AI chat, connect it with this address: {url}",
-    "add_account": "Sign in with another account"
+    "add_account": "Sign in with another account",
+    "wants_rooms": "{client} wants to access your XenRooms team chat.",
+    "can_rooms": "read what you missed and search your channels and direct messages",
+    "cannot_rooms": "The chat cannot write, change or delete anything in the team chat."
   },
   "domainbar": {
     "pending_admin": "Your domain {domain} is not connected yet: email is sent and received only once the DNS records are correct.",

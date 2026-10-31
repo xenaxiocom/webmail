@@ -4,7 +4,7 @@ import { activeBrand, isRoomsPath } from "@/lib/xenaxio/portal";
 
 describe("XenRooms helpers (step 67)", () => {
   it("has pages for the chat, sign-in and the forced password change only", () => {
-    for (const path of ["/de/chat/", "/en/chat", "/de/login/", "/de/auth/x", "/de/workspace/password/"]) expect(isRoomsPath(path)).toBe(true);
+    for (const path of ["/de/chat/", "/en/chat", "/de/login/", "/de/auth/x", "/de/workspace/password/", "/en/connect/", "/de/workspace/mcp/"]) expect(isRoomsPath(path)).toBe(true);
     for (const path of ["/", "/de/", "/de/mail/", "/de/workspace/", "/de/calendar/", "/de/chatty/"]) expect(isRoomsPath(path)).toBe(false);
   });
 

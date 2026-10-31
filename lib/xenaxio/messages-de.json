@@ -877,7 +877,10 @@
     "several_text": "Claude nimmt jede Adresse nur einmal an. Jede Firma hat ihre eigene Adresse (oben). Für ein zweites Konto derselben Firma hängen Sie einen Namen an, zum Beispiel:",
     "several_hint": "Beim Verbinden melden Sie sich mit dem Konto an, das Claude nutzen soll. Claude erfährt, welches Konto hinter welchem Konnektor steht.",
     "address": "Adresse: {address}",
-    "chat_note": "Nutzt Ihre Firma Rooms, den Team-Chat, kann der KI-Chat dort auch lesen und suchen (nur Ihre Kanäle und Direktnachrichten). Schreiben kann er dort nicht."
+    "chat_note": "Nutzt Ihre Firma Rooms, den Team-Chat, kann der KI-Chat dort auch lesen und suchen (nur Ihre Kanäle und Direktnachrichten). Schreiben kann er dort nicht.",
+    "intro_rooms": "Verbinden Sie Ihren KI-Chat, zum Beispiel Claude, mit XenRooms. Dann fragen Sie direkt im KI-Chat, was Sie im Team-Chat verpasst haben, oder suchen, was gesagt wurde. Schreiben kann er im Chat nichts.",
+    "howto_4_rooms": "Fertig. Fragen Sie Claude zum Beispiel: „Was habe ich heute im Team-Chat verpasst?“",
+    "revoke_confirm_rooms": "„{name}“ trennen? Der KI-Chat verliert sofort den Zugriff auf Ihren Team-Chat."
   },
   "aiadmin": {
     "title": "KI-Einstellungen",
@@ -1100,7 +1103,10 @@
     "others": "Ein anderes Konto verbinden?",
     "switch": "Stattdessen verbinden",
     "other_company": "Dieses Konto gehört zu einer anderen Adresse. Verbinden Sie es in Ihrem KI-Chat mit dieser Adresse: {url}",
-    "add_account": "Mit einem anderen Konto anmelden"
+    "add_account": "Mit einem anderen Konto anmelden",
+    "wants_rooms": "{client} möchte auf Ihren Team-Chat in XenRooms zugreifen.",
+    "can_rooms": "lesen, was Sie verpasst haben, und Ihre Kanäle und Direktnachrichten durchsuchen",
+    "cannot_rooms": "Der Chat kann im Team-Chat nichts schreiben, ändern oder löschen."
   },
   "domainbar": {
     "pending_admin": "Ihre Domain {domain} ist noch nicht verbunden: E-Mails werden erst gesendet und empfangen, wenn die DNS-Einträge stimmen.",
