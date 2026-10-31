@@ -1,6 +1,6 @@
 "use client";
 
-// Step 106, part C3: the admin decides whether pictures sent in the company's
+// Step 108, part C3: the admin decides whether pictures sent in the company's
 // chat are checked by Xenaxio's own model (XenRooms Free: always on). People
 // at Xenaxio see only pictures the model flags, without text, channel or sender.
 import { useEffect, useState } from "react";

@@ -267,7 +267,7 @@ export interface WorkspaceUser {
   usedBytes?: number | null;
   /** Step 41: picture (versioned path); null = initials. */
   avatarUrl?: string | null;
-  /** Step 106: blocked by Xenaxio; the admin cannot lift it. */
+  /** Step 108: blocked by Xenaxio; the admin cannot lift it. */
   blockedByOperator?: boolean;
 }
 
@@ -624,7 +624,7 @@ export interface OperatorReport {
   tenants: { id: string; name: string; domain: string | null; status: string; mailUsers: number; aiWorkspaceUsers: number; aiTokens: number }[];
 }
 
-/** Step 106: the people of the installation for the operator console. */
+/** Step 108: the people of the installation for the operator console. */
 export interface OperatorPeopleSummary {
   people: number;
   accounts: number;
@@ -636,7 +636,7 @@ export interface OperatorPeopleSummary {
   active30: number;
   neverSignedIn: number;
   disabledAccounts: number;
-  /** Step 106: blocked by the operator. */
+  /** Step 108: blocked by the operator. */
   operatorBlockedAccounts?: number;
   companies: number;
   workspaceCompanies: number;
@@ -661,7 +661,7 @@ export interface OperatorPersonAccount {
   createdAt: string;
   lastLoginAt: string | null;
   lastSeenAt: string | null;
-  /** Step 106, part B: blocked by the operator, with the reason. */
+  /** Step 108, part B: blocked by the operator, with the reason. */
   operatorBlockedAt?: string | null;
   operatorBlockReason?: string | null;
 }
@@ -681,11 +681,11 @@ export interface OperatorPerson {
   accounts: OperatorPersonAccount[];
   devices: { company: string; browser: string | null; os: string | null; signedInAt: string; lastSeenAt: string }[];
   lastLogin: { at: string; ip: string | null; country: string | null } | null;
-  /** Step 106, part B: the address (or its domain) may not sign up or be invited. */
+  /** Step 108, part B: the address (or its domain) may not sign up or be invited. */
   signupBlocked?: boolean;
 }
 
-/** Step 106, part B: an address or mail domain that may not sign up or be invited. */
+/** Step 108, part B: an address or mail domain that may not sign up or be invited. */
 export interface BlockedSignup {
   id: string;
   kind: "email" | "domain";
@@ -695,7 +695,7 @@ export interface BlockedSignup {
   createdBy: string | null;
 }
 
-/** Step 106, part D: what the operator did. */
+/** Step 108, part D: what the operator did. */
 export interface OperatorAction {
   id: string;
   operator: string;
@@ -725,7 +725,7 @@ export function peopleQuery(f: OperatorPeopleFilter | GalleryFilter): string {
   return q ? `?${q}` : "";
 }
 
-/** Step 106, part C: a picture people upload that others see. */
+/** Step 108, part C: a picture people upload that others see. */
 export type GalleryKind = "avatar" | "banner" | "logo" | "meeting_background" | "emoji";
 
 export interface GalleryImage {
@@ -770,7 +770,7 @@ export interface GalleryFilter {
   sort?: "new" | "score";
 }
 
-/** Step 106, part C3: a chat picture our own model flagged: only a preview, the company and the time. */
+/** Step 108, part C3: a chat picture our own model flagged: only a preview, the company and the time. */
 export interface ChatImageFlag {
   id: string;
   tenantId: string;
@@ -807,7 +807,7 @@ export interface RoomsPerson {
   invited: boolean;
   chatAddress: string | null;
   createdAt: string;
-  /** Step 106: blocked by Xenaxio; the admin cannot lift it. */
+  /** Step 108: blocked by Xenaxio; the admin cannot lift it. */
   blockedByOperator?: boolean;
 }
 
@@ -1278,7 +1278,7 @@ export const xenaxio = {
   roomsSetStatus: (id: string, status: "active" | "disabled") => request<RoomsPerson>("POST", `/api/admin/rooms/people/${encodeURIComponent(id)}/status`, { status }),
   roomsRemove: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/rooms/people/${encodeURIComponent(id)}`),
 
-  /** Step 106, part C3: pictures in the company's chat checked by Xenaxio's own model. */
+  /** Step 108, part C3: pictures in the company's chat checked by Xenaxio's own model. */
   imageCheck: () => request<{ enabled: boolean; forced: boolean; available: boolean }>("GET", "/api/admin/image-check"),
   setImageCheck: (enabled: boolean) => request<{ enabled: boolean; forced: boolean; available: boolean }>("PUT", "/api/admin/image-check", { enabled }),
 
@@ -1450,12 +1450,12 @@ export const xenaxio = {
       },
     ) => request<{ ok: true }>("POST", `/api/operator/tenants/${encodeURIComponent(id)}/limits`, limits),
     report: (month?: string) => request<OperatorReport>("GET", `/api/operator/report${month ? `?month=${encodeURIComponent(month)}` : ""}`),
-    // Step 106: every person, which companies they are in, their activity.
+    // Step 108: every person, which companies they are in, their activity.
     peopleSummary: () => request<OperatorPeopleSummary>("GET", "/api/operator/people/summary"),
     people: (f: OperatorPeopleFilter) =>
       request<{ people: OperatorPersonRow[]; total: number; page: number; pageSize: number }>("GET", `/api/operator/people${peopleQuery(f)}`),
     person: (email: string) => request<OperatorPerson>("GET", `/api/operator/person?email=${encodeURIComponent(email)}`),
-    // Step 106, part B: blocks, addresses that may not sign up, the operator's log.
+    // Step 108, part B: blocks, addresses that may not sign up, the operator's log.
     blockPerson: (input: { email: string; userId?: string; reason: string; blockSignup: boolean; blockDomain: boolean; notify: boolean }) =>
       request<{ blocked: number }>("POST", "/api/operator/people/block", input),
     unblockPerson: (input: { email: string; userId?: string }) => request<{ unblocked: number }>("POST", "/api/operator/people/unblock", input),
@@ -1464,14 +1464,14 @@ export const xenaxio = {
       request<{ blocked: BlockedSignup[] }>("POST", "/api/operator/blocked-signups", { kind, value, ...(reason ? { reason } : {}) }).then((r) => r.blocked),
     removeBlockedSignup: (id: string) => request<{ blocked: BlockedSignup[] }>("DELETE", `/api/operator/blocked-signups/${encodeURIComponent(id)}`).then((r) => r.blocked),
     actions: (email?: string) => request<{ actions: OperatorAction[] }>("GET", `/api/operator/actions${email ? `?email=${encodeURIComponent(email)}` : ""}`).then((r) => r.actions),
-    // Step 106, part C: the pictures people upload that others see.
+    // Step 108, part C: the pictures people upload that others see.
     images: (f: GalleryFilter) =>
       request<{ images: GalleryImage[]; total: number; newCount: number; page: number; pageSize: number }>("GET", `/api/operator/images${peopleQuery(f)}`),
     reviewImages: (items: { kind: GalleryKind; ref: string; version: string }[]) => request<{ ok: true }>("POST", "/api/operator/images/review", { items }),
     removeImage: (kind: GalleryKind, ref: string, reason: string, mode: "hide" | "delete") => request<{ ok: true }>("POST", "/api/operator/images/remove", { kind, ref, reason, mode }),
     hiddenImages: () => request<{ hidden: HiddenImage[] }>("GET", "/api/operator/images/hidden").then((r) => r.hidden),
     restoreImage: (id: string) => request<{ hidden: HiddenImage[] }>("POST", `/api/operator/images/hidden/${encodeURIComponent(id)}/restore`, {}).then((r) => r.hidden),
-    // Step 106, part C3: chat pictures our own model flagged (only those, only a preview) and the threshold.
+    // Step 108, part C3: chat pictures our own model flagged (only those, only a preview) and the threshold.
     imageCheckSettings: () => request<{ available: boolean; threshold: number | null }>("GET", "/api/operator/image-check"),
     setImageCheckThreshold: (threshold: number) => request<{ available: boolean; threshold: number }>("PUT", "/api/operator/image-check", { threshold }),
     chatImages: () => request<{ flags: ChatImageFlag[]; available: boolean }>("GET", "/api/operator/chat-images"),

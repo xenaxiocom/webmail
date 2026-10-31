@@ -1,6 +1,6 @@
 "use client";
 
-// Step 106, part C: the pictures people upload that others see — profile
+// Step 108, part C: the pictures people upload that others see — profile
 // pictures, banners, company logos, the company's meeting background and own
 // emoji. The operator marks them as checked, hides them (30 days, can be put
 // back) or deletes them, and blocks the person or the company from a picture.

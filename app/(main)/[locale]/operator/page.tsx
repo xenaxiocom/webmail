@@ -175,9 +175,9 @@ function Console({
           ))}
         </nav>
         {tab === "tenants" && <OperatorTenants />}
-        {/* Step 106: every person, which companies they are in, their activity. */}
+        {/* Step 108: every person, which companies they are in, their activity. */}
         {tab === "people" && <OperatorPeople />}
-        {/* Step 106, part C: pictures people upload that others see. */}
+        {/* Step 108, part C: pictures people upload that others see. */}
         {tab === "images" && <OperatorImages />}
         {tab === "report" && <OperatorReportView />}
         {tab === "models" && <OperatorModels />}

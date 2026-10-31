@@ -1,6 +1,6 @@
 "use client";
 
-// Step 106, part A: every person on the installation — which companies they
+// Step 108, part A: every person on the installation — which companies they
 // are in, when they came, signed in and were last active. One email can be in
 // several companies (XenRooms), so a row is one email with all its accounts.
 // Part B: the operator blocks a person (every account or one), keeps addresses

@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 106, part C3: the admin switches the automatic check of chat pictures on or off.
+// Step 108, part C3: the admin switches the automatic check of chat pictures on or off.
 const api = vi.hoisted(() => ({ imageCheck: vi.fn(), setImageCheck: vi.fn() }));
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/lib/xenaxio/api", async (orig) => {
@@ -15,7 +15,7 @@ beforeEach(() => {
   api.setImageCheck.mockReset();
 });
 
-describe("step 106, part C3: image check for the admin", () => {
+describe("step 108, part C3: image check for the admin", () => {
   it("switches it on", async () => {
     api.imageCheck.mockResolvedValue({ enabled: false, forced: false, available: true });
     api.setImageCheck.mockResolvedValue({ enabled: true, forced: false, available: true });

@@ -119,7 +119,7 @@ function UserEditor({ user, isSelf, maxQuotaBytes, aiEnabled, onChanged, onMessa
             {t("users.ai")}: {aiEnabled ? t("users.ai_on") : t("users.ai_off")}
           </Button>
         )}
-        {/* Step 106: blocked by Xenaxio — only Xenaxio lifts it. */}
+        {/* Step 108: blocked by Xenaxio — only Xenaxio lifts it. */}
         {!isSelf && user.blockedByOperator && <span className="text-xs text-destructive">{t("users.operator_blocked_hint")}</span>}
         {!isSelf && !user.blockedByOperator && (
           <Button

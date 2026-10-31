@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 106, part C: the pictures people upload, in the operator console.
+// Step 108, part C: the pictures people upload, in the operator console.
 const api = vi.hoisted(() => ({
   images: vi.fn(),
   reviewImages: vi.fn(),
@@ -51,7 +51,7 @@ beforeEach(() => {
   vi.spyOn(window, "prompt").mockReturnValue("Anstößig");
 });
 
-describe("step 106, part C: pictures", () => {
+describe("step 108, part C: pictures", () => {
   it("shows the new pictures with their company and owner; checks, hides and blocks from a picture", async () => {
     render(<OperatorImages />);
     expect(await screen.findByText("Neu (2)")).toBeInTheDocument();
@@ -100,7 +100,7 @@ describe("step 106, part C: pictures", () => {
     expect(await screen.findByText("Keine ausgeblendeten Bilder.")).toBeInTheDocument();
   });
 
-  it("step 106, part C3: flagged chat pictures — only a preview, the company and the time; remove, block, threshold", async () => {
+  it("step 108, part C3: flagged chat pictures — only a preview, the company and the time; remove, block, threshold", async () => {
     const flag = { id: "f1", tenantId: "t1", company: "Spam Club", plan: "free", product: "rooms", score: 0.97, createdAt: "2026-10-31T10:00:00Z", removable: true };
     api.chatImages.mockResolvedValue({ flags: [flag], available: true });
     api.imageCheckSettings.mockResolvedValue({ available: true, threshold: 0.85 });

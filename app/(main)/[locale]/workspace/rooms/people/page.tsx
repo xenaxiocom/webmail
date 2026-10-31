@@ -76,7 +76,7 @@ function Person({ person, isSelf, onChanged, onMessage }: {
               {t("rooms.people_resend")}
             </Button>
           )}
-          {/* Step 106: blocked by Xenaxio — only Xenaxio lifts it. */}
+          {/* Step 108: blocked by Xenaxio — only Xenaxio lifts it. */}
           {person.blockedByOperator ? (
             <span className="text-xs text-destructive">{t("users.operator_blocked_hint")}</span>
           ) : (

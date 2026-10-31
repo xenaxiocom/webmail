@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-// Step 106, part A: every person in the operator console.
+// Step 108, part A: every person in the operator console.
 const api = vi.hoisted(() => ({ peopleSummary: vi.fn(), people: vi.fn(), person: vi.fn(), actions: vi.fn(), blockPerson: vi.fn(), unblockPerson: vi.fn(), blockedSignups: vi.fn(), addBlockedSignup: vi.fn(), removeBlockedSignup: vi.fn() }));
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 vi.mock("@/lib/xenaxio/api", async (orig) => {
@@ -51,7 +51,7 @@ beforeEach(() => {
   });
 });
 
-describe("step 106: people in the operator console", () => {
+describe("step 108: people in the operator console", () => {
   it("shows the counters and one row per person with all their companies", async () => {
     render(<OperatorPeople />);
     expect(await screen.findByText("Max Admin")).toBeInTheDocument();
@@ -89,7 +89,7 @@ describe("step 106: people in the operator console", () => {
     expect(peopleQuery({})).toBe("");
   });
 
-  it("step 106, part B: blocks every account with a reason, then lifts it; the history shows both", async () => {
+  it("step 108, part B: blocks every account with a reason, then lifts it; the history shows both", async () => {
     const card = {
       email: "max@acme.de",
       name: "Max Admin",
@@ -126,7 +126,7 @@ describe("step 106: people in the operator console", () => {
     await waitFor(() => expect(api.unblockPerson).toHaveBeenCalledWith({ email: "max@acme.de" }));
   });
 
-  it("step 106, part B: blocked addresses and domains — list, add, allow again", async () => {
+  it("step 108, part B: blocked addresses and domains — list, add, allow again", async () => {
     api.blockedSignups.mockResolvedValue([{ id: "b1", kind: "domain", value: "spam.io", reason: "Spam", createdAt: "2026-10-31T11:00:00Z", createdBy: "op@xenaxio.test" }]);
     api.addBlockedSignup.mockResolvedValue([
       { id: "b2", kind: "email", value: "x@y.de", reason: null, createdAt: "2026-10-31T12:00:00Z", createdBy: "op@xenaxio.test" },

@@ -106,7 +106,7 @@ function ChatSettings() {
       {/* Step 99, part H: groups to mention and the company's emoji. */}
       {data.state === "active" && <GroupsAdmin />}
       {data.state === "active" && <EmojiAdmin />}
-      {/* Step 106, part C3: pictures in the chat checked by Xenaxio's own model. */}
+      {/* Step 108, part C3: pictures in the chat checked by Xenaxio's own model. */}
       {data.state === "active" && <ImageCheckAdmin />}
       {/* Step 43, part E: other companies (federation), once the chat runs. */}
       {data.state === "active" && <FederationAdmin />}
