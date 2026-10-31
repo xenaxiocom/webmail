@@ -13,7 +13,7 @@ import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { setThreadFollow, uploadFile } from "@/lib/xenaxio/chat/api";
 import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
 import { searchEmoji } from "@/lib/xenaxio/chat/emoji";
-import { type Mention, textContent } from "@/lib/xenaxio/chat/format";
+import { type Mention, plainPreview, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { suggestionAt } from "@/lib/xenaxio/chat/view";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -27,6 +27,8 @@ import { useChatDialogs } from "./dialogs";
 import { type SnippetInput, SnippetDialog } from "./snippet-dialog";
 import { TimePicker } from "./later";
 import { PollDialog } from "./poll";
+import { useChatNotify } from "./notifications";
+import { type Command, dndUntil, parseSlash, personArg, slashSuggestions } from "@/lib/xenaxio/chat/slash";
 import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
 
@@ -158,8 +160,12 @@ export function Composer({
   const [longPaste, setLongPaste] = useState<string | null>(null);
   const [scheduling, setScheduling] = useState(false);
   const [polling, setPolling] = useState(false);
+  const [remindAbout, setRemindAbout] = useState<{ eventId: string; preview: string } | null>(null);
+  const remind = useChatLater((s) => s.remind);
+  const notify = useChatNotify();
+  const setView = useChatStore((s) => s.setView);
+  const { prompt, confirm } = useChatDialogs();
   const schedule = useChatLater((s) => s.schedule);
-  const { prompt } = useChatDialogs();
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
   const box = useRef<HTMLDivElement>(null);
@@ -191,7 +197,8 @@ export function Composer({
 
   const suggestion = suggestionAt(text, cursor);
   const options = useMemo<Suggestion[]>(() => {
-    if (!suggestion) return [];
+    // Step 99, part F: "/" at the start suggests the commands.
+    if (!suggestion) return slashSuggestions(text).map((c) => ({ key: c, label: `/${c}`, insert: `/${c} `, hint: t(`chat.slash_${c}`) }));
     const q = suggestion.query.toLowerCase();
     if (suggestion.trigger === "@") {
       // Step 99: @channel / @here only for those the channel lets notify everyone.
@@ -207,13 +214,18 @@ export function Composer({
       .filter((r) => r.kind === "channel" && r.membership === "join" && client.roomName(r).toLowerCase().includes(q))
       .slice(0, 8)
       .map((r) => ({ key: r.id, label: `#${client.roomName(r)}`, insert: `#${client.roomName(r)} ` }));
-  }, [suggestion, people, colleagues, client, room]);
+  }, [suggestion, people, colleagues, client, room, text, t]);
 
   useEffect(() => setSelected(0), [suggestion?.query, suggestion?.trigger]);
 
   const apply = useCallback(
     (option: Suggestion) => {
-      if (!suggestion) return;
+      if (!suggestion) {
+        // A command: the box holds it and waits for its argument.
+        setText(option.insert);
+        requestAnimationFrame(() => area.current?.setSelectionRange(option.insert.length, option.insert.length));
+        return;
+      }
       const next = text.slice(0, suggestion.start) + option.insert + text.slice(cursor);
       const pos = suggestion.start + option.insert.length;
       setText(next);
@@ -300,9 +312,106 @@ export function Composer({
     openSnippet(longPaste, false);
   };
 
+  /** Step 99, part F: runs a slash command; false when it needs the text to stay. */
+  const runSlash = async (command: Command, arg: string): Promise<boolean> => {
+    const canChange = client.can(room, "state");
+    const denied = () => (toast.error(t("chat.no_permission")), false);
+    switch (command) {
+      case "rename":
+        if (!arg) return false;
+        if (!canChange) return denied();
+        await client.rename(room.id, arg.toLowerCase().replace(/\s+/g, "-").slice(0, 80));
+        return true;
+      case "topic":
+        if (!canChange) return denied();
+        await client.setTopic(room.id, arg.slice(0, 500));
+        return true;
+      case "invite": {
+        const found = personArg(arg, people);
+        if (!found) return (toast.error(t("chat.slash_no_person")), false);
+        await client.invite(room.id, found.person.userId);
+        toast.success(t("chat.slash_invited", { name: found.person.displayName }));
+        return true;
+      }
+      case "leave":
+        if (room.kind !== "channel") return false;
+        if (!(await confirm({ title: t("chat.leave"), message: t("chat.leave_confirm", { name: client.roomName(room) }), confirmText: t("chat.leave") }))) return false;
+        await client.leave(room.id);
+        setView({ kind: "home" });
+        return true;
+      case "mute":
+        await client.setNotifications(room.id, "none");
+        toast.success(t("chat.slash_muted"));
+        return true;
+      case "unmute":
+        await client.setNotifications(room.id, client.defaultLevel === "none" ? "all" : client.defaultLevel);
+        toast.success(t("chat.slash_unmuted"));
+        return true;
+      case "remind": {
+        const last = [...room.timeline].reverse().find((m) => !m.id.startsWith("~") && m.type === "m.room.message");
+        if (!last) return (toast.error(t("chat.slash_nothing_to_remind")), false);
+        setRemindAbout({ eventId: last.id, preview: arg || plainPreview(last.content, 280) });
+        return true;
+      }
+      case "status":
+        await client.setStatus(arg || null);
+        toast.success(arg ? t("chat.status_saved") : t("chat.status_cleared"));
+        return true;
+      case "dnd": {
+        const until = dndUntil(arg);
+        if (until === undefined) return (toast.error(t("chat.slash_dnd_usage")), false);
+        const current = notify.settings ?? { dndUntil: null, dndFrom: null, dndTo: null, dndDays: [], emailDigest: true };
+        await notify.save({ ...current, dndUntil: until ? until.toISOString() : null });
+        toast.success(until ? t("chat.notify_paused") : t("chat.notify_resume"));
+        return true;
+      }
+      case "msg": {
+        const found = personArg(arg, people);
+        if (!found || !found.rest) return (toast.error(t("chat.slash_no_person")), false);
+        const dm = await client.openDirect([found.person.userId]);
+        await client.send(dm, textContent(found.rest, people));
+        setView({ kind: "room", roomId: dm });
+        return true;
+      }
+      case "snippet":
+        openSnippet(arg, false);
+        return true;
+      case "poll":
+        if (threadRoot) return false;
+        setPolling(true);
+        return true;
+      case "search":
+        if (!arg) return false;
+        setView({ kind: "search", query: arg });
+        return true;
+      case "shrug":
+        // Plain text: the underscores of the shrug are no italics.
+        await client.send(room.id, { msgtype: "m.text", body: `${arg} ¯\\_(ツ)_/¯`.trim() }, threadRoot ? { threadRoot } : {});
+        return true;
+      case "me":
+        if (!arg) return false;
+        await client.send(room.id, { msgtype: "m.emote", body: arg }, threadRoot ? { threadRoot } : {});
+        return true;
+    }
+  };
+
   const send = async () => {
     const body = text.trim();
     if ((!body && !pending.length) || busy) return;
+    const slash = pending.length ? null : parseSlash(body);
+    if (slash && "unknown" in slash) {
+      toast.error(t("chat.slash_unknown", { name: slash.unknown }));
+      return;
+    }
+    if (slash) {
+      try {
+        if (await runSlash(slash.command, slash.arg)) setText("");
+        else if (!slash.arg) toast.error(t("chat.slash_needs_arg", { name: slash.command }));
+      } catch {
+        toast.error(t("chat.error"));
+      }
+      return;
+    }
     setText("");
     setLongPaste(null);
     void client.setTyping(room.id, false);
@@ -589,6 +698,18 @@ export function Composer({
           </span>
         </div>
       </div>
+      {remindAbout && (
+        <TimePicker
+          title={t("chat.remind")}
+          choices={["20m", "1h", "3h", "tomorrow", "monday"]}
+          confirm={t("chat.remind_set")}
+          onClose={() => setRemindAbout(null)}
+          onPick={async (at) => {
+            await remind({ roomId: room.id, eventId: remindAbout.eventId, roomName: room.kind === "channel" ? client.roomName(room) : null, preview: remindAbout.preview, remindAt: at.toISOString() });
+            toast.success(t("chat.remind_done"));
+          }}
+        />
+      )}
       {polling && <PollDialog client={client} roomId={room.id} onClose={() => setPolling(false)} />}
       {scheduling && (
         <TimePicker
