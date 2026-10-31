@@ -128,12 +128,22 @@ function ChatInside() {
       void openAs(as, room, q.get("event") ?? undefined);
       return;
     }
+    // Step 107: "Message in Rooms" on a colleague's card (mail, contacts, calendar) opens the direct conversation.
+    const dm = q.get("dm");
+    if (!room && dm?.startsWith("@") && dm !== client.userId) {
+      window.history.replaceState(null, "", window.location.pathname);
+      void client
+        .openDirect([dm])
+        .then((roomId) => setView({ kind: "room", roomId }))
+        .catch(() => toast.error(t("chat.error")));
+      return;
+    }
     if (!room) return;
     setView({ kind: "room", roomId: room });
     const event = q.get("event");
     if (event) setFocus({ roomId: room, eventId: event });
     window.history.replaceState(null, "", window.location.pathname);
-  }, [client?.ready, setView, setFocus, me]);
+  }, [client, client?.ready, setView, setFocus, me, t]);
 
   // A click on a chat notification while the chat is open: switch the channel, no reload.
   // Step 67: on XenRooms another company's notification switches to that company first.
