@@ -156,6 +156,8 @@ export interface BrowserAccount {
   /** Step 67: the company's colour and logo for the XenRooms switcher. */
   color?: string | null;
   logoUrl?: string | null;
+  /** Step 113: the background the admin chose for the app icon, behind the logo; null = white. */
+  iconBackground?: string | null;
 }
 
 /** Step 67: unread counts of the browser's other accounts (XenRooms switcher). */

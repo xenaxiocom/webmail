@@ -37,13 +37,21 @@ const BOX: Record<TileSize, string> = { lg: "h-10 w-10 text-sm", md: "h-9 w-9 te
 function CompanyMark({ account, size }: { account: BrowserAccount; size: TileSize }) {
   const [broken, setBroken] = useState(false);
   const color = account.color && HEX.test(account.color) ? account.color : null;
+  // Step 113: logos are often transparent — they sit on the app icon's background (white by default).
+  const logoBg = account.iconBackground && HEX.test(account.iconBackground) ? account.iconBackground : "#ffffff";
   return (
     <span
       className={cn("flex flex-shrink-0 items-center justify-center overflow-hidden rounded-xl font-semibold", BOX[size], !color && "bg-muted text-foreground")}
       style={color ? { background: color, color: "#fff" } : undefined}
     >
       {account.logoUrl && !broken ? (
-        <img src={withBasePath(account.logoUrl)} alt="" className="h-full w-full bg-white object-contain p-0.5" onError={() => setBroken(true)} />
+        <img
+          src={withBasePath(account.logoUrl)}
+          alt=""
+          className="h-full w-full object-contain p-0.5"
+          style={{ backgroundColor: logoBg }}
+          onError={() => setBroken(true)}
+        />
       ) : (
         companyInitials(account.company)
       )}
@@ -182,7 +190,8 @@ export function RoomsRail() {
   const icon = "rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground";
 
   return (
-    <nav aria-label={c.t("rooms.companies")} className="flex h-full w-[68px] flex-shrink-0 flex-col items-center gap-3 bg-secondary py-3" style={{ borderRight: "1px solid rgba(128, 128, 128, 0.3)" }}>
+    // data-app-rail: the company's background (step 42) shows through it as frosted glass (step 113).
+    <nav data-app-rail="" aria-label={c.t("rooms.companies")} className="flex h-full w-[68px] flex-shrink-0 flex-col items-center gap-3 bg-secondary py-3" style={{ borderRight: "1px solid rgba(128, 128, 128, 0.3)" }}>
       <img src={withBasePath(ROOMS_LOGO)} alt={ROOMS_NAME} title={ROOMS_NAME} className="h-8 w-8 rounded-lg" />
       <div className="h-px w-8 bg-border" />
       <div className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-2 pt-1.5">
