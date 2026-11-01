@@ -236,11 +236,14 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     }
   }, [t]);
   const openSharedFile = useCallback((r: FileResource) => {
-    const kind = fileOpenKind(r.name, isOfficeEditable);
+    // Only Office documents go to an editor here: the note editor (step 115)
+    // works on the open folder's listing, which this file is not part of, so
+    // a note shows in the preview.
+    const kind = fileOpenKind(r.name, isWopiEditable);
     // Nothing to show it in and no folder to select it in: it downloads.
     if (kind === "select") void downloadSharedFile(r);
     else setSharedFile({ resource: r, kind });
-  }, [isOfficeEditable, downloadSharedFile]);
+  }, [isWopiEditable, downloadSharedFile]);
   const sharedFileBlob = useCallback(async () => {
     const c = useFileStore.getState().client;
     const r = sharedFile?.resource;
@@ -251,6 +254,17 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     const { blob, contentType } = await sharedFileBlob();
     return imageBlobUrl(blob, contentType);
   }, [sharedFileBlob]);
+
+  // Xenaxio step 88: once the linked folder is listed, a file the link names
+  // but the folder lacks is reported by name rather than waited for forever.
+  const settlePendingPreview = useCallback(() => {
+    const pending = pendingPreviewRef.current;
+    if (!pending) return;
+    const state = linkedFileState(pending, useFileStore.getState());
+    if (state === 'wait') return;
+    pendingPreviewRef.current = null;
+    if (state === 'missing') toast.error(tDeepLink('file_not_found'), pending);
+  }, [tDeepLink]);
 
   // Xenaxio step 116: a link by id (`?node=&account=`) - the owner finds the
   // node in their files, a colleague under "Shared with me"; a folder opens,
@@ -275,24 +289,17 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     } else if (found.kind === "folder") {
       await revealNode(id, { enter: true });
     } else if (found.kind === "file") {
-      const name = await revealNode(id);
-      if (name) openFileByName(name);
+      // Opened by the preview effect once the folder's listing has landed, so
+      // it is judged against that listing (a note opens in its editor).
+      pendingPreviewRef.current = found.node.name;
+      await revealNode(id);
+      settlePendingPreview();
     } else {
       await navigate(null);
       openSharedFile(nodeToResource(found.node));
     }
-  }, [xt, navigate, revealNode, openFileByName, openSharedFile]);
+  }, [xt, navigate, revealNode, settlePendingPreview, openSharedFile]);
 
-  // Xenaxio step 88: once the linked folder is listed, a file the link names
-  // but the folder lacks is reported by name rather than waited for forever.
-  const settlePendingPreview = useCallback(() => {
-    const pending = pendingPreviewRef.current;
-    if (!pending) return;
-    const state = linkedFileState(pending, useFileStore.getState());
-    if (state === 'wait') return;
-    pendingPreviewRef.current = null;
-    if (state === 'missing') toast.error(tDeepLink('file_not_found'), pending);
-  }, [tDeepLink]);
   useEffect(() => {
     // Inside the Pro shell the route is /pro, so the segments arrive through
     // the handoff the redirect parked rather than as route params.
