@@ -3478,5 +3478,55 @@
   "colleague_card": {
     "message": "Nachricht in Rooms",
     "message_title": "{name} in Rooms schreiben"
+  },
+  "notes": {
+    "new_note": "Neue Notiz",
+    "default_name": "Notiz",
+    "copy_suffix": "Kopie",
+    "write": "Schreiben",
+    "preview": "Vorschau",
+    "save": "Speichern",
+    "close": "Schließen",
+    "retry": "Erneut versuchen",
+    "read_only": "Nur lesen",
+    "read_only_hint": "Sie dürfen diese Datei ansehen, aber nicht ändern.",
+    "loading": "Wird geladen…",
+    "load_failed": "Die Notiz konnte nicht geladen werden.",
+    "empty_preview": "Noch nichts zu sehen. Schreiben Sie etwas unter „Schreiben“.",
+    "placeholder": "Hier schreiben. Markdown geht: # Überschrift, **fett**, - Liste, - [ ] Aufgabe",
+    "link_text": "Linktext",
+    "status": {
+      "saved": "Gespeichert",
+      "dirty": "Ungespeicherte Änderungen",
+      "saving": "Wird gespeichert…",
+      "failed": "Nicht gespeichert",
+      "conflict": "Nicht gespeichert"
+    },
+    "save_failed": "Speichern fehlgeschlagen.",
+    "saved_as_copy": "Gespeichert als „{name}“.",
+    "conflict_title": "Die Datei wurde inzwischen geändert",
+    "conflict_text": "Jemand hat „{name}“ gespeichert, während Sie geschrieben haben. Ihr Text ist nicht verloren.",
+    "conflict_copy": "Als Kopie speichern",
+    "conflict_reload": "Neu laden (meine Änderungen verwerfen)",
+    "conflict_cancel": "Weiter bearbeiten",
+    "gone_title": "Die Datei gibt es nicht mehr",
+    "gone": "Die Datei wurde gelöscht oder verschoben. Speichern Sie Ihren Text als Kopie.",
+    "discard_title": "Änderungen nicht gespeichert",
+    "discard_text": "Ihre letzten Änderungen konnten nicht gespeichert werden. Trotzdem schließen?",
+    "discard_confirm": "Schließen ohne Speichern",
+    "toolbar": {
+      "label": "Formatierung",
+      "h1": "Überschrift 1",
+      "h2": "Überschrift 2",
+      "bold": "Fett (Strg+B)",
+      "italic": "Kursiv (Strg+I)",
+      "strike": "Durchgestrichen",
+      "code": "Code",
+      "quote": "Zitat",
+      "bullet": "Liste",
+      "number": "Nummerierte Liste",
+      "task": "Aufgabe mit Kästchen",
+      "link": "Link (Strg+K)"
+    }
   }
 }

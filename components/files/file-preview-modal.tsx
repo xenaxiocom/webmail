@@ -10,6 +10,7 @@ import { getFilePreviewKind, imageBlobUrl, isMimeTypeSafeForInlinePreview, previ
 import dynamic from "next/dynamic";
 import { EmlPreview, type ParsedEml } from "@/components/files/eml-preview";
 import { FilePreviewPluginSection } from "@/components/files/file-preview-plugin-section";
+import { MarkdownView } from "@/components/xenaxio/markdown-view";
 import { canOpenUrlInNewWindow } from "@/lib/standalone-display";
 import { emailIframeCsp, sanitizeEmailBodyForIframe } from "@/lib/email-sanitization";
 import { useSettingsStore } from "@/stores/settings-store";
@@ -45,97 +46,6 @@ interface FilePreviewModalProps {
   getFileContent: () => Promise<{ blob: Blob; contentType: string }>;
   /** The previewed file as plugins see it (file-preview-section). */
   file?: FileResourceView | null;
-}
-
-function SimpleMarkdown({ content }: { content: string }) {
-  const lines = content.split("\n");
-  const elements: React.ReactNode[] = [];
-
-  for (let i = 0; i < lines.length; i++) {
-    const line = lines[i];
-
-    // Headers
-    if (line.startsWith("### ")) {
-      elements.push(<h3 key={i} className="text-lg font-semibold mt-4 mb-2">{processInline(line.slice(4))}</h3>);
-    } else if (line.startsWith("## ")) {
-      elements.push(<h2 key={i} className="text-xl font-semibold mt-5 mb-2">{processInline(line.slice(3))}</h2>);
-    } else if (line.startsWith("# ")) {
-      elements.push(<h1 key={i} className="text-2xl font-bold mt-6 mb-3">{processInline(line.slice(2))}</h1>);
-    } else if (line.startsWith("---") || line.startsWith("***")) {
-      elements.push(<hr key={i} className="my-4 border-border" />);
-    } else if (line.startsWith("- ") || line.startsWith("* ")) {
-      elements.push(<li key={i} className="ms-4 list-disc">{processInline(line.slice(2))}</li>);
-    } else if (/^\d+\. /.test(line)) {
-      elements.push(<li key={i} className="ms-4 list-decimal">{processInline(line.replace(/^\d+\. /, ""))}</li>);
-    } else if (line.startsWith("> ")) {
-      elements.push(<blockquote key={i} className="border-s-4 border-border ps-4 italic text-muted-foreground my-2">{processInline(line.slice(2))}</blockquote>);
-    } else if (line.startsWith("```")) {
-      // Code block - collect until closing ```
-      const codeLines: string[] = [];
-      i++;
-      while (i < lines.length && !lines[i].startsWith("```")) {
-        codeLines.push(lines[i]);
-        i++;
-      }
-      elements.push(
-        <pre key={i} className="bg-muted rounded p-3 my-2 overflow-x-auto text-sm font-mono">
-          <code>{codeLines.join("\n")}</code>
-        </pre>
-      );
-    } else if (line.trim() === "") {
-      elements.push(<div key={i} className="h-2" />);
-    } else {
-      elements.push(<p key={i} className="my-1">{processInline(line)}</p>);
-    }
-  }
-
-  return <div className="prose prose-sm dark:prose-invert max-w-none">{elements}</div>;
-}
-
-function processInline(text: string): React.ReactNode {
-  // Process bold, italic, code inline
-  const parts: React.ReactNode[] = [];
-  let remaining = text;
-  let key = 0;
-
-  while (remaining.length > 0) {
-    // Bold
-    const boldMatch = remaining.match(/\*\*(.+?)\*\*/);
-    // Inline code
-    const codeMatch = remaining.match(/`([^`]+)`/);
-    // Italic
-    const italicMatch = remaining.match(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/);
-
-    const matches = [
-      boldMatch && { type: "bold", match: boldMatch },
-      codeMatch && { type: "code", match: codeMatch },
-      italicMatch && { type: "italic", match: italicMatch },
-    ].filter(Boolean).sort((a, b) => (a!.match.index ?? 0) - (b!.match.index ?? 0));
-
-    if (matches.length === 0) {
-      parts.push(remaining);
-      break;
-    }
-
-    const first = matches[0]!;
-    const idx = first.match.index ?? 0;
-
-    if (idx > 0) {
-      parts.push(remaining.slice(0, idx));
-    }
-
-    if (first.type === "bold") {
-      parts.push(<strong key={key++}>{first.match[1]}</strong>);
-    } else if (first.type === "code") {
-      parts.push(<code key={key++} className="bg-muted px-1 py-0.5 rounded text-sm font-mono">{first.match[1]}</code>);
-    } else {
-      parts.push(<em key={key++}>{first.match[1]}</em>);
-    }
-
-    remaining = remaining.slice(idx + first.match[0].length);
-  }
-
-  return parts.length === 1 ? parts[0] : <>{parts}</>;
 }
 
 // Closing one preview can leave an asynchronous Back traversal in flight.
@@ -368,7 +278,8 @@ export function FilePreviewModal({ name, onClose, onDownload, getFileContent, fi
             className="bg-background rounded-lg p-6 max-w-4xl w-full max-h-full overflow-auto text-sm"
             onClick={(e) => e.stopPropagation()}
           >
-            <SimpleMarkdown content={content} />
+            {/* Xenaxio step 115: Markdown as GitHub shows it (links, task boxes, tables). */}
+            <MarkdownView source={content} />
           </div>
         )}
 

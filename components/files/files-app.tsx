@@ -29,6 +29,8 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { fileOpenKind, linkedFileState, revealRecentFile } from "@/lib/xenaxio/file-open";
 import { findLinkedNode, localNodeId, type FileLinkTarget } from "@/lib/xenaxio/file-link";
 import { imageBlobUrl } from "@/lib/file-preview";
+import { isNoteFile } from "@/lib/xenaxio/notes";
+import { NoteEditor } from "@/components/xenaxio/notes/note-editor";
 import { useAudioPlayer } from "@/lib/xenaxio/audio-player";
 import { isAudioResource } from "@/lib/xenaxio/transcripts";
 import { useTranscriptLookup } from "@/components/xenaxio/files-audio";
@@ -136,7 +138,13 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   // open it in, so it opens by itself (from "Shared with me" or a link).
   const [sharedFile, setSharedFile] = useState<{ resource: FileResource; kind: "image" | "preview" | "edit" } | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
-  const isOfficeEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
+  const isWopiEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
+  // Xenaxio step 115: notes (.md, .txt up to 1 MB) open in our own editor.
+  const isNote = useCallback((name: string) => {
+    const r = resources.find((x) => x.name === name);
+    return !!r && !r.isDirectory && !isWopiEditable(name) && isNoteFile(name, r.contentLength);
+  }, [resources, isWopiEditable]);
+  const isOfficeEditable = useCallback((name: string) => isWopiEditable(name) || isNote(name), [isWopiEditable, isNote]);
   // Xenaxio (step 89): the file open (or the one file selected) is what the assistant looks at first.
   const screenName = editFile ?? previewFile ?? previewImage ?? (selectedResources.size === 1 ? [...selectedResources][0] : null);
   const screenFile = screenName ? resources.find((r) => r.name === screenName && !r.isDirectory) : undefined;
@@ -534,8 +542,10 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
 
   const handleCreateTextFile = useCallback(async (name: string) => {
     try {
-      await createTextFile(name);
-      toast.success(t("create_file_success"));
+      const created = await createTextFile(name);
+      // Xenaxio step 115: a new note or text file opens for writing.
+      if (created && isNoteFile(created)) setEditFile(created);
+      else toast.success(t("create_file_success"));
     } catch (err) {
       console.error("Failed to create file:", err);
       toast.error(t("create_file_error"));
@@ -898,6 +908,19 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       {editFile && (() => {
         const editResource = resources.find(r => r.name === editFile);
         if (!editResource) return null;
+        if (!isWopiEditable(editResource.name) && isNoteFile(editResource.name)) {
+          return (
+            <NoteEditor
+              key={editResource.id}
+              resource={editResource}
+              onOpenOther={setEditFile}
+              onClose={() => {
+                setEditFile(null);
+                refresh();
+              }}
+            />
+          );
+        }
         // A file shared with the user lives in the owner's account (#1094).
         const node = resourceServerRef(editResource);
         return (

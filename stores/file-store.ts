@@ -1,5 +1,6 @@
 import { create } from 'zustand';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
+import { noteContentType } from '@/lib/xenaxio/notes';
 import type { FileNode, FileNodeRights } from '@/lib/jmap/types';
 import { imageBlobUrl } from '@/lib/file-preview';
 import { fileHooks } from '@/lib/plugin-hooks';
@@ -118,7 +119,8 @@ interface FileState {
   downloadResources: (names: string[]) => Promise<void>;
   getImageUrl: (name: string) => Promise<string>;
   getFileContent: (name: string) => Promise<{ blob: Blob; contentType: string }>;
-  createTextFile: (name: string) => Promise<void>;
+  /** Returns the name the file got (the server may number it), or null. */
+  createTextFile: (name: string) => Promise<string | null>;
   duplicateResource: (name: string) => Promise<void>;
   moveToFolder: (names: string[], targetFolder: string) => Promise<boolean>;
   moveToParent: (names: string[]) => Promise<boolean>;
@@ -1048,12 +1050,15 @@ export const useFileStore = create<FileState>((set, get) => ({
 
   createTextFile: async (name: string) => {
     const { client, currentParentId, refresh } = get();
-    if (!client) return;
+    if (!client) return null;
 
-    const emptyBlob = new File([''], name, { type: 'text/plain' });
+    // Xenaxio step 115: a Markdown note is stored as text/markdown.
+    const type = noteContentType(name);
+    const emptyBlob = new File([''], name, { type });
     const { blobId } = await client.uploadBlob(emptyBlob);
-    await client.createFileNode(name, blobId, 'text/plain', 0, currentParentId);
+    const node = await client.createFileNode(name, blobId, type, 0, currentParentId);
     await refresh();
+    return node.name;
   },
 
   duplicateResource: async (name: string) => {

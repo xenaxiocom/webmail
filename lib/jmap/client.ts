@@ -8494,6 +8494,41 @@ export class JMAPClient implements IJMAPClient {
     }
   }
 
+  /**
+   * Xenaxio step 115: new content for a file (a note saved in the editor).
+   * The content goes in only while the file still holds `expectedBlobId`, the
+   * version the editor opened; otherwise "conflict" and nothing is written,
+   * so a colleague's edit is never overwritten silently. "gone" when the file
+   * no longer exists.
+   */
+  async replaceFileNodeContent(id: string, file: File, expectedBlobId: string | null): Promise<{ blobId: string } | "conflict" | "gone"> {
+    const node = this.resolveFileNodeId(id);
+    const rawId = node.id as string;
+    const current = await this.request(
+      [["FileNode/get", { accountId: node.accountId, ids: [rawId], properties: ["id", "blobId"] }, "g0"]],
+      this.fileUsing(),
+    );
+    const got = current.methodResponses?.[0];
+    if (!got || got[0] === "error") throw new Error(got?.[1]?.description || "FileNode/get failed");
+    const existing = ((got[1].list ?? []) as { id: string; blobId?: string | null }[])[0];
+    if (!existing) return "gone";
+    if ((existing.blobId ?? null) !== expectedBlobId) return "conflict";
+
+    const { blobId } = await this.uploadBlob(file, node.accountId);
+    const response = await this.request(
+      [["FileNode/set", { accountId: node.accountId, update: { [rawId]: { blobId } } }, "s0"]],
+      this.fileUsing(),
+    );
+    const result = response.methodResponses?.[0];
+    if (!result || result[0] === "error") throw new Error(result?.[1]?.description || "FileNode/set update failed");
+    if (result[1].notUpdated?.[rawId]) {
+      const err = result[1].notUpdated[rawId];
+      if (err.type === "notFound") return "gone";
+      throw new Error(err.description || err.type || "Failed to save the file");
+    }
+    return { blobId };
+  }
+
   /** Group FileNode ids by the account that owns them. */
   private groupFileNodeIds<T>(entries: Array<[string, T]>): Map<string, Array<{ id: string; rawId: string; value: T }>> {
     const groups = new Map<string, Array<{ id: string; rawId: string; value: T }>>();
