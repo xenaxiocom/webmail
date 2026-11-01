@@ -812,6 +812,8 @@ export interface RoomsPerson {
   createdAt: string;
   /** Step 108: blocked by Xenaxio; the admin cannot lift it. */
   blockedByOperator?: boolean;
+  /** Step 110: the AI for this person (paid XenRooms). */
+  aiEnabled?: boolean;
 }
 
 /** Step 97: XenRooms Free or paid, the limits and the space used. */

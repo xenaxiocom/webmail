@@ -17,7 +17,7 @@ import { ScheduleSettings } from "@/components/xenaxio/schedule-settings";
 import { AnswerSettings } from "@/components/xenaxio/answer-settings";
 import { ModelProfiles } from "@/components/xenaxio/model-profiles";
 import { TranscriptionSettings } from "@/components/xenaxio/transcription-settings";
-import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
+import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { type AiAdmin, type AiProvider, type CustomModel, type CustomModelCheck, errorText, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { cn } from "@/lib/utils";
@@ -455,11 +455,19 @@ function AiSettings() {
   );
 }
 
+/** Step 110: XenRooms Free comes without the AI (step 97): the page says where it is. */
+function AiBody() {
+  const t = useXT();
+  const me = useMe();
+  if (me.tenant.product === "rooms" && me.tenant.plan === "free") return <Notice kind="info">{t("workspace.rooms_ai_free")}</Notice>;
+  return <AiSettings />;
+}
+
 export default function AiAdminPage() {
   const t = useXT();
   return (
     <WorkspaceShell title={t("aiadmin.title")} backHref="/workspace" requireAdmin>
-      <AiSettings />
+      <AiBody />
     </WorkspaceShell>
   );
 }

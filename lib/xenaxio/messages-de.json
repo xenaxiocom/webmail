@@ -256,7 +256,9 @@
     "message_unknown": "Die Nachricht zu diesem Bild ist nicht bekannt; es lässt sich nur als erledigt markieren.",
     "chat_remove_failed": "Die Nachricht ließ sich nicht entfernen. Bitte später erneut versuchen.",
     "sender_unknown": "Die Person, die das Bild gesendet hat, gibt es nicht mehr.",
-    "image_check_unavailable": "Die Bildprüfung ist auf diesem Server nicht verfügbar."
+    "image_check_unavailable": "Die Bildprüfung ist auf diesem Server nicht verfügbar.",
+    "ai_not_in_free": "Die KI gibt es im bezahlten XenRooms.",
+    "not_for_rooms": "In XenRooms ist die Adresse die Ihres Chats und bleibt gleich."
   },
   "login": {
     "title": "Anmelden",
@@ -338,7 +340,13 @@
     "permissions": "KI-Berechtigungen",
     "permissions_desc": "Was der Assistent und verbundene KI-Chats ohne Rückfrage tun dürfen",
     "files": "Dateien der Mitarbeitenden",
-    "files_desc": "Dateien der Mitarbeitenden ansehen, öffnen und löschen"
+    "files_desc": "Dateien der Mitarbeitenden ansehen, öffnen und löschen",
+    "rooms_people_desc": "Kolleginnen und Kollegen einladen, sperren, Admins festlegen, KI pro Person",
+    "rooms_chat_desc": "Kanäle, Gruppen, eigene Emoji, andere Firmen, KI-Zugriff",
+    "rooms_appearance": "Erscheinungsbild",
+    "rooms_appearance_desc": "Logo und Farbe Ihrer Firma in XenRooms",
+    "rooms_meetings_desc": "Anrufe in Rooms, Gäste, Hintergrund für Anrufe",
+    "rooms_ai_free": "Im bezahlten XenRooms: KI-Assistent, KI-Chats und ihre Einstellungen"
   },
   "domain": {
     "title": "Domains und DNS",
@@ -1399,7 +1407,8 @@
     "own_make_primary_hint": "Die Anmeldung über die gemeinsame Adresse und Links in E-Mails führen dann hierher. {base} funktioniert weiterhin.",
     "own_remove": "Entfernen",
     "own_remove_confirm": "{host} entfernen? Die Adresse funktioniert dann sofort nicht mehr.",
-    "col_type": "Typ"
+    "col_type": "Typ",
+    "logo_intro_rooms": "Erscheint bei Ihrer Firma in XenRooms: in der Spalte der Firmen und oben in der Kanalliste."
   },
   "mail_apps": {
     "title": "Mail-Programme",
@@ -3433,7 +3442,10 @@
     "show_companies": "Firmen links anzeigen",
     "order_hint": "Zum Sortieren ziehen",
     "move_company": "{company} verschieben (Position {n})",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "people_ai_badge": "KI",
+    "people_ai_on": "KI einschalten",
+    "people_ai_off": "KI ausschalten"
   },
   "profile_settings": {
     "title": "Profil",
@@ -3442,7 +3454,9 @@
     "load_failed": "Das Profil konnte nicht geladen werden. Bitte laden Sie die Seite neu.",
     "account_title": "Konto",
     "account_intro": "Ihr Name, Ihr Foto und Ihre Anmeldung bei XenRooms.",
-    "sign_in_email": "Anmelde-E-Mail"
+    "sign_in_email": "Anmelde-E-Mail",
+    "assistant_intro": "Was sich der KI-Assistent über Sie merkt, Ihre Fähigkeiten und was er ohne Rückfrage tun darf.",
+    "assistant_open": "Öffnen"
   },
   "colleague_card": {
     "message": "Nachricht in Rooms",

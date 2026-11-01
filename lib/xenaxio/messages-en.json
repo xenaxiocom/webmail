@@ -256,7 +256,9 @@
     "message_unknown": "The message of this picture is not known; it can only be marked as done.",
     "chat_remove_failed": "The message could not be removed. Please try again later.",
     "sender_unknown": "The person who sent the picture no longer exists.",
-    "image_check_unavailable": "The picture check is not available on this server."
+    "image_check_unavailable": "The picture check is not available on this server.",
+    "ai_not_in_free": "The AI comes with paid XenRooms.",
+    "not_for_rooms": "In XenRooms the address is your chat’s and stays the same."
   },
   "login": {
     "title": "Sign in",
@@ -338,7 +340,13 @@
     "permissions": "AI permissions",
     "permissions_desc": "What the assistant and connected AI chats may do without asking",
     "files": "Employees' files",
-    "files_desc": "See, open and delete employees' files"
+    "files_desc": "See, open and delete employees' files",
+    "rooms_people_desc": "Invite colleagues, block them, choose admins, AI per person",
+    "rooms_chat_desc": "Channels, groups, own emoji, other companies, AI access",
+    "rooms_appearance": "Appearance",
+    "rooms_appearance_desc": "Your company’s logo and colour in XenRooms",
+    "rooms_meetings_desc": "Calls in Rooms, guests, background for calls",
+    "rooms_ai_free": "In paid XenRooms: the AI assistant, AI chats and their settings"
   },
   "domain": {
     "title": "Domains and DNS",
@@ -1399,7 +1407,8 @@
     "own_make_primary_hint": "Sign-in on the shared address and links in emails then lead here. {base} keeps working.",
     "own_remove": "Remove",
     "own_remove_confirm": "Remove {host}? The address stops working at once.",
-    "col_type": "Type"
+    "col_type": "Type",
+    "logo_intro_rooms": "Shows for your company in XenRooms: in the column of companies and at the top of the channel list."
   },
   "mail_apps": {
     "title": "Mail apps",
@@ -3433,7 +3442,10 @@
     "show_companies": "Show companies on the left",
     "order_hint": "Drag to reorder",
     "move_company": "Move {company} (position {n})",
-    "settings": "Settings"
+    "settings": "Settings",
+    "people_ai_badge": "AI",
+    "people_ai_on": "Switch AI on",
+    "people_ai_off": "Switch AI off"
   },
   "profile_settings": {
     "title": "Profile",
@@ -3442,7 +3454,9 @@
     "load_failed": "The profile could not be loaded. Please reload the page.",
     "account_title": "Account",
     "account_intro": "Your name, your photo and how you sign in to XenRooms.",
-    "sign_in_email": "Sign-in email"
+    "sign_in_email": "Sign-in email",
+    "assistant_intro": "What the AI assistant remembers about you, your skills and what it may do without asking.",
+    "assistant_open": "Open"
   },
   "colleague_card": {
     "message": "Message in Rooms",
