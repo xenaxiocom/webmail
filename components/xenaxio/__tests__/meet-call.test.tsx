@@ -9,7 +9,7 @@ const api = vi.hoisted(() => ({ roomCall: vi.fn(), info: vi.fn(), join: vi.fn() 
 vi.mock("@/lib/xenaxio/meet", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/meet")>()), meet: api }));
 
 import type { ChatClient, Message, Room } from "@/lib/xenaxio/chat/client";
-import { callMessage, callOf, useCallStore } from "@/lib/xenaxio/meet-call";
+import { callMessage, callOf, showsVideo, useCallStore } from "@/lib/xenaxio/meet-call";
 import { CallButton, CallCard, IncomingCall } from "../meet/call";
 
 const CODE = "abcdefghjk23";
@@ -43,6 +43,14 @@ describe("step 78, part D: calls in Rooms", () => {
     expect(callMessage(CODE, LINK, "Anruf gestartet").body).toBe(`📞 Anruf gestartet: ${LINK}`);
     expect(callOf({ body: "hi" })).toBeNull();
     expect(callOf({ "com.xenaxio.call": { code: "BAD", link: LINK } })).toBeNull();
+  });
+
+  it("shows video in the dock only while a camera or a screen is on (step 99)", () => {
+    expect(showsVideo([])).toBe(false);
+    // A camera switched off stays published, muted.
+    expect(showsVideo([{ publication: { isMuted: true } }])).toBe(false);
+    expect(showsVideo([{}])).toBe(false);
+    expect(showsVideo([{ publication: { isMuted: true } }, { publication: { isMuted: false } }])).toBe(true);
   });
 
   it("starts the room's call, announces a new one and opens it", async () => {

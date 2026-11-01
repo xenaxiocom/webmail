@@ -40,3 +40,11 @@ export const useCallStore = create<{
   close: () => set({ active: null, expanded: false }),
   setExpanded: (expanded) => set({ expanded }),
 }));
+
+/**
+ * Step 99: the dock of a call shows video only while someone shows a camera
+ * or a screen; otherwise a strip of faces, as in a huddle or a voice channel.
+ */
+export function showsVideo(tracks: { publication?: { isMuted: boolean } }[]): boolean {
+  return tracks.some((tr) => !!tr.publication && !tr.publication.isMuted);
+}
