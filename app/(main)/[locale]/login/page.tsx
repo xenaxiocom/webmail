@@ -8,7 +8,7 @@ import { type FormEvent, Suspense, useEffect, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { useLocale } from "next-intl";
 import { useRouter } from "@/i18n/navigation";
-import { withBasePath } from "@/lib/browser-navigation";
+import { replaceWindowLocation, withBasePath } from "@/lib/browser-navigation";
 import { Button } from "@/components/ui/button";
 import { AuthCard, Notice, PasswordField, TextField } from "@/components/xenaxio/ui";
 import { errorKey, errorText, type RoomsLinkInfo, xenaxio } from "@/lib/xenaxio/api";
@@ -163,6 +163,23 @@ function LoginForm() {
       .then((r) => setSignupOpen(r.open))
       .catch(() => setSignupOpen(false));
   }, [rooms]);
+  // XenRooms with a live session (e.g. the app window was sent here by
+  // mistake): straight into the chat, no password asked again.
+  useEffect(() => {
+    if (!rooms || add) return;
+    let cancelled = false;
+    void xenaxio
+      .me()
+      .then((me) => {
+        if (cancelled) return;
+        if (me.user.mustChangePassword) router.replace("/workspace/password");
+        else replaceWindowLocation(withBasePath(next ?? home));
+      })
+      .catch(() => undefined);
+    return () => {
+      cancelled = true;
+    };
+  }, [rooms, add, next, home, router]);
   const title = rooms ? t(add ? "rooms.add_title" : "rooms.login_title") : add ? t("login.add_title") : t("login.title");
   useDocumentTitle(title, { withAccount: false });
 
