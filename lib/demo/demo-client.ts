@@ -1367,6 +1367,15 @@ export class DemoJMAPClient implements IJMAPClient {
     if (node) Object.assign(node, updates, { modified: new Date().toISOString() });
   }
 
+  async replaceFileNodeContent(id: string, file: File, expectedBlobId: string | null): Promise<{ blobId: string } | 'conflict' | 'gone'> {
+    const node = this.data.fileNodes.find(n => n.id === id);
+    if (!node) return 'gone';
+    if (node.blobId !== expectedBlobId) return 'conflict';
+    const blobId = generateDemoId('blob');
+    Object.assign(node, { blobId, size: file.size, modified: new Date().toISOString() });
+    return { blobId };
+  }
+
   async updateFileNodes(updates: Record<string, Partial<Pick<FileNode, 'name' | 'parentId'>>>): Promise<{ updated: string[]; notUpdated: Record<string, string> }> {
     const updated: string[] = [];
     for (const [id, patch] of Object.entries(updates)) {

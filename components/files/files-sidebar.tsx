@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
   Plus, HardDrive, Folder, FolderOpen, ChevronRight, ChevronDown, Star, StarOff,
-  Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch,
+  Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch, NotebookPen,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
@@ -12,6 +12,7 @@ import { useContextMenu } from "@/hooks/use-context-menu";
 import { cn } from "@/lib/utils";
 import type { FileResource } from "@/stores/file-store";
 import { getFileIconByName } from "@/components/files/file-icons";
+import { useXT } from "@/lib/xenaxio/i18n";
 import { anchorEvent, isInternalDrag, readDraggedNames } from "@/components/files/file-item-parts";
 
 const COLLAPSED_KEY = "files-sidebar-collapsed";
@@ -46,7 +47,7 @@ type MenuTarget =
   | { kind: "recent"; id: string };
 
 /** What a "new" or "upload" entry in a folder's menu creates there. */
-export type CreateKind = "folder" | "text" | "files" | "dir";
+export type CreateKind = "folder" | "text" | "note" | "files" | "dir";
 
 export interface FilesSidebarProps {
   currentParentId: string | null;
@@ -64,6 +65,8 @@ export interface FilesSidebarProps {
   onUploadFolder: () => void;
   onNewFolder: () => void;
   onNewTextFile: () => void;
+  /** Xenaxio step 115: a new Markdown note. */
+  onNewNote: () => void;
   onToggleFavorite: (path: string) => void;
   /** Move dragged items from the open folder into a folder (null = the root). */
   onDropItems: (names: string[], targetId: string | null) => void;
@@ -93,6 +96,7 @@ export function FilesSidebar({
   onUploadFolder,
   onNewFolder,
   onNewTextFile,
+  onNewNote,
   onToggleFavorite,
   onDropItems,
   canShare,
@@ -105,6 +109,7 @@ export function FilesSidebar({
   onRemoveRecent,
 }: FilesSidebarProps) {
   const t = useTranslations("files");
+  const xt = useXT();
   const newMenu = useContextMenu<null>();
   const itemMenu = useContextMenu<MenuTarget>();
   const newButtonRef = useRef<HTMLButtonElement>(null);
@@ -250,6 +255,7 @@ export function FilesSidebar({
     <>
       <ContextMenuSeparator />
       <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => run(() => onCreateIn(path, id, "folder"))} />
+      <ContextMenuItem icon={NotebookPen} label={xt("notes.new_note")} onClick={() => run(() => onCreateIn(path, id, "note"))} />
       <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => run(() => onCreateIn(path, id, "text"))} />
       <ContextMenuItem icon={Upload} label={t("upload_files")} onClick={() => run(() => onCreateIn(path, id, "files"))} />
       <ContextMenuItem icon={FolderUp} label={t("upload_folder")} onClick={() => run(() => onCreateIn(path, id, "dir"))} />
@@ -376,6 +382,7 @@ export function FilesSidebar({
         <ContextMenuItem icon={FolderUp} label={t("upload_folder")} onClick={() => { newMenu.closeContextMenu(); onUploadFolder(); }} />
         <ContextMenuSeparator />
         <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => { newMenu.closeContextMenu(); onNewFolder(); }} />
+        <ContextMenuItem icon={NotebookPen} label={xt("notes.new_note")} onClick={() => { newMenu.closeContextMenu(); onNewNote(); }} />
         <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { newMenu.closeContextMenu(); onNewTextFile(); }} />
       </ContextMenu>
 
