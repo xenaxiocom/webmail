@@ -122,6 +122,7 @@ function isPreviewable(name: string): boolean {
 type MenuData = { kind: "item"; resource: FileResource } | { kind: "empty" } | { kind: "new" };
 
 const SIDEBAR_DEFAULT_WIDTH = 256;
+const clampSidebarWidth = (width: number) => Math.max(180, Math.min(400, Math.round(width)));
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -241,15 +242,34 @@ export function FileBrowser({
   const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
   useEffect(() => { if (!isNarrow) setNarrowSidebarOpen(false); }, [isNarrow]);
   useEffect(() => { setNarrowSidebarOpen(false); }, [currentPath]);
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
+  // xenaxio (step 114): the folder column's width lives in the settings (on the server);
+  // a width this browser kept before is used until the first drag saves one.
+  const savedSidebarWidth = useSettingsStore((s) => s.filesSidebarWidth);
+  const sidebarWidthOf = (saved: number | null) => {
+    if (saved !== null) return clampSidebarWidth(saved);
     if (typeof window !== "undefined") {
-      const saved = Number(localStorage.getItem("files-sidebar-width"));
-      if (saved) return Math.max(180, Math.min(400, saved));
+      const legacy = Number(localStorage.getItem("files-sidebar-width"));
+      if (legacy) return clampSidebarWidth(legacy);
     }
     return SIDEBAR_DEFAULT_WIDTH;
-  });
+  };
+  const [sidebarWidth, setSidebarWidth] = useState(() => sidebarWidthOf(savedSidebarWidth));
   const [isResizing, setIsResizing] = useState(false);
-  const dragStartWidth = useRef(SIDEBAR_DEFAULT_WIDTH);
+  const dragStartWidth = useRef(sidebarWidth);
+  const liveSidebarWidth = useRef(sidebarWidth);
+  liveSidebarWidth.current = sidebarWidth;
+  // A width saved on another device arrives with the settings.
+  useEffect(() => {
+    if (isResizing) return;
+    const width = sidebarWidthOf(savedSidebarWidth);
+    dragStartWidth.current = width;
+    setSidebarWidth(width);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the saved width changes
+  }, [savedSidebarWidth]);
+  const saveSidebarWidth = (width: number | null) => {
+    useSettingsStore.getState().updateSetting("filesSidebarWidth", width);
+    try { localStorage.removeItem("files-sidebar-width"); } catch { /* ignore */ }
+  };
   const [showDetails, setShowDetails] = useState(() => {
     try { return localStorage.getItem("files-show-details") === "1"; } catch { return false; }
   });
@@ -1055,12 +1075,18 @@ export function FileBrowser({
           </div>
           <ResizeHandle
             onResizeStart={() => { dragStartWidth.current = sidebarWidth; setIsResizing(true); }}
-            onResize={(delta) => setSidebarWidth(Math.max(180, Math.min(400, dragStartWidth.current + delta)))}
+            onResize={(delta) => {
+              const next = clampSidebarWidth(dragStartWidth.current + delta);
+              liveSidebarWidth.current = next;
+              setSidebarWidth(next);
+            }}
             onResizeEnd={() => {
               setIsResizing(false);
-              localStorage.setItem("files-sidebar-width", String(sidebarWidth));
+              saveSidebarWidth(liveSidebarWidth.current);
+              // An arrow key (no drag start) moves on from here.
+              dragStartWidth.current = liveSidebarWidth.current;
             }}
-            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT_WIDTH); localStorage.setItem("files-sidebar-width", String(SIDEBAR_DEFAULT_WIDTH)); }}
+            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT_WIDTH); dragStartWidth.current = SIDEBAR_DEFAULT_WIDTH; saveSidebarWidth(null); }}
           />
         </>
       ))}

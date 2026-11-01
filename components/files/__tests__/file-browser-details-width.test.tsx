@@ -1,4 +1,4 @@
-// xenaxio (step 114): the Details panel's width changes with a divider and is kept in the settings (on the server).
+// xenaxio (step 114): the widths of the Details panel and the folder column change with a divider and are kept in the settings (on the server).
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import { FileBrowser } from '../file-browser';
@@ -124,7 +124,7 @@ describe('Files: width of the Details panel (step 114)', () => {
   beforeEach(() => {
     wide = true;
     localStorage.setItem('files-show-details', '1');
-    act(() => useSettingsStore.setState({ filesDetailsWidth: null }));
+    act(() => useSettingsStore.setState({ filesDetailsWidth: null, filesSidebarWidth: null }));
     vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: /min-width/.test(query) ? wide : false, media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false }) as MediaQueryList);
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1000, height: 800, x: 0, y: 0, top: 0, left: 0, right: 1000, bottom: 800, toJSON: () => ({}) } as DOMRect);
   });
@@ -159,6 +159,31 @@ describe('Files: width of the Details panel (step 114)', () => {
     importSettings(JSON.stringify({ filesDetailsWidth: 'wide' }));
     expect(useSettingsStore.getState().filesDetailsWidth).toBe(35);
     expect(JSON.parse(useSettingsStore.getState().exportSettings()).filesDetailsWidth).toBe(35);
+  });
+
+  it('the folder column: its width goes to the settings instead of this browser; one from another device shows', () => {
+    localStorage.setItem('files-sidebar-width', '300');
+    renderBrowser();
+    const column = () => screen.getAllByRole('separator')[0]!.previousElementSibling as HTMLElement;
+    // A width this browser kept before shows until one is saved.
+    expect(column().style.width).toBe('300px');
+    const divider = screen.getAllByRole('separator')[0]!;
+    fireEvent.pointerDown(divider, { button: 0, pointerId: 2, clientX: 300 });
+    fireEvent.pointerMove(document, { pointerId: 2, clientX: 350, buttons: 1 });
+    fireEvent.pointerUp(document, { pointerId: 2, clientX: 350 });
+    expect(useSettingsStore.getState().filesSidebarWidth).toBe(350);
+    expect(localStorage.getItem('files-sidebar-width')).toBeNull();
+    // Arrow keys move it too; never past 400 px.
+    for (let i = 0; i < 8; i++) fireEvent.keyDown(divider, { key: 'ArrowRight' });
+    expect(useSettingsStore.getState().filesSidebarWidth).toBe(400);
+    act(() => useSettingsStore.setState({ filesSidebarWidth: 220 }));
+    expect(column().style.width).toBe('220px');
+    fireEvent.doubleClick(divider);
+    expect(useSettingsStore.getState().filesSidebarWidth).toBeNull();
+    expect(column().style.width).toBe('256px');
+    const { importSettings } = useSettingsStore.getState();
+    importSettings(JSON.stringify({ filesSidebarWidth: 1200 }));
+    expect(useSettingsStore.getState().filesSidebarWidth).toBeNull();
   });
 
   it('below 1024 px the panel lies over the files as before, without a divider', () => {
