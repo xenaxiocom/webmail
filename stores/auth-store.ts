@@ -1014,6 +1014,24 @@ type AuthSet = (partial: Partial<AuthState>) => void;
 type AuthGet = () => AuthState;
 
 /**
+ * xenaxio: /api/me, asked again when it got no answer at all. On XenRooms the
+ * app opens on "/" and moves on to the chat at once; Safari cuts off requests
+ * still running then, and that must not look like "signed out" (the window
+ * then went to the sign-in form although the session was alive).
+ */
+export async function meWithRetry(delays: number[] = [300, 1000, 2000]): Promise<Awaited<ReturnType<typeof xenaxioApi.me>>> {
+  for (let attempt = 0; ; attempt++) {
+    try {
+      return await xenaxioApi.me();
+    } catch (error) {
+      const status = (error as { status?: number }).status;
+      if (status !== 0 || attempt >= delays.length) throw error;
+      await new Promise((resolve) => setTimeout(resolve, delays[attempt]));
+    }
+  }
+}
+
+/**
  * xenaxio: restores the signed-in user from the platform BFF. One account per
  * browser session; the JMAP client talks to /api/jmap with the session cookie.
  * Without a session (or with a temporary password still to change) the app
@@ -1023,10 +1041,12 @@ async function restoreBffSession(set: AuthSet, get: AuthGet): Promise<void> {
   set({ isLoading: true, isRateLimited: false, rateLimitUntil: null });
   let me: Awaited<ReturnType<typeof xenaxioApi.me>>;
   try {
-    me = await xenaxioApi.me();
+    me = await meWithRetry();
   } catch (error) {
     const status = (error as { status?: number }).status;
-    set({ isAuthenticated: false, isLoading: false, client: null, ...(status && status !== 401 ? { error: 'connection_failed' } : {}) });
+    // Only 401 means signed out: a request that never got an answer (no
+    // network, or cut off because the page is moving on) is not.
+    set({ isAuthenticated: false, isLoading: false, client: null, ...(status !== 401 ? { error: 'connection_failed' } : {}) });
     return;
   }
   if (me.user.mustChangePassword) {

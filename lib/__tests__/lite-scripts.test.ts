@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import { createHash } from 'node:crypto';
 import { mkdtempSync, mkdirSync, writeFileSync, readFileSync, rmSync, existsSync } from 'node:fs';
 import { tmpdir } from 'node:os';
@@ -154,6 +154,26 @@ describe('lite build helpers', () => {
     expect(LOCALE_STORAGE_KEY).toBe('locale-storage');
     // An unknown default falls back to the first built locale.
     expect(buildRootRedirect({ locales: ['de'], defaultLocale: 'fr' })).toContain('var fallback = "de"');
+  });
+
+  it('root shim: ?start=chat opens the chat in the chosen language, nothing else from the URL', () => {
+    const html = buildRootRedirect({ basePath: '', locales: ['de', 'en'], defaultLocale: 'en' });
+    const script = html.slice(html.indexOf('<script>') + 8, html.indexOf('</script>'));
+    const run = (search: string) => {
+      const replace = vi.fn();
+      new Function('location', 'localStorage', 'navigator', script)(
+        { search, hash: '', replace },
+        { getItem: () => null },
+        { languages: ['de-DE'] },
+      );
+      return replace.mock.calls[0]?.[0];
+    };
+    // xenaxio: the XenRooms manifest starts at /?start=chat.
+    expect(run('?start=chat')).toBe('/de/chat/');
+    expect(run('?x=1&start=chat')).toBe('/de/chat/');
+    expect(run('')).toBe('/de/');
+    expect(run('?start=//evil.example')).toBe('/de/?start=//evil.example');
+    expect(run('?start=chatx')).toBe('/de/?start=chatx');
   });
 
   it('emits a CSP that allows inline scripts and the configured server only', () => {

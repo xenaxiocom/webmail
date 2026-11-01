@@ -358,6 +358,10 @@ export function buildRootRedirect({ basePath = "", locales, defaultLocale = "en"
   } catch (e) {}
   var langs = navigator.languages || [navigator.language];
   for (var j = 0; !chosen && j < langs.length; j++) chosen = pick(langs[j]);
+  // xenaxio: an installed app may start on one page (XenRooms: ?start=chat, its
+  // manifest's start_url); only a page from this list, nothing else from the URL.
+  var start = /(?:^[?]|&)start=(chat)(?:&|$)/.exec(location.search);
+  if (start) return location.replace(base + "/" + (chosen || fallback) + "/" + start[1] + "/");
   location.replace(base + "/" + (chosen || fallback) + "/" + location.search + location.hash);
 })();
 </script>

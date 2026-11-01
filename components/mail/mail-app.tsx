@@ -154,6 +154,8 @@ import { useProInterfaceActive } from "@/components/pro/pro-interface-redirect";
 import type { QuoteHeader } from "@/lib/plugin-types";
 import { useLiteLinkSegments } from "@/hooks/use-lite-link-segments";
 import { OPEN_DRAFT_EVENT } from "@/lib/xenaxio/assistant";
+import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { loadPortal } from "@/lib/xenaxio/portal";
 
 export interface MailAppProps {
   /**
@@ -1306,11 +1308,22 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
   // app again just to show the form.
   const router = useRouter();
   useEffect(() => {
-    if (initialCheckDone && !isAuthenticated && !authLoading) {
+    if (!initialCheckDone || isAuthenticated || authLoading) return;
+    let cancelled = false;
+    const toLogin = () => {
+      if (cancelled) return;
       saveRedirectAfterLogin();
       if (canEnterLoginInPlace()) router.replace('/login');
       else redirectToLogin();
-    }
+    };
+    // xenaxio: XenRooms is the chat only; this page goes on to the chat
+    // (PortalBrand), which signs in by itself. Sending to the form from here
+    // overtook that move and asked for a password with a live session.
+    if (XENAXIO_BFF) void loadPortal().then((portal) => portal.kind !== 'rooms' && toLogin());
+    else toLogin();
+    return () => {
+      cancelled = true;
+    };
   }, [initialCheckDone, isAuthenticated, authLoading, router]);
 
   // onBeforeCompose, in front of every way the composer opens. `open` runs
