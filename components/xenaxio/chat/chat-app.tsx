@@ -31,6 +31,7 @@ import { ChatDialogsProvider, CreateChannelDialog, PeoplePicker, QuickSwitcher }
 import { NotifySettingsDialog, PushBanner, useChatNotifyLoader } from "./notifications";
 import { RoomView } from "./room-view";
 import { ChatSidePanel } from "./side-panels";
+import { ThreadSplit } from "./thread-split";
 import { RoomsRail } from "./rooms-rail";
 import { ChatOffNotice, Notice } from "./notice";
 import { tellChatWorker } from "@/lib/xenaxio/chat/push";
@@ -265,14 +266,8 @@ function ChatInside() {
       ) : (
         <>
           {!sidebarHidden && sidebar}
-          <main className="flex min-h-0 min-w-0 flex-1 flex-col">{main}</main>
-          {/* Step 104: below 1024 px (iPad upright) the panel lies over the chat instead of squeezing it to nothing. */}
-          {panel && <button type="button" aria-label={t("chat.close")} tabIndex={-1} onClick={() => setPanel(null)} className="absolute inset-0 z-20 bg-black/30 lg:hidden" data-testid="chat-panel-backdrop" />}
-          {panel && (
-            <div className="absolute inset-y-0 right-0 z-30 flex max-w-full shadow-2xl lg:static lg:z-auto lg:shadow-none">
-              <ChatSidePanel client={client} panel={panel} />
-            </div>
-          )}
+          {/* Step 114: a thread's width is changed with a divider, per room, kept on the server. */}
+          <ThreadSplit client={client} panel={panel} main={main} side={panel && <ChatSidePanel client={client} panel={panel} />} closeLabel={t("chat.close")} onClose={() => setPanel(null)} />
         </>
       )}
       {client.syncError && <div className="fixed bottom-4 left-1/2 z-50 -translate-x-1/2 rounded-full bg-foreground px-4 py-1.5 text-xs text-background shadow">{t("chat.reconnecting")}</div>}
