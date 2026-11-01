@@ -152,6 +152,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/flows",
   // Step 86: transcripts of audio files (lib/xenaxio/transcripts.ts).
   "/api/files/transcripts",
+  // Step 108, part C3: the admin's switch for the automatic check of chat pictures (components/xenaxio/chat/image-check-admin.tsx).
+  "/api/admin/image-check",
   // Path-independent generic prefix used by `apiFetch` docs/comments.
   "/api/",
   // stores/update-store.ts - startPolling() is a no-op in Lite.
