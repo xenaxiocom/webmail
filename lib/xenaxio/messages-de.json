@@ -1378,7 +1378,7 @@
     "logo_remove": "Entfernen",
     "logo_hint": "PNG oder WebP, höchstens 256 KB und 1024 × 1024 Pixel. Am besten ein breites Logo mit transparentem Hintergrund.",
     "icon_title": "App-Symbol",
-    "icon_intro": "Wenn Ihr Team die App installiert (z. B. „Zum Dock hinzufügen“), wird Ihr Logo auf diese Hintergrundfarbe gesetzt. Standard ist Weiß.",
+    "icon_intro": "Wenn Ihr Team die App installiert (z. B. „Zum Dock hinzufügen“), wird Ihr Logo auf diese Hintergrundfarbe gesetzt. Auch in XenRooms steht das Logo in der Spalte der Firmen darauf. Standard ist Weiß.",
     "icon_preview": "Vorschau des App-Symbols",
     "icon_use_brand": "Markenfarbe übernehmen",
     "icon_save": "Hintergrund speichern",
@@ -1408,7 +1408,11 @@
     "own_remove": "Entfernen",
     "own_remove_confirm": "{host} entfernen? Die Adresse funktioniert dann sofort nicht mehr.",
     "col_type": "Typ",
-    "logo_intro_rooms": "Erscheint bei Ihrer Firma in XenRooms: in der Spalte der Firmen und oben in der Kanalliste."
+    "logo_intro_rooms": "Erscheint bei Ihrer Firma in XenRooms: in der Spalte der Firmen und oben in der Kanalliste.",
+    "icon_title_rooms": "Hintergrund hinter dem Logo",
+    "icon_intro_rooms": "Viele Logos sind transparent. In XenRooms steht Ihr Logo in der Spalte der Firmen und im Firmenmenü auf dieser Farbe. Standard ist Weiß.",
+    "icon_preview_rooms": "Vorschau des Logos in XenRooms",
+    "icon_saved_rooms": "Gespeichert."
   },
   "mail_apps": {
     "title": "Mail-Programme",
@@ -1600,7 +1604,7 @@
     "gradients": "Farbverläufe",
     "error": "Der Hintergrund konnte nicht gespeichert werden. Bitte erneut versuchen.",
     "company_title": "Hintergrund für alle",
-    "company_intro": "Bild oder Farbverlauf hinter dem Fenster von Mail, Kalender und Kontakten. Gilt für alle im Team, die keinen eigenen gewählt haben; jede Person kann ihn unter Einstellungen → Darstellung ändern.",
+    "company_intro": "Bild oder Farbverlauf hinter dem Fenster von Mail, Kalender, Kontakten und Chat. Gilt für alle im Team, die keinen eigenen gewählt haben; jede Person kann ihn unter Einstellungen → Darstellung ändern.",
     "company_saved": "Gespeichert. Ihr Team sieht den Hintergrund beim nächsten Laden der Seite.",
     "names": {
       "mountains": "Berge",
@@ -1615,7 +1619,8 @@
       "orange": "Orange",
       "red": "Rot",
       "green": "Grün"
-    }
+    },
+    "company_intro_rooms": "Bild oder Farbverlauf hinter der Spalte der Firmen und der Kanalliste, auf Bildschirmen ab Tablet-Größe. Gilt für alle im Team, die keinen eigenen gewählt haben; jede Person kann ihn unter Einstellungen → Darstellung ändern."
   },
   "avatar": {
     "title": "Profilbild",

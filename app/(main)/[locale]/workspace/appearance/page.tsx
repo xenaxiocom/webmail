@@ -132,6 +132,8 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
   const validColor = HEX.test(color);
   const validIconBg = HEX.test(iconBg);
   const savedIconBg = portal.iconBackground ?? WHITE;
+  // Without an app icon (XenRooms, or a logo that is not PNG) there is nothing to reinstall.
+  const iconSaved = t(rooms || !portal.iconUrl ? "appearance.icon_saved_rooms" : "appearance.icon_saved");
   const previewText = validColor && contrastRatio(color, "#ffffff") >= contrastRatio(color, "#111111") ? "#ffffff" : "#111111";
   const own = portal.hostname;
   const baseHost = portal.slug && portal.baseDomain ? `${portal.slug}.${portal.baseDomain}` : null;
@@ -201,53 +203,49 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
         <p className="text-xs text-muted-foreground">{t("appearance.logo_hint")}</p>
       </Section>
 
-      {/* Step 110: XenRooms is one app with its own icon for every company. */}
-      {portal.logoUrl && !rooms && (
-        <Section title={t("appearance.icon_title")} description={t("appearance.icon_intro")}>
-          {portal.iconUrl ? (
-            <>
-              <div className="flex flex-wrap items-center gap-3">
-                <div
-                  className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border shadow-sm"
-                  style={{ backgroundColor: validIconBg ? iconBg : savedIconBg }}
-                  aria-label={t("appearance.icon_preview")}
-                  role="img"
-                >
-                  <img src={withBasePath(portal.logoUrl)} alt="" className="max-h-[80%] max-w-[80%] object-contain" />
-                </div>
-                <input
-                  type="color"
-                  value={validIconBg ? iconBg : WHITE}
-                  onChange={(e) => setIconBg(e.target.value)}
-                  aria-label={t("appearance.icon_title")}
-                  className="h-10 w-14 cursor-pointer rounded border border-border bg-background p-1"
-                />
-                <Input value={iconBg} onChange={(e) => setIconBg(e.target.value.trim())} className="w-28 font-mono" spellCheck={false} aria-invalid={validIconBg ? undefined : true} />
-                {portal.color && portal.color !== iconBg.toLowerCase() && (
-                  <Button type="button" variant="outline" onClick={() => setIconBg(portal.color!)} disabled={busy !== null}>
-                    <span className="mr-1.5 inline-block h-3 w-3 rounded-full border border-border" style={{ backgroundColor: portal.color }} aria-hidden />
-                    {t("appearance.icon_use_brand")}
-                  </Button>
-                )}
-              </div>
-              <div className="flex flex-wrap gap-2">
-                <Button
-                  type="button"
-                  onClick={() => run("icon", () => xenaxio.setIconBackground(iconBg.toLowerCase() === WHITE ? null : iconBg.toLowerCase()), t("appearance.icon_saved"))}
-                  disabled={busy !== null || !validIconBg || iconBg.toLowerCase() === savedIconBg}
-                >
-                  {busy === "icon" ? t("appearance.saving") : t("appearance.icon_save")}
-                </Button>
-                {portal.iconBackground && (
-                  <Button type="button" variant="ghost" onClick={() => run("icon", () => xenaxio.setIconBackground(null), t("appearance.icon_saved"))} disabled={busy !== null}>
-                    {t("appearance.icon_reset")}
-                  </Button>
-                )}
-              </div>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">{t("appearance.icon_no_png")}</p>
-          )}
+      {/* Step 40: the background behind the logo in the app icon. Step 113: also behind the logo in
+          XenRooms' column of companies — so XenRooms companies (one app icon for all) choose it too. */}
+      {portal.logoUrl && (
+        <Section title={t(rooms ? "appearance.icon_title_rooms" : "appearance.icon_title")} description={t(rooms ? "appearance.icon_intro_rooms" : "appearance.icon_intro")}>
+          {!portal.iconUrl && !rooms && <p className="text-sm text-muted-foreground">{t("appearance.icon_no_png")}</p>}
+          <div className="flex flex-wrap items-center gap-3">
+            <div
+              className="flex h-16 w-16 shrink-0 items-center justify-center overflow-hidden rounded-2xl border border-border shadow-sm"
+              style={{ backgroundColor: validIconBg ? iconBg : savedIconBg }}
+              aria-label={t(rooms ? "appearance.icon_preview_rooms" : "appearance.icon_preview")}
+              role="img"
+            >
+              <img src={withBasePath(portal.logoUrl)} alt="" className="max-h-[80%] max-w-[80%] object-contain" />
+            </div>
+            <input
+              type="color"
+              value={validIconBg ? iconBg : WHITE}
+              onChange={(e) => setIconBg(e.target.value)}
+              aria-label={t(rooms ? "appearance.icon_title_rooms" : "appearance.icon_title")}
+              className="h-10 w-14 cursor-pointer rounded border border-border bg-background p-1"
+            />
+            <Input value={iconBg} onChange={(e) => setIconBg(e.target.value.trim())} className="w-28 font-mono" spellCheck={false} aria-invalid={validIconBg ? undefined : true} />
+            {portal.color && portal.color !== iconBg.toLowerCase() && (
+              <Button type="button" variant="outline" onClick={() => setIconBg(portal.color!)} disabled={busy !== null}>
+                <span className="mr-1.5 inline-block h-3 w-3 rounded-full border border-border" style={{ backgroundColor: portal.color }} aria-hidden />
+                {t("appearance.icon_use_brand")}
+              </Button>
+            )}
+          </div>
+          <div className="flex flex-wrap gap-2">
+            <Button
+              type="button"
+              onClick={() => run("icon", () => xenaxio.setIconBackground(iconBg.toLowerCase() === WHITE ? null : iconBg.toLowerCase()), iconSaved)}
+              disabled={busy !== null || !validIconBg || iconBg.toLowerCase() === savedIconBg}
+            >
+              {busy === "icon" ? t("appearance.saving") : t("appearance.icon_save")}
+            </Button>
+            {portal.iconBackground && (
+              <Button type="button" variant="ghost" onClick={() => run("icon", () => xenaxio.setIconBackground(null), iconSaved)} disabled={busy !== null}>
+                {t("appearance.icon_reset")}
+              </Button>
+            )}
+          </div>
         </Section>
       )}
 
@@ -285,30 +283,28 @@ function AppearanceView({ rooms = false }: { rooms?: boolean }) {
         </div>
       </Section>
 
-      {/* Step 42: the background under the web client for everyone who has not picked their own. */}
-      {/* Step 110: the background shows behind the mail's navigation, which XenRooms has not. */}
-      {!rooms && (
-        <Section title={t("background.company_title")} description={t("background.company_intro")}>
-          <BackgroundPicker
-            value={portal.background ?? null}
-            extra={[{ code: null, label: t("background.none"), bg: null }]}
-            disabled={busy !== null}
-            onSelect={(code) =>
-              run(
-                "background",
-                async () => {
-                  const result = await xenaxio.setCompanyBackground(code);
-                  // This window follows at once (unless the admin picked their own).
-                  const me = useXenaxioMeStore.getState().me;
-                  if (me?.portal) useXenaxioMeStore.setState({ me: { ...me, portal: { ...me.portal, background: result.background ?? null } } });
-                  return result;
-                },
-                t("background.company_saved"),
-              )
-            }
-          />
-        </Section>
-      )}
+      {/* Step 42: the background under the web client for everyone who has not picked their own.
+          Step 113: in the chat too — behind the column of companies and the channel list, so XenRooms as well. */}
+      <Section title={t("background.company_title")} description={t(rooms ? "background.company_intro_rooms" : "background.company_intro")}>
+        <BackgroundPicker
+          value={portal.background ?? null}
+          extra={[{ code: null, label: t("background.none"), bg: null }]}
+          disabled={busy !== null}
+          onSelect={(code) =>
+            run(
+              "background",
+              async () => {
+                const result = await xenaxio.setCompanyBackground(code);
+                // This window follows at once (unless the admin picked their own).
+                const me = useXenaxioMeStore.getState().me;
+                if (me?.portal) useXenaxioMeStore.setState({ me: { ...me, portal: { ...me.portal, background: result.background ?? null } } });
+                return result;
+              },
+              t("background.company_saved"),
+            )
+          }
+        />
+      </Section>
 
       {portal.customHostnames && !rooms && (
         <Section title={t("appearance.own_title")} description={t("appearance.own_intro")}>

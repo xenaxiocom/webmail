@@ -1,20 +1,22 @@
 /* Step 42: the background under the web client (lib/xenaxio/backgrounds.ts).
-   Active while <html data-xenaxio-bg> is set, on screens of 1024 px and more.
+   Active while <html data-xenaxio-bg> is set, on screens of 768 px and more
+   (step 113: tablets too, e.g. an iPad; it was 1024 px).
 
    The picture shows through the navigation only — the narrow rail, the folder
    column, Mountain View's canvas and top bar — as frosted glass: a blurred
    copy of it (made in advance, so the browser does not blur anything) under
    a veil of the theme's colour. Every part paints it fixed to the window, so
-   the pieces join up into one picture. Lists, messages, the calendar grid and
-   settings keep their solid background, so text reads as before. On phones
-   and tablets the content fills the screen, so nothing changes there. */
+   the pieces join up into one picture. Step 113: the chat too — XenRooms'
+   column of companies (data-app-rail) and the channel list (data-app-sidebar).
+   Lists, messages, the calendar grid and settings keep their solid background, so text reads as before. On phones
+   the content fills the screen, so nothing changes there. */
 
 html[data-xenaxio-bg] {
   --xenaxio-glass: color-mix(in srgb, var(--color-background) 52%, transparent);
   --xenaxio-frost: linear-gradient(var(--xenaxio-glass), var(--xenaxio-glass)), var(--xenaxio-bg-soft);
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 768px) {
   /* Default layout: the rail and the folder column. */
   html[data-xenaxio-bg]:not([data-interface-layout="mountain-view"]) [data-app-shell]:not(.h-full) :is([data-app-rail], [data-app-sidebar]) {
     background: var(--xenaxio-frost);
@@ -59,7 +61,7 @@ html[data-xenaxio-bg] {
 }
 
 /* "Reduce transparency" in the system settings: nearly solid. */
-@media (min-width: 1024px) and (prefers-reduced-transparency: reduce) {
+@media (min-width: 768px) and (prefers-reduced-transparency: reduce) {
   html[data-xenaxio-bg] {
     --xenaxio-glass: color-mix(in srgb, var(--color-background) 90%, transparent);
   }
