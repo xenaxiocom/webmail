@@ -30,6 +30,9 @@ import { resourceToView, useFileStore, type FileResource } from "@/stores/file-s
 import { PluginActions, usePluginActions } from "@/components/plugins/plugin-actions";
 import { toast } from "@/stores/toast-store";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useSplitResize } from "@/components/xenaxio/use-split-resize";
+import { SPLIT_DEFAULT, splitStyle } from "@/lib/xenaxio/split";
 import { ShareCollectionDialog } from "@/components/settings/share-collection-dialog";
 import type { IJMAPClient } from "@/lib/jmap/client-interface";
 import type { FileNodeRights } from "@/lib/jmap/types";
@@ -121,6 +124,7 @@ function isPreviewable(name: string): boolean {
 type MenuData = { kind: "item"; resource: FileResource } | { kind: "empty" } | { kind: "new" };
 
 const SIDEBAR_DEFAULT_WIDTH = 256;
+const clampSidebarWidth = (width: number) => Math.max(180, Math.min(400, Math.round(width)));
 
 function isTypingTarget(target: EventTarget | null): boolean {
   const el = target as HTMLElement | null;
@@ -241,17 +245,45 @@ export function FileBrowser({
   const [narrowSidebarOpen, setNarrowSidebarOpen] = useState(false);
   useEffect(() => { if (!isNarrow) setNarrowSidebarOpen(false); }, [isNarrow]);
   useEffect(() => { setNarrowSidebarOpen(false); }, [currentPath]);
-  const [sidebarWidth, setSidebarWidth] = useState(() => {
+  // xenaxio (step 114): the folder column's width lives in the settings (on the server);
+  // a width this browser kept before is used until the first drag saves one.
+  const savedSidebarWidth = useSettingsStore((s) => s.filesSidebarWidth);
+  const sidebarWidthOf = (saved: number | null) => {
+    if (saved !== null) return clampSidebarWidth(saved);
     if (typeof window !== "undefined") {
-      const saved = Number(localStorage.getItem("files-sidebar-width"));
-      if (saved) return Math.max(180, Math.min(400, saved));
+      const legacy = Number(localStorage.getItem("files-sidebar-width"));
+      if (legacy) return clampSidebarWidth(legacy);
     }
     return SIDEBAR_DEFAULT_WIDTH;
-  });
+  };
+  const [sidebarWidth, setSidebarWidth] = useState(() => sidebarWidthOf(savedSidebarWidth));
   const [isResizing, setIsResizing] = useState(false);
-  const dragStartWidth = useRef(SIDEBAR_DEFAULT_WIDTH);
+  const dragStartWidth = useRef(sidebarWidth);
+  const liveSidebarWidth = useRef(sidebarWidth);
+  liveSidebarWidth.current = sidebarWidth;
+  // A width saved on another device arrives with the settings.
+  useEffect(() => {
+    if (isResizing) return;
+    const width = sidebarWidthOf(savedSidebarWidth);
+    dragStartWidth.current = width;
+    setSidebarWidth(width);
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- only when the saved width changes
+  }, [savedSidebarWidth]);
+  const saveSidebarWidth = (width: number | null) => {
+    useSettingsStore.getState().updateSetting("filesSidebarWidth", width);
+    try { localStorage.removeItem("files-sidebar-width"); } catch { /* ignore */ }
+  };
   const [showDetails, setShowDetails] = useState(() => {
     try { return localStorage.getItem("files-show-details") === "1"; } catch { return false; }
+  });
+  // xenaxio (step 114): the Details panel's width is changed with a divider and kept in the settings (on the server).
+  const detailsAreaRef = useRef<HTMLDivElement>(null);
+  const filesDetailsWidth = useSettingsStore((s) => s.filesDetailsWidth);
+  const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const detailsSplit = useSplitResize({
+    areaRef: detailsAreaRef,
+    saved: filesDetailsWidth ?? SPLIT_DEFAULT,
+    onSave: (value) => updateSetting("filesDetailsWidth", value === null ? null : Math.round(value)),
   });
   const toggleDetails = useCallback((open?: boolean) => {
     setShowDetails((v) => {
@@ -1003,7 +1035,7 @@ export function FileBrowser({
       onToggleStar={() => singleSelected && onToggleFavorite(pathOf(singleSelected))}
       className={cn(
         "flex-shrink-0",
-        isNarrow ? "absolute inset-y-0 end-0 z-30 w-80 max-w-[85%] shadow-xl" : "w-72",
+        isNarrow ? "absolute inset-y-0 end-0 z-30 w-80 max-w-[85%] shadow-xl" : "w-full",
       )}
     />
   );
@@ -1053,12 +1085,18 @@ export function FileBrowser({
           </div>
           <ResizeHandle
             onResizeStart={() => { dragStartWidth.current = sidebarWidth; setIsResizing(true); }}
-            onResize={(delta) => setSidebarWidth(Math.max(180, Math.min(400, dragStartWidth.current + delta)))}
+            onResize={(delta) => {
+              const next = clampSidebarWidth(dragStartWidth.current + delta);
+              liveSidebarWidth.current = next;
+              setSidebarWidth(next);
+            }}
             onResizeEnd={() => {
               setIsResizing(false);
-              localStorage.setItem("files-sidebar-width", String(sidebarWidth));
+              saveSidebarWidth(liveSidebarWidth.current);
+              // An arrow key (no drag start) moves on from here.
+              dragStartWidth.current = liveSidebarWidth.current;
             }}
-            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT_WIDTH); localStorage.setItem("files-sidebar-width", String(SIDEBAR_DEFAULT_WIDTH)); }}
+            onDoubleClick={() => { setSidebarWidth(SIDEBAR_DEFAULT_WIDTH); dragStartWidth.current = SIDEBAR_DEFAULT_WIDTH; saveSidebarWidth(null); }}
           />
         </>
       ))}
@@ -1102,7 +1140,7 @@ export function FileBrowser({
           </div>
         )}
 
-        <div className="relative flex flex-1 min-h-0">
+        <div ref={detailsAreaRef} className="relative flex flex-1 min-h-0">
           <div
             ref={scrollAreaRef}
             className="relative flex-1 min-w-0 overflow-y-auto"
@@ -1146,7 +1184,16 @@ export function FileBrowser({
             </div>
           )}
 
-          {detailsPanel}
+          {detailsPanel && !isNarrow ? (
+            <>
+              <ResizeHandle testId="files-details-resize" {...detailsSplit.handle} />
+              <div className="flex flex-shrink-0" style={splitStyle(detailsSplit.percent)} data-details-width={Math.round(detailsSplit.percent)}>
+                {detailsPanel}
+              </div>
+            </>
+          ) : (
+            detailsPanel
+          )}
 
           {isNarrow && canCreate && !selectionActions && (
             <Button
