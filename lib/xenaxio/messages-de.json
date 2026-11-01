@@ -256,7 +256,9 @@
     "message_unknown": "Die Nachricht zu diesem Bild ist nicht bekannt; es lässt sich nur als erledigt markieren.",
     "chat_remove_failed": "Die Nachricht ließ sich nicht entfernen. Bitte später erneut versuchen.",
     "sender_unknown": "Die Person, die das Bild gesendet hat, gibt es nicht mehr.",
-    "image_check_unavailable": "Die Bildprüfung ist auf diesem Server nicht verfügbar."
+    "image_check_unavailable": "Die Bildprüfung ist auf diesem Server nicht verfügbar.",
+    "ai_not_in_free": "Die KI gibt es im bezahlten XenRooms.",
+    "not_for_rooms": "In XenRooms ist die Adresse die Ihres Chats und bleibt gleich."
   },
   "login": {
     "title": "Anmelden",
@@ -338,7 +340,13 @@
     "permissions": "KI-Berechtigungen",
     "permissions_desc": "Was der Assistent und verbundene KI-Chats ohne Rückfrage tun dürfen",
     "files": "Dateien der Mitarbeitenden",
-    "files_desc": "Dateien der Mitarbeitenden ansehen, öffnen und löschen"
+    "files_desc": "Dateien der Mitarbeitenden ansehen, öffnen und löschen",
+    "rooms_people_desc": "Kolleginnen und Kollegen einladen, sperren, Admins festlegen, KI pro Person",
+    "rooms_chat_desc": "Kanäle, Gruppen, eigene Emoji, andere Firmen, KI-Zugriff",
+    "rooms_appearance": "Erscheinungsbild",
+    "rooms_appearance_desc": "Logo und Farbe Ihrer Firma in XenRooms",
+    "rooms_meetings_desc": "Anrufe in Rooms, Gäste, Hintergrund für Anrufe",
+    "rooms_ai_free": "Im bezahlten XenRooms: KI-Assistent, KI-Chats und ihre Einstellungen"
   },
   "domain": {
     "title": "Domains und DNS",
@@ -1399,7 +1407,8 @@
     "own_make_primary_hint": "Die Anmeldung über die gemeinsame Adresse und Links in E-Mails führen dann hierher. {base} funktioniert weiterhin.",
     "own_remove": "Entfernen",
     "own_remove_confirm": "{host} entfernen? Die Adresse funktioniert dann sofort nicht mehr.",
-    "col_type": "Typ"
+    "col_type": "Typ",
+    "logo_intro_rooms": "Erscheint bei Ihrer Firma in XenRooms: in der Spalte der Firmen und oben in der Kanalliste."
   },
   "mail_apps": {
     "title": "Mail-Programme",
@@ -1700,6 +1709,7 @@
     "details_members": "Mitglieder",
     "details_pinned": "Angeheftet",
     "details_integrations": "Integrationen",
+    "details_background": "Hintergrund",
     "details_settings": "Einstellungen",
     "details_integrations_text": "Webhooks schreiben Nachrichten von anderen Programmen in diesen Kanal (wie Slack-Webhooks).",
     "details_edit": "Bearbeiten",
@@ -1744,6 +1754,33 @@
     "renamed": "{name} hat den Kanal in „{value}“ umbenannt",
     "topic_changed": "{name} hat das Thema geändert: {value}",
     "archived_event": "{name} hat den Kanal archiviert",
+    "background_for_all": "Hintergrund des Kanals",
+    "background_for_all_hint": "Bild oder Farbverlauf hinter den Nachrichten – für alle im Kanal. Jede Person kann für sich etwas anderes wählen.",
+    "background_channel_has": "Der Kanal hat den Hintergrund „{name}“.",
+    "background_channel_none": "Der Kanal hat keinen Hintergrund.",
+    "background_who": "Für alle ändern können ihn die Manager des Kanals und der Admin der Firma; in Direktnachrichten alle im Gespräch.",
+    "background_mine": "Hintergrund für mich",
+    "background_mine_hint": "Nur Sie sehen diese Auswahl, auf allen Ihren Geräten.",
+    "background_follow": "Wie im Kanal",
+    "background_follow_named": "Wie im Kanal ({name})",
+    "background_default": "Standard",
+    "background_hidden_note": "Hintergründe von Kanälen sind für Sie ausgeblendet. Wählen Sie hier einen, um ihn in diesem Kanal trotzdem zu sehen.",
+    "background_hide_all": "Hintergründe in allen Kanälen und Gesprächen ausblenden",
+    "background_hide_all_hint": "Gilt nur für Sie. Ein Hintergrund, den Sie für einen Kanal oder ein Gespräch selbst gewählt haben, bleibt.",
+    "background_changed": "{name} hat den Hintergrund geändert: {value}",
+    "background_changed_other": "{name} hat den Hintergrund geändert",
+    "background_removed": "{name} hat den Hintergrund entfernt",
+    "background_image": "Eigenes Bild",
+    "background_image_upload": "Bild hochladen …",
+    "background_image_replace": "Anderes Bild hochladen …",
+    "background_image_hint": "JPEG, PNG oder WebP (bei GIF das erste Bild). Wird vor dem Hochladen verkleinert und mit den Dateien des Chats gespeichert.",
+    "background_image_invalid": "Bitte ein Bild wählen: JPEG, PNG, WebP oder GIF, höchstens 30 MB.",
+    "background_image_set": "{name} hat ein eigenes Bild als Hintergrund gesetzt",
+    "background_for_dm": "Hintergrund des Gesprächs",
+    "background_for_dm_hint": "Bild oder Farbverlauf hinter den Nachrichten – für alle in diesem Gespräch. Jede Person kann für sich etwas anderes wählen.",
+    "background_follow_dm": "Wie im Gespräch",
+    "background_follow_dm_named": "Wie im Gespräch ({name})",
+    "background_dialog_title": "Hintergrund: {name}",
     "composer_placeholder": "Nachricht an {name}",
     "thread_placeholder": "Antworten …",
     "send": "Senden",
@@ -3409,7 +3446,10 @@
     "show_companies": "Firmen links anzeigen",
     "order_hint": "Zum Sortieren ziehen",
     "move_company": "{company} verschieben (Position {n})",
-    "settings": "Einstellungen"
+    "settings": "Einstellungen",
+    "people_ai_badge": "KI",
+    "people_ai_on": "KI einschalten",
+    "people_ai_off": "KI ausschalten"
   },
   "profile_settings": {
     "title": "Profil",
@@ -3418,7 +3458,9 @@
     "load_failed": "Das Profil konnte nicht geladen werden. Bitte laden Sie die Seite neu.",
     "account_title": "Konto",
     "account_intro": "Ihr Name, Ihr Foto und Ihre Anmeldung bei XenRooms.",
-    "sign_in_email": "Anmelde-E-Mail"
+    "sign_in_email": "Anmelde-E-Mail",
+    "assistant_intro": "Was sich der KI-Assistent über Sie merkt, Ihre Fähigkeiten und was er ohne Rückfrage tun darf.",
+    "assistant_open": "Öffnen"
   },
   "colleague_card": {
     "message": "Nachricht in Rooms",

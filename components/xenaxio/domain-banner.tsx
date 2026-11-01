@@ -4,7 +4,7 @@
 // neither be sent nor received. Shown at the top of every app (mail, calendar,
 // contacts, settings) so nobody mistakes a silent mailbox for a working one.
 // Admins get the way to the DNS page; employees learn whom to ask. Not shown
-// in XenRooms (step 110).
+// in XenRooms (step 112).
 import { Link } from "@/i18n/navigation";
 import { AlertTriangle } from "@/components/icons";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -15,7 +15,7 @@ export function XenaxioDomainBanner() {
   const t = useXT();
   const me = useXenaxioMe();
   const portal = usePortal();
-  // Step 110: not in XenRooms — the chat works before the domain is connected,
+  // Step 112: not in XenRooms — the chat works before the domain is connected,
   // and the notice is about mail (owner 31.10.2026).
   if (portal?.kind === "rooms" || !domainPending(me)) return null;
   const admin = me.user.role === "admin";

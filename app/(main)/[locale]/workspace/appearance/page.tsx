@@ -9,14 +9,14 @@ import { Input } from "@/components/ui/input";
 import { ExternalLink, RefreshCw, Trash2, Upload } from "@/components/icons";
 import { CopyButton } from "@/components/xenaxio/copy-button";
 import { Field, Notice } from "@/components/xenaxio/ui";
-import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
+import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { type AdminPortal, errorKey, type SlugProblem, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { withBasePath } from "@/lib/browser-navigation";
 import { contrastRatio } from "@/lib/xenaxio/portal";
 import { cn } from "@/lib/utils";
 import { BackgroundPicker } from "@/components/xenaxio/background-picker";
-import { useXenaxioMeStore } from "@/lib/xenaxio/me-store";
+import { useXenaxioMe, useXenaxioMeStore } from "@/lib/xenaxio/me-store";
 import { BookingAdmin } from "@/components/xenaxio/booking-admin";
 
 const LOGO_MAX_BYTES = 256 * 1024;
@@ -42,7 +42,7 @@ function Section({ title, description, children }: { title: string; description?
   );
 }
 
-function AppearanceView() {
+function AppearanceView({ rooms = false }: { rooms?: boolean }) {
   const t = useXT();
   const locale = useLocale();
   const [portal, setPortal] = useState<AdminPortal | null>(null);
@@ -141,7 +141,8 @@ function AppearanceView() {
       {error && <Notice kind="error">{error}</Notice>}
       {notice && <Notice kind="success">{notice}</Notice>}
 
-      {portal.baseDomain && (
+      {/* Step 110: in XenRooms the address is the chat's (<slug>.xenrooms.app) and stays. */}
+      {portal.baseDomain && !rooms && (
         <Section title={t("appearance.address_title")} description={t("appearance.address_intro")}>
           <a href={portal.url} className="inline-flex items-center gap-1.5 text-sm font-medium text-primary hover:underline break-all">
             {portal.url.replace(/^https:\/\//, "")}
@@ -174,7 +175,7 @@ function AppearanceView() {
         </Section>
       )}
 
-      <Section title={t("appearance.logo_title")} description={t("appearance.logo_intro")}>
+      <Section title={t("appearance.logo_title")} description={t(rooms ? "appearance.logo_intro_rooms" : "appearance.logo_intro")}>
         <div className="flex flex-wrap items-center gap-4">
           <div className="flex h-20 w-48 items-center justify-center rounded-md border border-dashed border-border bg-background p-2">
             {portal.logoUrl ? (
@@ -200,7 +201,8 @@ function AppearanceView() {
         <p className="text-xs text-muted-foreground">{t("appearance.logo_hint")}</p>
       </Section>
 
-      {portal.logoUrl && (
+      {/* Step 110: XenRooms is one app with its own icon for every company. */}
+      {portal.logoUrl && !rooms && (
         <Section title={t("appearance.icon_title")} description={t("appearance.icon_intro")}>
           {portal.iconUrl ? (
             <>
@@ -284,28 +286,31 @@ function AppearanceView() {
       </Section>
 
       {/* Step 42: the background under the web client for everyone who has not picked their own. */}
-      <Section title={t("background.company_title")} description={t("background.company_intro")}>
-        <BackgroundPicker
-          value={portal.background ?? null}
-          extra={[{ code: null, label: t("background.none"), bg: null }]}
-          disabled={busy !== null}
-          onSelect={(code) =>
-            run(
-              "background",
-              async () => {
-                const result = await xenaxio.setCompanyBackground(code);
-                // This window follows at once (unless the admin picked their own).
-                const me = useXenaxioMeStore.getState().me;
-                if (me?.portal) useXenaxioMeStore.setState({ me: { ...me, portal: { ...me.portal, background: result.background ?? null } } });
-                return result;
-              },
-              t("background.company_saved"),
-            )
-          }
-        />
-      </Section>
+      {/* Step 110: the background shows behind the mail's navigation, which XenRooms has not. */}
+      {!rooms && (
+        <Section title={t("background.company_title")} description={t("background.company_intro")}>
+          <BackgroundPicker
+            value={portal.background ?? null}
+            extra={[{ code: null, label: t("background.none"), bg: null }]}
+            disabled={busy !== null}
+            onSelect={(code) =>
+              run(
+                "background",
+                async () => {
+                  const result = await xenaxio.setCompanyBackground(code);
+                  // This window follows at once (unless the admin picked their own).
+                  const me = useXenaxioMeStore.getState().me;
+                  if (me?.portal) useXenaxioMeStore.setState({ me: { ...me, portal: { ...me.portal, background: result.background ?? null } } });
+                  return result;
+                },
+                t("background.company_saved"),
+              )
+            }
+          />
+        </Section>
+      )}
 
-      {portal.customHostnames && (
+      {portal.customHostnames && !rooms && (
         <Section title={t("appearance.own_title")} description={t("appearance.own_intro")}>
           {!own ? (
             <form
@@ -400,13 +405,25 @@ function AppearanceView() {
   );
 }
 
+/** Step 110: XenRooms (a company without email) — logo, colour and background; no address, app icon or booking pages. */
+function AppearanceBody() {
+  const rooms = useMe().tenant.product === "rooms";
+  return (
+    <>
+      <AppearanceView rooms={rooms} />
+      {/* Step 56: online booking pages of the company. */}
+      {!rooms && <BookingAdmin />}
+    </>
+  );
+}
+
 export default function AppearancePage() {
   const t = useXT();
+  // Step 110: in XenRooms there is no address to choose.
+  const rooms = useXenaxioMe()?.tenant.product === "rooms";
   return (
-    <WorkspaceShell title={t("appearance.title")} backHref="/workspace" requireAdmin>
-      <AppearanceView />
-      {/* Step 56: online booking pages of the company. */}
-      <BookingAdmin />
+    <WorkspaceShell title={rooms ? t("workspace.rooms_appearance") : t("appearance.title")} backHref="/workspace" requireAdmin>
+      <AppearanceBody />
     </WorkspaceShell>
   );
 }

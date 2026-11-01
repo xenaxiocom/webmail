@@ -256,7 +256,9 @@
     "message_unknown": "The message of this picture is not known; it can only be marked as done.",
     "chat_remove_failed": "The message could not be removed. Please try again later.",
     "sender_unknown": "The person who sent the picture no longer exists.",
-    "image_check_unavailable": "The picture check is not available on this server."
+    "image_check_unavailable": "The picture check is not available on this server.",
+    "ai_not_in_free": "The AI comes with paid XenRooms.",
+    "not_for_rooms": "In XenRooms the address is your chat’s and stays the same."
   },
   "login": {
     "title": "Sign in",
@@ -338,7 +340,13 @@
     "permissions": "AI permissions",
     "permissions_desc": "What the assistant and connected AI chats may do without asking",
     "files": "Employees' files",
-    "files_desc": "See, open and delete employees' files"
+    "files_desc": "See, open and delete employees' files",
+    "rooms_people_desc": "Invite colleagues, block them, choose admins, AI per person",
+    "rooms_chat_desc": "Channels, groups, own emoji, other companies, AI access",
+    "rooms_appearance": "Appearance",
+    "rooms_appearance_desc": "Your company’s logo and colour in XenRooms",
+    "rooms_meetings_desc": "Calls in Rooms, guests, background for calls",
+    "rooms_ai_free": "In paid XenRooms: the AI assistant, AI chats and their settings"
   },
   "domain": {
     "title": "Domains and DNS",
@@ -1399,7 +1407,8 @@
     "own_make_primary_hint": "Sign-in on the shared address and links in emails then lead here. {base} keeps working.",
     "own_remove": "Remove",
     "own_remove_confirm": "Remove {host}? The address stops working at once.",
-    "col_type": "Type"
+    "col_type": "Type",
+    "logo_intro_rooms": "Shows for your company in XenRooms: in the column of companies and at the top of the channel list."
   },
   "mail_apps": {
     "title": "Mail apps",
@@ -1700,6 +1709,7 @@
     "details_members": "Members",
     "details_pinned": "Pinned",
     "details_integrations": "Integrations",
+    "details_background": "Background",
     "details_settings": "Settings",
     "details_integrations_text": "Webhooks post messages from other programs into this channel (like Slack webhooks).",
     "details_edit": "Edit",
@@ -1744,6 +1754,33 @@
     "renamed": "{name} renamed the channel to “{value}”",
     "topic_changed": "{name} changed the topic: {value}",
     "archived_event": "{name} archived the channel",
+    "background_for_all": "Channel background",
+    "background_for_all_hint": "A picture or gradient behind the messages – for everyone in the channel. Each person can choose something else for themselves.",
+    "background_channel_has": "The channel has the background \"{name}\".",
+    "background_channel_none": "The channel has no background.",
+    "background_who": "The channel's managers and the company's admin can change it for everyone; in direct messages, everyone in the conversation.",
+    "background_mine": "Background for me",
+    "background_mine_hint": "Only you see this choice, on all your devices.",
+    "background_follow": "As in the channel",
+    "background_follow_named": "As in the channel ({name})",
+    "background_default": "Default",
+    "background_hidden_note": "Channel backgrounds are hidden for you. Choose one here to see it in this channel anyway.",
+    "background_hide_all": "Hide backgrounds in all channels and conversations",
+    "background_hide_all_hint": "Only for you. A background you chose yourself for a channel or conversation stays.",
+    "background_changed": "{name} changed the background: {value}",
+    "background_changed_other": "{name} changed the background",
+    "background_removed": "{name} removed the background",
+    "background_image": "Own picture",
+    "background_image_upload": "Upload a picture …",
+    "background_image_replace": "Upload another picture …",
+    "background_image_hint": "JPEG, PNG or WebP (the first frame of a GIF). Made smaller before uploading and kept with the chat's files.",
+    "background_image_invalid": "Please choose a picture: JPEG, PNG, WebP or GIF, at most 30 MB.",
+    "background_image_set": "{name} set an own picture as the background",
+    "background_for_dm": "Conversation background",
+    "background_for_dm_hint": "A picture or gradient behind the messages – for everyone in this conversation. Each person can choose something else for themselves.",
+    "background_follow_dm": "As in the conversation",
+    "background_follow_dm_named": "As in the conversation ({name})",
+    "background_dialog_title": "Background: {name}",
     "composer_placeholder": "Message {name}",
     "thread_placeholder": "Reply …",
     "send": "Send",
@@ -3409,7 +3446,10 @@
     "show_companies": "Show companies on the left",
     "order_hint": "Drag to reorder",
     "move_company": "Move {company} (position {n})",
-    "settings": "Settings"
+    "settings": "Settings",
+    "people_ai_badge": "AI",
+    "people_ai_on": "Switch AI on",
+    "people_ai_off": "Switch AI off"
   },
   "profile_settings": {
     "title": "Profile",
@@ -3418,7 +3458,9 @@
     "load_failed": "The profile could not be loaded. Please reload the page.",
     "account_title": "Account",
     "account_intro": "Your name, your photo and how you sign in to XenRooms.",
-    "sign_in_email": "Sign-in email"
+    "sign_in_email": "Sign-in email",
+    "assistant_intro": "What the AI assistant remembers about you, your skills and what it may do without asking.",
+    "assistant_open": "Open"
   },
   "colleague_card": {
     "message": "Message in Rooms",

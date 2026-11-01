@@ -1,6 +1,6 @@
 "use client";
 
-// The chat's full-page notices (loading, setting up, off). Step 110: on
+// The chat's full-page notices (loading, setting up, off). Step 112: on
 // XenRooms they keep the company button, and the admin turns Rooms on here.
 import { useState } from "react";
 import { xenaxio } from "@/lib/xenaxio/api";
@@ -9,7 +9,7 @@ import { toast } from "@/stores/toast-store";
 import { CompanyButton, useCompanyButtonShown } from "./rooms-rail";
 
 export function Notice({ title, text, children }: { title: string; text?: string; children?: React.ReactNode }) {
-  // Step 110: on XenRooms without the companies' column (a phone, or hidden) the
+  // Step 112: on XenRooms without the companies' column (a phone, or hidden) the
   // company button stays, so a company without Rooms is never a dead end.
   const companies = useCompanyButtonShown();
   return (
@@ -30,7 +30,7 @@ export function Notice({ title, text, children }: { title: string; text?: string
   );
 }
 
-/** Step 110: Rooms is off (the admin turned it off, or its start failed); the admin turns it on right here. */
+/** Step 112: Rooms is off (the admin turned it off, or its start failed); the admin turns it on right here. */
 export function ChatOffNotice({ admin, onEnabled }: { admin: boolean; onEnabled: () => void }) {
   const t = useXT();
   const [busy, setBusy] = useState(false);

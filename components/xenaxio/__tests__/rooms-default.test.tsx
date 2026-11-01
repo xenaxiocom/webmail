@@ -2,7 +2,7 @@ import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { BrowserAccount } from "@/lib/xenaxio/api";
 
-// Step 110: no mail notice in XenRooms; "Rooms is off" is never a dead end.
+// Step 112: no mail notice in XenRooms; "Rooms is off" is never a dead end.
 const api = vi.hoisted(() => ({ setChatAdmin: vi.fn(), accounts: vi.fn(), accountsUnread: vi.fn() }));
 vi.mock("@/lib/xenaxio/api", async (orig) => {
   const real = await orig<typeof import("@/lib/xenaxio/api")>();
@@ -33,7 +33,7 @@ const account = (over: Partial<BrowserAccount>): BrowserAccount => ({
   ...over,
 });
 
-describe("Rooms on by default (step 110)", () => {
+describe("Rooms on by default (step 112)", () => {
   beforeEach(() => {
     for (const fn of Object.values(api)) fn.mockReset();
     portal.current = { kind: "rooms" };

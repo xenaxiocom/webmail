@@ -7,7 +7,7 @@ import { type ChangeEvent, useCallback, useEffect, useRef, useState } from "reac
 import { Trash2, Upload } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
-import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
+import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { Link } from "@/i18n/navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -72,6 +72,7 @@ function CompanyRecordings() {
 
 function MeetingsSettings() {
   const t = useXT();
+  const rooms = useMe().tenant.product === "rooms";
   const [data, setData] = useState<MeetSettings | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -173,7 +174,8 @@ function MeetingsSettings() {
           </span>
         </label>
         {/* Step 90: recording a meeting's sound; the one who started the meeting switches it on, every time. */}
-        {data.recordingAvailable && (
+        {/* Step 110: XenRooms has no recording (no Files to keep it in, step 96). */}
+        {data.recordingAvailable && !rooms && (
           <label htmlFor="meet-recording" className="flex cursor-pointer items-start gap-3 border-t border-border pt-3">
             <input
               id="meet-recording"
@@ -239,14 +241,25 @@ function MeetingsSettings() {
   );
 }
 
+function MeetingsBody() {
+  const rooms = useMe().tenant.product === "rooms";
+  return (
+    <>
+      <MeetingsSettings />
+      {!rooms && (
+        <div className="mt-6 max-w-2xl">
+          <CompanyRecordings />
+        </div>
+      )}
+    </>
+  );
+}
+
 export default function MeetingsAdminPage() {
   const t = useXT();
   return (
     <WorkspaceShell title={t("meetadmin.title")} backHref="/workspace" requireAdmin>
-      <MeetingsSettings />
-      <div className="mt-6 max-w-2xl">
-        <CompanyRecordings />
-      </div>
+      <MeetingsBody />
     </WorkspaceShell>
   );
 }
