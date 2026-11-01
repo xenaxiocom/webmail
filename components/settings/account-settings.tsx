@@ -25,6 +25,7 @@ import { useAccountSecurityStore } from '@/stores/account-security-store';
 import { ProfilePictureSetting } from '@/components/xenaxio/profile-picture-setting';
 import { XenaxioNameSetting } from '@/components/xenaxio/name-setting';
 import { XenaxioPasswordSetting, XenaxioProfileSetting } from '@/components/xenaxio/profile-setting';
+import { MeetBackgroundSetting } from '@/components/xenaxio/meet/background-setting';
 import { XENAXIO_BFF } from '@/lib/xenaxio/bff';
 
 function hostnameOf(serverUrl: string): string {
@@ -229,6 +230,8 @@ export function AccountSettings() {
 
       {/* xenaxio (step 107): one profile for Xenaxio and XenRooms (the chat's form). */}
       <XenaxioProfileSetting />
+      {/* xenaxio (step 117): the background behind one's camera in meetings and calls. */}
+      <MeetBackgroundSetting />
 
       <EmailAddressesSection />
 

@@ -7,7 +7,7 @@ import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { useAuthStore, redirectToLogin, saveRedirectAfterLogin } from '@/stores/auth-store';
 import { useAccountStore } from "@/stores/account-store";
 import { useEmailStore } from "@/stores/email-store";
-import { useFileStore, resourceServerRef, resourceToView, type UploadResult } from "@/stores/file-store";
+import { useFileStore, resourceServerRef, resourceToView, blobAccountOf, nodeToResource, type FileResource, type UploadResult } from "@/stores/file-store";
 import { toast } from "@/stores/toast-store";
 import { cn, formatFileSize } from "@/lib/utils";
 import { NavigationRail } from "@/components/layout/navigation-rail";
@@ -27,6 +27,8 @@ import { WopiEditor } from "@/components/files/wopi-editor";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { fileOpenKind, linkedFileState, revealRecentFile } from "@/lib/xenaxio/file-open";
+import { findLinkedNode, localNodeId, type FileLinkTarget } from "@/lib/xenaxio/file-link";
+import { imageBlobUrl } from "@/lib/file-preview";
 import { isTextFile } from "@/lib/xenaxio/text-files";
 import { NoteEditor } from "@/components/xenaxio/notes/note-editor";
 import { useAudioPlayer } from "@/lib/xenaxio/audio-player";
@@ -132,6 +134,9 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   const [previewFile, setPreviewFile] = useState<string | null>(null);
   // WOPI document editing (#425): name of the file open in the editor overlay.
   const [editFile, setEditFile] = useState<string | null>(null);
+  // Xenaxio step 116: a file a colleague shared on its own has no folder to
+  // open it in, so it opens by itself (from "Shared with me" or a link).
+  const [sharedFile, setSharedFile] = useState<{ resource: FileResource; kind: "image" | "preview" | "edit" } | null>(null);
   const wopiStatus = useWopiStatus(filesEnabled);
   const isWopiEditable = useCallback((name: string) => canWopiOpen(wopiStatus, name), [wopiStatus]);
   // Xenaxio step 115: text files up to 1 MB (notes, CSV, JSON, HTML, code) open in our own editor.
@@ -219,6 +224,37 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     else setSelection(new Set([name]));
   }, [isOfficeEditable, setSelection]);
 
+  // Xenaxio step 116: a colleague's file shared on its own, from its owner's account.
+  const downloadSharedFile = useCallback(async (r: FileResource) => {
+    const c = useFileStore.getState().client;
+    if (!c || !r.blobId) return;
+    try {
+      await c.downloadBlob(r.blobId, r.name, r.contentType, blobAccountOf(r));
+    } catch (err) {
+      console.error("Failed to download:", err);
+      toast.error(t("download_error"));
+    }
+  }, [t]);
+  const openSharedFile = useCallback((r: FileResource) => {
+    // Only Office documents go to an editor here: the note editor (step 115)
+    // works on the open folder's listing, which this file is not part of, so
+    // a note shows in the preview.
+    const kind = fileOpenKind(r.name, isWopiEditable);
+    // Nothing to show it in and no folder to select it in: it downloads.
+    if (kind === "select") void downloadSharedFile(r);
+    else setSharedFile({ resource: r, kind });
+  }, [isWopiEditable, downloadSharedFile]);
+  const sharedFileBlob = useCallback(async () => {
+    const c = useFileStore.getState().client;
+    const r = sharedFile?.resource;
+    if (!c || !r?.blobId) throw new Error("No blob");
+    return { blob: await c.fetchBlob(r.blobId, r.name, r.contentType, blobAccountOf(r)), contentType: r.contentType || "application/octet-stream" };
+  }, [sharedFile]);
+  const sharedFileImageUrl = useCallback(async () => {
+    const { blob, contentType } = await sharedFileBlob();
+    return imageBlobUrl(blob, contentType);
+  }, [sharedFileBlob]);
+
   // Xenaxio step 88: once the linked folder is listed, a file the link names
   // but the folder lacks is reported by name rather than waited for forever.
   const settlePendingPreview = useCallback(() => {
@@ -229,6 +265,41 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
     pendingPreviewRef.current = null;
     if (state === 'missing') toast.error(tDeepLink('file_not_found'), pending);
   }, [tDeepLink]);
+
+  // Xenaxio step 116: a link by id (`?node=&account=`) - the owner finds the
+  // node in their files, a colleague under "Shared with me"; a folder opens,
+  // a file opens as a double click would.
+  const openLinkedNode = useCallback(async (target: FileLinkTarget) => {
+    const c = useFileStore.getState().client;
+    if (!c) return;
+    const id = localNodeId(target, c.getFilesAccountId());
+    let nodes;
+    try {
+      nodes = id.includes(":") ? await c.listAllFileNodesAcrossAccounts() : await c.listAllFileNodes();
+    } catch (err) {
+      console.error("Failed to list files:", err);
+      toast.error(xt("files_open.load_failed"));
+      await navigate(null);
+      return;
+    }
+    const found = findLinkedNode(nodes, id);
+    if (found.kind === "missing") {
+      toast.error(xt("file_link.unavailable"), xt("file_link.unavailable_hint"));
+      await navigate(null);
+    } else if (found.kind === "folder") {
+      await revealNode(id, { enter: true });
+    } else if (found.kind === "file") {
+      // Opened by the preview effect once the folder's listing has landed, so
+      // it is judged against that listing (a note opens in its editor).
+      pendingPreviewRef.current = found.node.name;
+      await revealNode(id);
+      settlePendingPreview();
+    } else {
+      await navigate(null);
+      openSharedFile(nodeToResource(found.node));
+    }
+  }, [xt, navigate, revealNode, settlePendingPreview, openSharedFile]);
+
   useEffect(() => {
     // Inside the Pro shell the route is /pro, so the segments arrive through
     // the handoff the redirect parked rather than as route params.
@@ -255,11 +326,17 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
   // briefly and must not steal the link parked for the Pro one.
   const navigateByPathRef = useRef(navigateByPath);
   navigateByPathRef.current = navigateByPath;
+  const openLinkedNodeRef = useRef(openLinkedNode);
+  openLinkedNodeRef.current = openLinkedNode;
   useEffect(() => {
     if (!isEmbedded) return;
     return subscribePendingDeepLink('files', (segments, search) => {
       const link = parseFilesPath(segments, new URLSearchParams(search ?? window.location.search));
       if (!link) return;
+      if (link.node) {
+        void openLinkedNodeRef.current(link.node);
+        return;
+      }
       if (link.preview) pendingPreviewRef.current = link.preview;
       void navigateByPathRef.current(link.path).then(settlePendingPreview);
     });
@@ -291,6 +368,10 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
       // listing the root first would strand the user there and rewrite the
       // URL they arrived on.
       const link = takeFilesLink();
+      if (link?.node) {
+        await openLinkedNodeRef.current(link.node);
+        return;
+      }
       if (link && link.path !== '/') await navigateByPath(link.path);
       else if (firstCheck) await navigate(null);
       else return;
@@ -760,6 +841,7 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
                   ownAccountId={filesAccountId}
                   sharingEnabled={sharingEnabled}
                   onShare={handleShare}
+                  onOpenSharedFile={openSharedFile}
                 />
               )}
             </div>
@@ -798,6 +880,36 @@ export function FilesApp({ linkSegments: routeSegments }: FilesAppProps = {}) {
           file={previewedView}
         />
       )}
+
+      {/* Xenaxio step 116: a colleague's file shared on its own, opened by itself */}
+      {sharedFile?.kind === "image" && (
+        <ImagePreviewModal
+          name={sharedFile.resource.name}
+          onClose={() => setSharedFile(null)}
+          onDownload={() => downloadSharedFile(sharedFile.resource)}
+          getImageUrl={sharedFileImageUrl}
+          file={resourceToView(sharedFile.resource, "/")}
+        />
+      )}
+      {sharedFile?.kind === "preview" && (
+        <FilePreviewModal
+          name={sharedFile.resource.name}
+          onClose={() => setSharedFile(null)}
+          onDownload={() => downloadSharedFile(sharedFile.resource)}
+          getFileContent={sharedFileBlob}
+          file={resourceToView(sharedFile.resource, "/")}
+        />
+      )}
+      {sharedFile?.kind === "edit" && (() => {
+        const node = resourceServerRef(sharedFile.resource);
+        return (
+          <WopiEditor
+            target={{ kind: "file", id: node.id, name: sharedFile.resource.name }}
+            accountId={node.accountId ?? filesAccountId}
+            onClose={() => setSharedFile(null)}
+          />
+        );
+      })()}
 
       {/* WOPI document editor overlay (#425) */}
       {editFile && (() => {
