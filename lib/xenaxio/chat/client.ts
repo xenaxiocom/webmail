@@ -283,6 +283,20 @@ export function isPlatformAccount(userId: string): boolean {
   return userId.startsWith(`@${SERVICE_LOCALPART}:`);
 }
 
+/** The bot of a channel's integration (incoming webhook, step 43 part D): "@xenaxio.hook.…". */
+export function isIntegrationBot(userId: string): boolean {
+  return userId.startsWith(`@${SERVICE_LOCALPART}.hook.`);
+}
+
+/**
+ * People of a room as its members list shows them: those who joined and those
+ * invited who have not opened the chat yet (their app accepts the invitation),
+ * without the platform's account and the integrations' bots.
+ */
+export function roomPeople(room: Room): Member[] {
+  return [...room.members.values()].filter((m) => (m.membership === "join" || m.membership === "invite") && !isPlatformAccount(m.userId) && !isIntegrationBot(m.userId));
+}
+
 /** Events shown in a timeline; the rest only change room state. */
 /** Step 43, part E: our mark in a room's creation — made for people of other companies. */
 export const EXTERNAL_MARK = "com.xenaxio.external";

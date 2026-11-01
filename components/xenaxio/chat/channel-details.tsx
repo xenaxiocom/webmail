@@ -11,7 +11,7 @@ import { IconCopy, IconCrown, IconPin, IconSearch, IconStar, IconStarFilled } fr
 import { useLocale } from "next-intl";
 import { useState } from "react";
 import { type ChatChannelChange, errorText, xenaxio, XenaxioApiError } from "@/lib/xenaxio/api";
-import { type ChatClient, isPlatformAccount, type Room, serverOfUser } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, isPlatformAccount, type Room, roomPeople, serverOfUser } from "@/lib/xenaxio/chat/client";
 import { plainPreview } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -198,8 +198,7 @@ function MembersTab({ client, room, onInvite }: { client: ChatClient; room: Room
   const canKick = client.can(room, "kick");
   // The client changes rooms in place, so this is worked out on every render.
   const q = query.trim().toLowerCase();
-  const members = [...room.members.values()]
-    .filter((m) => m.membership === "join" && !isPlatformAccount(m.userId))
+  const members = roomPeople(room)
     .filter((m) => !q || nameOf(m.userId).toLowerCase().includes(q) || m.userId.toLowerCase().includes(q))
     .sort((a, b) => Number(client.isManager(room, b.userId)) - Number(client.isManager(room, a.userId)) || nameOf(a.userId).localeCompare(nameOf(b.userId)));
   const mine = client.powerOf(room, client.userId);
@@ -237,6 +236,7 @@ function MembersTab({ client, room, onInvite }: { client: ChatClient; room: Room
                   {nameOf(m.userId)}
                   {self && <span className="text-muted-foreground"> ({t("chat.you")})</span>}
                 </span>
+                {m.membership === "invite" && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">{t("chat.details_invited")}</span>}
                 {manager && (
                   <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
                     <IconCrown size={11} />

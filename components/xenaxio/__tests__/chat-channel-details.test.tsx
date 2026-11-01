@@ -24,7 +24,7 @@ function power(users: Record<string, number>): PowerLevels {
 }
 
 /** A real client's rules (levels, managers) with its network calls replaced. */
-function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user"; background?: string | null; dm?: boolean }) {
+function setup(opts: { me: string; levels: Record<string, number>; role?: "admin" | "user"; background?: string | null; dm?: boolean; extra?: [string, { userId: string; displayName: string; membership: string }][] }) {
   const client = new RealClient() as ChatClient;
   client.userId = opts.me;
   const room = {
@@ -38,6 +38,7 @@ function setup(opts: { me: string; levels: Record<string, number>; role?: "admin
     members: new Map([
       [ANNA, { userId: ANNA, displayName: "Anna", membership: "join" }],
       [BEN, { userId: BEN, displayName: "Ben", membership: "join" }],
+      ...(opts.extra ?? []),
     ]),
     pinned: [],
     byId: new Map(),
@@ -112,6 +113,27 @@ describe("channel details (step 99, part B)", () => {
     expect(screen.queryByRole("tab", { name: "Settings" })).toBeNull();
     fireEvent.click(screen.getByRole("tab", { name: "Members" }));
     expect(screen.queryByRole("button", { name: "Remove from channel" })).toBeNull();
+  });
+
+  it("members: invited colleagues are listed, the platform and integration bots are not", () => {
+    const CARL = "@carl:acme.de";
+    setup({
+      me: ANNA,
+      levels: { [ANNA]: 100 },
+      extra: [
+        [CARL, { userId: CARL, displayName: "Carl", membership: "invite" }],
+        ["@xenaxio:acme.de", { userId: "@xenaxio:acme.de", displayName: "Xenaxio", membership: "join" }],
+        ["@xenaxio.hook.a1b2c3d4e5f6:acme.de", { userId: "@xenaxio.hook.a1b2c3d4e5f6:acme.de", displayName: "GitHub", membership: "join" }],
+        ["@dora:acme.de", { userId: "@dora:acme.de", displayName: "Dora", membership: "leave" }],
+      ],
+    });
+    fireEvent.click(screen.getByRole("tab", { name: "Members" }));
+    const list = screen.getByRole("list");
+    expect(within(list).getAllByRole("listitem")).toHaveLength(3);
+    expect(within(list).getByText(/carl/i)).toBeTruthy();
+    expect(within(list).getByText("invited")).toBeTruthy();
+    expect(within(list).queryByText(/GitHub|hook/i)).toBeNull();
+    expect(within(list).queryByText(/Dora/)).toBeNull();
   });
 
   it("the company admin changes it through the platform", async () => {

@@ -11,7 +11,7 @@ import { IconBold, IconChartBar, IconClockHour4, IconCode, IconFile, IconFileCod
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { setThreadFollow, uploadFile } from "@/lib/xenaxio/chat/api";
-import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, type Room, roomPeople } from "@/lib/xenaxio/chat/client";
 import { searchEmoji } from "@/lib/xenaxio/chat/emoji";
 import { type Mention, plainPreview, textContent } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
@@ -194,10 +194,10 @@ export function Composer({
   const people = useMemo<Mention[]>(() => {
     const byId = new Map<string, Mention>();
     for (const c of colleagues.values()) byId.set(c.address, { userId: c.address, displayName: c.displayName });
-    for (const m of room.members.values()) if (m.membership === "join" && !isPlatformAccount(m.userId) && !byId.has(m.userId)) byId.set(m.userId, { userId: m.userId, displayName: m.displayName });
+    for (const m of roomPeople(room)) if (!byId.has(m.userId)) byId.set(m.userId, { userId: m.userId, displayName: m.displayName });
     byId.delete(client.userId);
     return [...byId.values()];
-  }, [colleagues, room.members, client.userId]);
+  }, [colleagues, room, client.userId]);
 
   // "#name" of an open channel I am not in links too (step 99).
   useEffect(() => void client.loadChannelDirectory(), [client]);

@@ -7,7 +7,7 @@
 import { IconBell, IconChevronDown, IconHash, IconLock, IconNotes, IconPhoto, IconPin, IconStar, IconStarFilled, IconUsers, IconWorld } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { type CSSProperties, useEffect, useState } from "react";
-import { type ChatClient, isPlatformAccount, type Room } from "@/lib/xenaxio/chat/client";
+import { type ChatClient, type Room, roomPeople } from "@/lib/xenaxio/chat/client";
 import { plainPreview } from "@/lib/xenaxio/chat/format";
 import { useChatStore } from "@/lib/xenaxio/chat/store";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -108,7 +108,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const roomName = client.roomName(room);
   const partners = room.kind === "dm" ? client.dmPartners(room) : [];
-  const joined = [...room.members.values()].filter((m) => m.membership === "join" && !isPlatformAccount(m.userId)).length;
+  const joined = roomPeople(room).length;
   const starred = !!room.tags["m.favourite"];
   const inCall = useChatExtras((s) => s.calls.get(room.id) ?? 0);
   // Step 109: the channel's background, or the person's own choice for it.
