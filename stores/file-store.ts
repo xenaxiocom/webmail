@@ -137,7 +137,8 @@ interface FileState {
   toggleFavorite: (path: string) => void;
   addRecentFile: (name: string, id: string) => void;
   /** Open the folder holding a node and return the node's name, or null when it is gone; throws when the drive cannot be listed. */
-  revealNode: (id: string) => Promise<string | null>;
+  /** xenaxio step 116: `enter` opens a folder itself instead of selecting it in its parent. */
+  revealNode: (id: string, options?: { enter?: boolean }) => Promise<string | null>;
   /** Rename any node by id, e.g. a folder in the tree that is not listed. */
   renameNode: (id: string, newName: string) => Promise<boolean>;
   /** Delete any node by id; leaves the folder on screen if it was inside it. */
@@ -214,7 +215,16 @@ export function resourceServerRef(
   return { accountId: owner, id: resource.id };
 }
 
-function nodeToResource(node: FileNode): FileResource {
+/**
+ * xenaxio step 116: the account a resource's blob lives in - the owner's for a
+ * file a colleague shared, the default (own) one otherwise.
+ */
+export function blobAccountOf(resource: Pick<FileResource, 'isShared' | 'ownerAccountId'>): string | undefined {
+  return resource.isShared ? resource.ownerAccountId : undefined;
+}
+
+/** Exported for xenaxio step 116 (a linked file shared on its own). */
+export function nodeToResource(node: FileNode): FileResource {
   const isDir = isFolder(node);
   return {
     id: node.id,
@@ -999,7 +1009,7 @@ export const useFileStore = create<FileState>((set, get) => ({
     const resource = resources.find(r => r.name === name);
     if (!resource?.blobId) return;
 
-    await client.downloadBlob(resource.blobId, resource.name, resource.contentType);
+    await client.downloadBlob(resource.blobId, resource.name, resource.contentType, blobAccountOf(resource));
     void fileHooks.onFileDownload.emit(resourceToView(resource, currentPath));
   },
 
@@ -1017,7 +1027,7 @@ export const useFileStore = create<FileState>((set, get) => ({
     const resource = resources.find(r => r.name === name);
     if (!resource?.blobId) throw new Error('No blob');
 
-    return imageBlobUrl(await client.fetchBlob(resource.blobId, resource.name, resource.contentType), resource.contentType);
+    return imageBlobUrl(await client.fetchBlob(resource.blobId, resource.name, resource.contentType, blobAccountOf(resource)), resource.contentType);
   },
 
   getFileContent: async (name: string) => {
@@ -1027,7 +1037,7 @@ export const useFileStore = create<FileState>((set, get) => ({
     const resource = resources.find(r => r.name === name);
     if (!resource?.blobId) throw new Error('No blob');
 
-    const url = client.getBlobDownloadUrl(resource.blobId, resource.name, resource.contentType);
+    const url = client.getBlobDownloadUrl(resource.blobId, resource.name, resource.contentType, blobAccountOf(resource));
     const response = await fetch(url, {
       headers: client.getAuthHeader() ? { 'Authorization': client.getAuthHeader() } : { 'x-xenaxio-csrf': '1' },
     });
@@ -1283,7 +1293,7 @@ export const useFileStore = create<FileState>((set, get) => ({
     try { localStorage.setItem('files-recent-files', JSON.stringify(next)); } catch { /* ignore */ }
   },
 
-  revealNode: async (id: string) => {
+  revealNode: async (id: string, options?: { enter?: boolean }) => {
     const { client, navigate } = get();
     if (!client) return null;
     // xenaxio step 88: a failed listing throws rather than reading as "no such
@@ -1304,6 +1314,10 @@ export const useFileStore = create<FileState>((set, get) => ({
     }
     stack.unshift({ id: null, name: '' });
     set({ pathStack: stack });
+    if (options?.enter && isFolder(node)) {
+      await navigate(node.id, node.name);
+      return node.name;
+    }
     const parentEntry = stack[stack.length - 1];
     await navigate(parentEntry.id, parentEntry.name);
     set({ selectedResources: new Set([node.name]) });
@@ -1385,7 +1399,7 @@ export const useFileStore = create<FileState>((set, get) => ({
       : await client.listAllFileNodes();
     const node = nodes.find(n => n.id === id);
     if (!node?.blobId) throw new Error('File not found');
-    await client.downloadBlob(node.blobId, node.name, node.type);
+    await client.downloadBlob(node.blobId, node.name, node.type, node.isShared ? node.accountId : undefined);
     const folders = nodes.filter(isFolder).map(nodeToResource);
     void fileHooks.onFileDownload.emit(fileToView(node, parentPath(folders, node.parentId)));
   },

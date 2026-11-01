@@ -5,7 +5,9 @@ import { useTranslations } from "next-intl";
 import {
   Plus, HardDrive, Folder, FolderOpen, ChevronRight, ChevronDown, Star, StarOff,
   Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch,
+  Link as LinkIcon,
 } from "@/components/icons";
+import { useXT } from "@/lib/xenaxio/i18n";
 import { Button } from "@/components/ui/button";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 import { useContextMenu } from "@/hooks/use-context-menu";
@@ -69,6 +71,8 @@ export interface FilesSidebarProps {
   onDropItems: (names: string[], targetId: string | null) => void;
   canShare: (resource: FileResource) => boolean;
   onShare: (resource: FileResource) => void;
+  /** xenaxio step 116: "Copy link" for a folder. */
+  onCopyLink?: (resource: FileResource) => void;
   /** Open a folder, then start creating or uploading there. */
   onCreateIn: (path: string, id: string | null, kind: CreateKind) => void;
   onRenameFolder: (folder: FileResource) => void;
@@ -97,6 +101,7 @@ export function FilesSidebar({
   onDropItems,
   canShare,
   onShare,
+  onCopyLink,
   onCreateIn,
   onRenameFolder,
   onDeleteFolder,
@@ -105,6 +110,7 @@ export function FilesSidebar({
   onRemoveRecent,
 }: FilesSidebarProps) {
   const t = useTranslations("files");
+  const xt = useXT();
   const newMenu = useContextMenu<null>();
   const itemMenu = useContextMenu<MenuTarget>();
   const newButtonRef = useRef<HTMLButtonElement>(null);
@@ -397,7 +403,7 @@ export function FilesSidebar({
             <>
               <ContextMenuItem icon={FolderOpen} label={t("open")} onClick={() => run(() => onNavigate(path, folder.id))} />
               {writable && createItems(path, folder.id)}
-              {(!folder.isShared || canShare(folder)) && <ContextMenuSeparator />}
+              {(!folder.isShared || canShare(folder) || onCopyLink) && <ContextMenuSeparator />}
               {!folder.isShared && (
                 <ContextMenuItem
                   icon={starred ? StarOff : Star}
@@ -407,6 +413,9 @@ export function FilesSidebar({
               )}
               {canShare(folder) && (
                 <ContextMenuItem icon={Share2} label={t("share")} onClick={() => run(() => onShare(folder))} />
+              )}
+              {onCopyLink && (
+                <ContextMenuItem icon={LinkIcon} label={xt("file_link.copy")} onClick={() => run(() => onCopyLink(folder))} />
               )}
               {(mayRename || mayDelete) && <ContextMenuSeparator />}
               {mayRename && (

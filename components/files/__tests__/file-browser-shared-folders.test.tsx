@@ -48,12 +48,15 @@ const OWN: FileNode[] = [
   node('f-notes', 'notes.txt', null, { blobId: 'b-notes', type: 'text/plain', size: 10 }),
 ];
 const SHARED = node('e:f-team', 'Team', null, { isShared: true, accountId: 'e', accountName: 'userb@example.org' });
+// Xenaxio step 116: a file userb shared on its own, without its folder.
+const LOOSE = node('e:f-plan', 'plan.txt', 'e:f-hidden', { blobId: 'b-plan', type: 'text/plain', size: 5, isShared: true, accountId: 'e', accountName: 'userb@example.org' });
 
 type Overrides = Partial<React.ComponentProps<typeof FileBrowser>>;
 
 function renderBrowser(opts: { resources?: FileResource[]; allFolders?: FileResource[]; props?: Overrides; hasListed?: boolean } = {}) {
   const client = {
-    listAllFileNodesAcrossAccounts: vi.fn(async () => [...OWN, SHARED]),
+    listAllFileNodesAcrossAccounts: vi.fn(async () => [...OWN, SHARED, LOOSE]),
+    getFilesAccountId: () => 'a',
   } as unknown as IJMAPClient;
   act(() => {
     useFileStore.setState({
@@ -312,5 +315,43 @@ describe('FileBrowser', () => {
     const bar = screen.getByRole('toolbar', { name: 'selection_actions' });
     expect(within(bar).getByRole('button', { name: 'download' })).toBeInTheDocument();
     expect(within(bar).getByRole('button', { name: 'delete' })).toBeInTheDocument();
+  });
+
+  describe('links to files (xenaxio step 116)', () => {
+    let writeText: ReturnType<typeof vi.fn>;
+    beforeEach(() => {
+      writeText = vi.fn(async () => {});
+      Object.defineProperty(navigator, 'clipboard', { value: { writeText }, configurable: true });
+    });
+
+    it('copies the link to an own file from its menu, by id in the own account', async () => {
+      renderBrowser();
+      fireEvent.contextMenu(within(list()).getByText('notes.txt').closest('[role=row]')!);
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/files\?node=f-notes&account=a$/)));
+    });
+
+    it("copies the link to a colleague's folder from the tree, by its id in their account", async () => {
+      renderBrowser();
+      await screen.findAllByText('Team');
+      fireEvent.contextMenu(within(tree()).getByText('Team'));
+      fireEvent.click(screen.getByRole('menuitem', { name: 'Copy link' }));
+      await vi.waitFor(() => expect(writeText).toHaveBeenCalledWith(expect.stringMatching(/\/files\?node=f-team&account=e$/)));
+    });
+
+    it('lists a file shared on its own under "Shared with me" and opens it from there', async () => {
+      const onOpenSharedFile = vi.fn();
+      renderBrowser({ props: { onOpenSharedFile } });
+      const section = await screen.findByRole('region', { name: 'shared_with_me' });
+      fireEvent.click(await within(section).findByText('plan.txt'));
+      expect(onOpenSharedFile).toHaveBeenCalledWith(expect.objectContaining({ id: 'e:f-plan', name: 'plan.txt' }));
+    });
+
+    it('leaves such files out where nothing can open them', async () => {
+      renderBrowser();
+      const section = await screen.findByRole('region', { name: 'shared_with_me' });
+      await within(section).findByText('Team');
+      expect(within(section).queryByText('plan.txt')).toBeNull();
+    });
   });
 });
