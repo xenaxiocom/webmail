@@ -74,6 +74,22 @@ describe("RoomsRail (step 67)", () => {
     expect(screen.getByRole("link", { name: "Settings" }).getAttribute("href")).toBe("/en/settings/account/");
   });
 
+  it("puts each logo on the background the admin chose for the app icon, white by default (step 113)", async () => {
+    api.accountsUnread.mockResolvedValue({ accounts: [] });
+    api.accounts.mockResolvedValue({
+      accounts: [
+        account({ logoUrl: "/api/portal/logo?v=1&account=u-acme", iconBackground: "#0a1b2c" }),
+        account({ userId: "u-beta", email: "eva@beta.de", company: "Beta AG", active: false, logoUrl: "/api/portal/logo?v=2&account=u-beta", iconBackground: null }),
+      ],
+      max: 5,
+    });
+    const { container } = render(<RoomsRail />);
+    await screen.findByRole("button", { name: /Switch to Beta AG/ });
+    const bg = (account: string) => (container.querySelector(`img[src*="account=${account}"]`) as HTMLImageElement).style.backgroundColor;
+    expect(bg("u-acme")).toBe("rgb(10, 27, 44)");
+    expect(bg("u-beta")).toBe("rgb(255, 255, 255)");
+  });
+
   it("switches without a password and stays in the chat", async () => {
     api.accountsUnread.mockResolvedValue({ accounts: [] });
     api.switchAccount.mockResolvedValue({ url: "/en/chat/" });

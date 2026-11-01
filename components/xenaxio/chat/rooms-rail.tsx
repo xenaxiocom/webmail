@@ -37,13 +37,21 @@ const BOX: Record<TileSize, string> = { lg: "h-10 w-10 text-sm", md: "h-9 w-9 te
 function CompanyMark({ account, size }: { account: BrowserAccount; size: TileSize }) {
   const [broken, setBroken] = useState(false);
   const color = account.color && HEX.test(account.color) ? account.color : null;
+  // Step 113: logos are often transparent — they sit on the app icon's background (white by default).
+  const logoBg = account.iconBackground && HEX.test(account.iconBackground) ? account.iconBackground : "#ffffff";
   return (
     <span
       className={cn("flex flex-shrink-0 items-center justify-center overflow-hidden rounded-xl font-semibold", BOX[size], !color && "bg-muted text-foreground")}
       style={color ? { background: color, color: "#fff" } : undefined}
     >
       {account.logoUrl && !broken ? (
-        <img src={withBasePath(account.logoUrl)} alt="" className="h-full w-full bg-white object-contain p-0.5" onError={() => setBroken(true)} />
+        <img
+          src={withBasePath(account.logoUrl)}
+          alt=""
+          className="h-full w-full object-contain p-0.5"
+          style={{ backgroundColor: logoBg }}
+          onError={() => setBroken(true)}
+        />
       ) : (
         companyInitials(account.company)
       )}
