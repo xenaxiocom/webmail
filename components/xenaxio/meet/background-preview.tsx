@@ -1,6 +1,6 @@
 "use client";
 
-// xenaxio step 116: the camera preview of Settings → Account, loaded only when
+// xenaxio step 117: the camera preview of Settings → Account, loaded only when
 // the section shows (LiveKit stays out of the settings' bundle).
 import { useEffect, useRef, useState } from "react";
 import { usePreviewTracks } from "@livekit/components-react";

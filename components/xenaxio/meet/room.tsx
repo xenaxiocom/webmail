@@ -204,7 +204,7 @@ function Stage({
   );
 }
 
-/** Step 99: a call's dock without video — everyone as a face; who speaks lights up. */
+/** Step 117: a call's dock without video — everyone as a face; who speaks lights up. */
 function VoiceStrip({ hands }: { hands: Set<string> }) {
   const people = useParticipants();
   return (
@@ -661,7 +661,7 @@ function Meeting({
   const webinar = kind === "webinar";
   const { t } = useMeetLang();
   const room = useRoomContext();
-  // Step 99: video in the dock only while someone shows a camera or a screen.
+  // Step 117: video in the dock only while someone shows a camera or a screen.
   const videoTracks = useTracks([Track.Source.Camera, Track.Source.ScreenShare], { onlySubscribed: false });
   const state = useConnectionState();
   const { localParticipant } = useLocalParticipant();
@@ -699,7 +699,7 @@ function Meeting({
   const background = useBackgroundChoice(company);
   const { cameraTrack, isCameraEnabled } = useLocalParticipant();
   const camera = cameraTrack?.videoTrack as LocalVideoTrack | undefined;
-  // Step 116: the background chosen in the dock too — it grows to show one's camera and the tiles.
+  // Step 117: the background chosen in the dock too — it grows to show one's camera and the tiles.
   const [backgroundOpen, setBackgroundOpen] = useState(false);
   const effect = useBackgroundEffect(canBackground && sends ? camera : undefined, background.source);
   const [, setPermissions] = useState(0);

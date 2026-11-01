@@ -45,7 +45,7 @@ describe("step 78, part D: calls in Rooms", () => {
     expect(callOf({ "com.xenaxio.call": { code: "BAD", link: LINK } })).toBeNull();
   });
 
-  it("shows video in the dock only while a camera or a screen is on (step 99)", () => {
+  it("shows video in the dock only while a camera or a screen is on (step 117)", () => {
     expect(showsVideo([])).toBe(false);
     // A camera switched off stays published, muted.
     expect(showsVideo([{ publication: { isMuted: true } }])).toBe(false);

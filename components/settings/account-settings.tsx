@@ -230,7 +230,7 @@ export function AccountSettings() {
 
       {/* xenaxio (step 107): one profile for Xenaxio and XenRooms (the chat's form). */}
       <XenaxioProfileSetting />
-      {/* xenaxio (step 116): the background behind one's camera in meetings and calls. */}
+      {/* xenaxio (step 117): the background behind one's camera in meetings and calls. */}
       <MeetBackgroundSetting />
 
       <EmailAddressesSection />

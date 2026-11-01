@@ -2,7 +2,8 @@
 
 import { useMemo } from "react";
 import { useTranslations } from "next-intl";
-import { X, Download, Share2, Star, StarOff, FolderOpen, Eye, SquarePen, Files } from "@/components/icons";
+import { X, Download, Share2, Star, StarOff, FolderOpen, Eye, SquarePen, Files, Link as LinkIcon } from "@/components/icons";
+import { useXT } from "@/lib/xenaxio/i18n";
 import { Button } from "@/components/ui/button";
 import { cn, formatFileSize } from "@/lib/utils";
 import type { FileResource } from "@/stores/file-store";
@@ -35,6 +36,8 @@ interface FileDetailsPanelProps {
   onEdit: () => void;
   onDownload: () => void;
   onShare: () => void;
+  /** xenaxio step 116: "Copy link" for the selected file or folder. */
+  onCopyLink?: () => void;
   onToggleStar: () => void;
   className?: string;
   /** The one selected item as plugins see it (file-preview-section). */
@@ -54,8 +57,9 @@ function totalSize(items: FileResource[]): number {
 
 export function FileDetailsPanel({
   resource, selection, folderName, folderItems, path, isStarred, canShare, canPreview, canEdit,
-  iconOptions, getImageUrl, onClose, onOpen, onEdit, onDownload, onShare, onToggleStar, className, pluginFile,
+  iconOptions, getImageUrl, onClose, onOpen, onEdit, onDownload, onShare, onCopyLink, onToggleStar, className, pluginFile,
 }: FileDetailsPanelProps) {
+  const xt = useXT();
   const t = useTranslations("files");
   const pluginProps = useMemo(() => (pluginFile ? { file: pluginFile } : null), [pluginFile]);
 
@@ -151,6 +155,11 @@ export function FileDetailsPanel({
         {canShare && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onShare}>
             <Share2 className="w-4 h-4" />{t("share")}
+          </Button>
+        )}
+        {onCopyLink && (
+          <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onCopyLink}>
+            <LinkIcon className="w-4 h-4" />{xt("file_link.copy")}
           </Button>
         )}
         {resource.isDirectory && !resource.isShared && (

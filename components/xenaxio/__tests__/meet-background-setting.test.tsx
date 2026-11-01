@@ -1,7 +1,7 @@
 import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
-// Step 116: the camera background in Settings → Account.
+// Step 117: the camera background in Settings → Account.
 vi.mock("next-intl", () => ({ useLocale: () => "de" }));
 const nav = vi.hoisted(() => ({ visible: false }));
 vi.mock("@/lib/xenaxio/meet-nav", () => ({ useMeetNavItem: () => ({ visible: nav.visible, label: "Meetings", webinars: false }) }));
@@ -19,7 +19,7 @@ afterEach(() => {
   api.status.mockReset();
 });
 
-describe("step 116: meeting background in the settings", () => {
+describe("step 117: meeting background in the settings", () => {
   it("is not there when the company has no meetings", () => {
     const { container } = render(<MeetBackgroundSetting />);
     expect(container).toBeEmptyDOMElement();

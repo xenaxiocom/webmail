@@ -42,7 +42,7 @@ export const useCallStore = create<{
 }));
 
 /**
- * Step 99: the dock of a call shows video only while someone shows a camera
+ * Step 117: the dock of a call shows video only while someone shows a camera
  * or a screen; otherwise a strip of faces, as in a huddle or a voice channel.
  */
 export function showsVideo(tracks: { publication?: { isMuted: boolean } }[]): boolean {

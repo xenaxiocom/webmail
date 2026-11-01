@@ -1,6 +1,6 @@
 "use client";
 
-// xenaxio step 116: the background behind one's own camera, in Settings →
+// xenaxio step 117: the background behind one's own camera, in Settings →
 // Account too (not only before entering and in the meeting). The same choice
 // as there: kept in this browser; the camera starts only on "preview".
 import { useEffect, useMemo, useState } from "react";

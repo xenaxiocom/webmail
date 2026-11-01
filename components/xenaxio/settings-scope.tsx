@@ -67,7 +67,7 @@ export function ChatOnlyAccountSettings() {
         )}
       </SettingsSection>
       <XenaxioProfileSetting />
-      {/* Step 116: calls in XenRooms have the camera background too. */}
+      {/* Step 117: calls in XenRooms have the camera background too. */}
       <MeetBackgroundSetting />
     </div>
   );
