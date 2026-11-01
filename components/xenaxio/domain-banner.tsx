@@ -3,16 +3,21 @@
 // While the company's domain is not connected (DNS not checked yet), mail can
 // neither be sent nor received. Shown at the top of every app (mail, calendar,
 // contacts, settings) so nobody mistakes a silent mailbox for a working one.
-// Admins get the way to the DNS page; employees learn whom to ask.
+// Admins get the way to the DNS page; employees learn whom to ask. Not shown
+// in XenRooms (step 110).
 import { Link } from "@/i18n/navigation";
 import { AlertTriangle } from "@/components/icons";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { domainPending, useXenaxioMe } from "@/lib/xenaxio/me-store";
+import { usePortal } from "@/lib/xenaxio/portal";
 
 export function XenaxioDomainBanner() {
   const t = useXT();
   const me = useXenaxioMe();
-  if (!domainPending(me)) return null;
+  const portal = usePortal();
+  // Step 110: not in XenRooms — the chat works before the domain is connected,
+  // and the notice is about mail (owner 31.10.2026).
+  if (portal?.kind === "rooms" || !domainPending(me)) return null;
   const admin = me.user.role === "admin";
   return (
     <div role="status" className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 border-b border-amber-500/30 bg-amber-500/10 px-4 py-2 text-sm text-amber-800 dark:text-amber-300 flex-shrink-0">

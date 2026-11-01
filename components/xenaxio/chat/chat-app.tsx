@@ -32,6 +32,7 @@ import { NotifySettingsDialog, PushBanner, useChatNotifyLoader } from "./notific
 import { RoomView } from "./room-view";
 import { ChatSidePanel } from "./side-panels";
 import { RoomsRail } from "./rooms-rail";
+import { ChatOffNotice, Notice } from "./notice";
 import { tellChatWorker } from "@/lib/xenaxio/chat/push";
 import { openAccount } from "@/lib/xenaxio/accounts";
 import { ChatSidebar } from "./sidebar";
@@ -57,17 +58,6 @@ async function openAs(account: string, roomId: string, eventId?: string): Promis
   } catch {
     // Signed out there meanwhile: stay with the open company.
   }
-}
-
-function Notice({ title, text }: { title: string; text?: string }) {
-  return (
-    <div className="flex flex-1 items-center justify-center p-8">
-      <div className="max-w-md text-center">
-        <h1 className="text-lg font-semibold">{title}</h1>
-        {text && <p className="mt-2 text-sm text-muted-foreground">{text}</p>}
-      </div>
-    </div>
-  );
 }
 
 function ChatInside() {
@@ -213,7 +203,7 @@ function ChatInside() {
   if (statusError && !status) return <Notice title={t("chat.error")} />;
   if (status && !status.enabled) {
     if (status.state === "provisioning" || status.state === "active") return <Notice title={t("chat.starting_title")} text={t("chat.starting_text")} />;
-    return <Notice title={t("chat.unavailable_title")} text={t("chat.unavailable_text")} />;
+    return <ChatOffNotice admin={me?.user.role === "admin"} onEnabled={() => void loadStatus(true)} />;
   }
   if (!client || !client.ready) {
     return <Notice title={client?.signedOut ? t("chat.signed_out") : t("chat.loading")} />;
