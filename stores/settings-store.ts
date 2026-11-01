@@ -508,6 +508,10 @@ interface SettingsState {
   showPreview: boolean;
   showVerificationCodes: boolean; // Offer the one-time code of a sign-in mail as a copy chip in the list and the reader
   mailLayout: MailLayout;
+  // xenaxio (step 114): the share of the Files area the Details panel takes, in percent (null: half and half).
+  filesDetailsWidth: number | null;
+  // xenaxio (step 114): the width of the Files folder column in px, 180–400 (null: the default).
+  filesSidebarWidth: number | null;
   listColumns: boolean; // One-line list rows as a table: From, Subject, Date and Size columns under a header (#262)
   emailsPerPage: number;
   externalContentPolicy: ExternalContentPolicy;
@@ -813,6 +817,8 @@ const DEFAULT_SETTINGS = {
   showPreview: true,
   showVerificationCodes: true,
   mailLayout: 'split' as MailLayout,
+  filesDetailsWidth: null as number | null,
+  filesSidebarWidth: null as number | null,
   listColumns: false,
   emailsPerPage: 50,
   externalContentPolicy: 'ask' as ExternalContentPolicy,
@@ -1179,6 +1185,8 @@ export const useSettingsStore = create<SettingsState>()(
           showPreview: state.showPreview,
           showVerificationCodes: state.showVerificationCodes,
           mailLayout: state.mailLayout,
+          filesDetailsWidth: state.filesDetailsWidth,
+          filesSidebarWidth: state.filesSidebarWidth,
           listColumns: state.listColumns,
           emailsPerPage: state.emailsPerPage,
           externalContentPolicy: state.externalContentPolicy,
@@ -1385,6 +1393,13 @@ export const useSettingsStore = create<SettingsState>()(
               // (lib/timezone resolveTimeZone falls back to the browser zone),
               // so only reject non-strings here.
               if (key === 'timeZone' && typeof settings[key] !== 'string') {
+                return;
+              }
+              // xenaxio (step 114): Files' Details panel 20–80 %, its folder column 180–400 px, or none.
+              if (key === 'filesDetailsWidth' && settings[key] !== null && (typeof settings[key] !== 'number' || settings[key] < 20 || settings[key] > 80)) {
+                return;
+              }
+              if (key === 'filesSidebarWidth' && settings[key] !== null && (typeof settings[key] !== 'number' || settings[key] < 180 || settings[key] > 400)) {
                 return;
               }
               // Ignore a legacy global allMailFolderIds (string[] | null) or any
