@@ -4,7 +4,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Avatar } from "@/components/ui/avatar";
-import { X, Loader2, UserPlus, Trash2, Users, ChevronDown } from "@/components/icons";
+import { X, Loader2, UserPlus, Trash2, Users, ChevronDown, Link as LinkIcon } from "@/components/icons";
+import { useXT } from "@/lib/xenaxio/i18n";
 import type { IJMAPClient } from "@/lib/jmap/client-interface";
 import type { Principal, CalendarRights, AddressBookRights, FileNodeRights, MailboxRights } from "@/lib/jmap/types";
 import { toast } from "@/stores/toast-store";
@@ -137,6 +138,8 @@ interface ShareCollectionDialogProps {
   ownAccountId: string;
   onShare: (principalId: string, rights: AnyRights | null) => Promise<void>;
   onClose: () => void;
+  /** xenaxio step 116: shows "Copy link" next to Close (Files only for now). */
+  onCopyLink?: () => void;
 }
 
 export function ShareCollectionDialog({
@@ -147,8 +150,10 @@ export function ShareCollectionDialog({
   ownAccountId,
   onShare,
   onClose,
+  onCopyLink,
 }: ShareCollectionDialogProps) {
   const t = useTranslations("sharing");
+  const xt = useXT();
   const tCommon = useTranslations("common");
   const modalRef = useRef<HTMLDivElement>(null);
   const [allPrincipals, setAllPrincipals] = useState<Principal[]>([]);
@@ -420,6 +425,12 @@ export function ShareCollectionDialog({
         </div>
 
         <div className="flex items-center justify-end gap-2 px-6 py-4 border-t border-border">
+          {onCopyLink && (
+            <Button variant="outline" className="me-auto gap-1.5" onClick={onCopyLink}>
+              <LinkIcon className="w-4 h-4" />
+              {xt("file_link.copy")}
+            </Button>
+          )}
           <Button onClick={onClose}>{tCommon("close")}</Button>
         </div>
       </div>

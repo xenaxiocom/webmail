@@ -510,6 +510,33 @@ describe('file-store folder tree and moves', () => {
     useFileStore.getState().initClient(client);
     await expect(useFileStore.getState().revealNode('a')).rejects.toThrow('network');
   });
+
+  it('opens a linked folder itself rather than selecting it in its parent (xenaxio step 116)', async () => {
+    const client = makeMockClient([dir('a', 'A', null), dir('b', 'B', 'a'), file('f', 'f.txt', 'b')]);
+    useFileStore.getState().initClient(client);
+    expect(await useFileStore.getState().revealNode('b', { enter: true })).toBe('B');
+    const state = useFileStore.getState();
+    expect(state.currentPath).toBe('/A/B');
+    expect(state.resources.map(r => r.name)).toEqual(['f.txt']);
+  });
+
+  it("fetches a colleague's file from the owner's account, an own file from the default one (xenaxio step 116)", async () => {
+    const client = makeMockClient([]);
+    const urls: (string | undefined)[] = [];
+    Object.assign(client, {
+      fetchBlob: async (_b: string, _n?: string, _t?: string, accountId?: string) => { urls.push(accountId); return new Blob(['x']); },
+    });
+    useFileStore.getState().initClient(client);
+    useFileStore.setState({
+      resources: [
+        { id: 'own', name: 'own.png', serverName: 'own.png', isDirectory: false, contentType: 'image/png', contentLength: 1, lastModified: '', blobId: 'b1', parentId: null },
+        { id: 'e:x', name: 'theirs.png', serverName: 'theirs.png', isDirectory: false, contentType: 'image/png', contentLength: 1, lastModified: '', blobId: 'b2', parentId: 'e:d', isShared: true, ownerAccountId: 'e' },
+      ],
+    });
+    await useFileStore.getState().getImageUrl('own.png').catch(() => {});
+    await useFileStore.getState().getImageUrl('theirs.png').catch(() => {});
+    expect(urls).toEqual([undefined, 'e']);
+  });
 });
 
 describe('file-store upload result', () => {

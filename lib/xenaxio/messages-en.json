@@ -3300,6 +3300,11 @@
   "files_open": {
     "load_failed": "Couldn't load files."
   },
+  "file_link": {
+    "copy": "Copy link",
+    "unavailable": "This file or folder is unavailable: it was deleted, or you have no access to it.",
+    "unavailable_hint": "Ask the person who sent the link to share it with you."
+  },
   "files_audio": {
     "title": "Audio",
     "play": "Play {name}",

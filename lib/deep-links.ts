@@ -425,6 +425,12 @@ export interface FilesDeepLink {
   path: string;
   /** File name to preview once the folder has loaded, if the link named one. */
   preview?: string;
+  /**
+   * xenaxio step 116: a file or folder by its id (`?node=`) in its owner's
+   * account (`&account=`) - the link "Copy link" copies, which opens for the
+   * owner and for colleagues it is shared with. Wins over the path.
+   */
+  node?: { id: string; account?: string };
 }
 
 export function buildFilesPath(currentPath: string, preview?: string | null): string {
@@ -433,14 +439,23 @@ export function buildFilesPath(currentPath: string, preview?: string | null): st
   return preview ? `${base}?preview=${encodeURIComponent(preview)}` : base;
 }
 
+/** xenaxio step 116: `/files?node=<id>&account=<owner's account>`. */
+export function buildFileNodePath(id: string, account?: string | null): string {
+  const query = new URLSearchParams({ node: id });
+  if (account) query.set('account', account);
+  return `/files?${query.toString()}`;
+}
+
 export function parseFilesPath(
   segments: string[] = [],
   search?: URLSearchParams,
 ): FilesDeepLink | null {
   const parts = segments.map(decodeSegment).filter(Boolean);
   const preview = search?.get('preview') ?? undefined;
-  if (parts.length === 0 && !preview) return null;
-  return { path: `/${parts.join('/')}`, preview };
+  const nodeId = search?.get('node') || undefined;
+  const node = nodeId ? { id: nodeId, account: search?.get('account') || undefined } : undefined;
+  if (parts.length === 0 && !preview && !node) return null;
+  return { path: `/${parts.join('/')}`, preview, ...(node ? { node } : {}) };
 }
 
 // ---------------------------------------------------------------------------

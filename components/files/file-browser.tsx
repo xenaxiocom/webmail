@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   Upload, FolderPlus, Download, Trash2, Pencil, Copy, Clipboard, Scissors, Info,
   FilePlus, CopyPlus, AlertCircle, FolderUp, Share2, SquarePen, Eye, FolderOpen,
-  RefreshCw, Star, StarOff, Plus, CheckSquare, NotebookPen,
+  RefreshCw, Star, StarOff, Plus, CheckSquare, NotebookPen, Link as LinkIcon,
 } from "@/components/icons";
 import { useIsDesktop, useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
 import { useContextMenu } from "@/hooks/use-context-menu";
@@ -17,7 +17,7 @@ import { NewFolderDialog } from "@/components/files/new-folder-dialog";
 import { RenameDialog } from "@/components/files/rename-dialog";
 import { fileNameProblem } from "@/lib/file-name-rules";
 import { EmptyFolder, NoSearchResults } from "@/components/files/file-empty-state";
-import { isAudioFile, isImageFile, isPdfFile, isTextFile, isVideoFile } from "@/components/files/file-icons";
+import { getFileIconByName, isAudioFile, isImageFile, isPdfFile, isTextFile, isVideoFile } from "@/components/files/file-icons";
 import { loadFilesSettings, saveFilesSettings, type FilesSettings } from "@/components/files/files-settings";
 import { FilesSidebar, type CreateKind } from "@/components/files/files-sidebar";
 import { FilesHeader, type Crumb, type SortDir, type SortKey, type ViewMode } from "@/components/files/files-header";
@@ -38,6 +38,7 @@ import type { IJMAPClient } from "@/lib/jmap/client-interface";
 import type { FileNodeRights } from "@/lib/jmap/types";
 import type { FileResourceView } from "@/lib/plugin-types";
 import { useXT } from "@/lib/xenaxio/i18n";
+import { useCopyFileLink } from "@/components/xenaxio/use-copy-file-link";
 import { defaultNoteName } from "@/lib/xenaxio/notes";
 
 interface ClipboardState {
@@ -115,6 +116,8 @@ interface FileBrowserProps {
   sharingEnabled?: boolean;
   /** Add/update/remove a principal's share on a node. Set null rights to revoke. */
   onShare?: (id: string, principalId: string, rights: FileNodeRights | null) => Promise<void>;
+  /** xenaxio step 116: opens a file a colleague shared on its own (listed under "Shared with me"). */
+  onOpenSharedFile?: (resource: FileResource) => void;
 }
 
 function isPreviewable(name: string): boolean {
@@ -182,9 +185,11 @@ export function FileBrowser({
   ownAccountId,
   sharingEnabled,
   onShare,
+  onOpenSharedFile,
 }: FileBrowserProps) {
   const t = useTranslations("files");
   const xt = useXT();
+  const copyFileLink = useCopyFileLink();
   const fileNameRules = useMemo(() => client?.getFileNameRules?.() ?? null, [client]);
   const validateFileName = useCallback((name: string) => {
     const problem = fileNameProblem(name, fileNameRules);
@@ -405,8 +410,9 @@ export function FileBrowser({
   const sharedAtRoot = useMemo(() => {
     if (currentPath !== "/" || accountPickerMode) return [];
     const q = searchQuery.toLowerCase();
-    return sharedRoots.filter((r) => r.isDirectory && (!q || r.name.toLowerCase().includes(q)));
-  }, [currentPath, accountPickerMode, sharedRoots, searchQuery]);
+    // xenaxio step 116: files shared on their own are listed too, when they can be opened here.
+    return sharedRoots.filter((r) => (r.isDirectory || !!onOpenSharedFile) && (!q || r.name.toLowerCase().includes(q)));
+  }, [currentPath, accountPickerMode, sharedRoots, searchQuery, onOpenSharedFile]);
 
   const pathOf = useCallback((r: FileResource) => (currentPath === "/" ? `/${r.name}` : `${currentPath}/${r.name}`), [currentPath]);
   const starredPaths = useMemo(() => new Set(favorites), [favorites]);
@@ -829,10 +835,11 @@ export function FileBrowser({
             <ContextMenuItem icon={Download} label={t("download")} onClick={() => { closeMenu(); void onDownload(resource.name); }} />
           </>
         )}
-        {(canShare(resource) || (resource.isDirectory && !resource.isShared)) && <ContextMenuSeparator />}
+        <ContextMenuSeparator />
         {canShare(resource) && (
           <ContextMenuItem icon={Share2} label={t("share")} onClick={() => { closeMenu(); setShareTargetId(resource.id); }} />
         )}
+        <ContextMenuItem icon={LinkIcon} label={xt("file_link.copy")} onClick={() => { closeMenu(); copyFileLink(resource); }} />
         {resource.isDirectory && !resource.isShared && (
           <ContextMenuItem
             icon={starred ? StarOff : Star}
@@ -924,6 +931,7 @@ export function FileBrowser({
       onDropItems={moveNames}
       canShare={canShare}
       onShare={(r) => setShareTargetId(r.id)}
+      onCopyLink={copyFileLink}
       onCreateIn={createIn}
       onRenameFolder={setRenameFolder}
       onDeleteFolder={(folder) => void onDeleteNode(folder.id, folder.name)}
@@ -1007,7 +1015,11 @@ export function FileBrowser({
           />
         ))}
         {sharedAtRoot.length > 0 && (
-          <SharedWithMe folders={sharedAtRoot} onOpen={(r) => onNavigate(`/${r.name}`, r.id)} iconOptions={iconOptions} />
+          <SharedWithMe
+            folders={sharedAtRoot}
+            onOpen={(r) => (r.isDirectory ? onNavigate(`/${r.name}`, r.id) : onOpenSharedFile?.(r))}
+            iconOptions={iconOptions}
+          />
         )}
       </>
     );
@@ -1032,6 +1044,7 @@ export function FileBrowser({
       onEdit={() => singleSelected && onEditFile?.(singleSelected.name)}
       onDownload={() => singleSelected && void onDownload(singleSelected.name)}
       onShare={() => singleSelected && setShareTargetId(singleSelected.id)}
+      onCopyLink={() => singleSelected && copyFileLink(singleSelected)}
       onToggleStar={() => singleSelected && onToggleFavorite(pathOf(singleSelected))}
       className={cn(
         "flex-shrink-0",
@@ -1299,6 +1312,7 @@ export function FileBrowser({
             await onShare(shareTarget.id, principalId, rights as FileNodeRights | null);
           }}
           onClose={() => setShareTargetId(null)}
+          onCopyLink={() => copyFileLink(shareTarget)}
         />
       )}
     </div>
@@ -1326,7 +1340,9 @@ function SharedWithMe({ folders, onOpen, iconOptions }: {
             title={folder.ownerName ? t("shared_by", { name: folder.ownerName }) : folder.name}
             className="flex items-center gap-2.5 h-12 px-3 rounded-lg border border-border hover:bg-muted/60 transition-colors text-start min-w-0"
           >
-            {iconOptions.showIcons && <FolderOpen className={cn("w-5 h-5 shrink-0", iconOptions.coloredIcons ? "text-primary" : "text-muted-foreground")} />}
+            {iconOptions.showIcons && (folder.isDirectory
+              ? <FolderOpen className={cn("w-5 h-5 shrink-0", iconOptions.coloredIcons ? "text-primary" : "text-muted-foreground")} />
+              : <span className="w-5 h-5 shrink-0 flex items-center justify-center [&>svg]:w-5 [&>svg]:h-5">{getFileIconByName(folder.name, "sm")}</span>)}
             <span className="min-w-0 flex-1">
               <span className="block truncate text-sm font-medium">{folder.name}</span>
               {folder.ownerName && <span className="block truncate text-xs text-muted-foreground">{folder.ownerName}</span>}

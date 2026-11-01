@@ -3300,6 +3300,11 @@
   "files_open": {
     "load_failed": "Dateien konnten nicht geladen werden."
   },
+  "file_link": {
+    "copy": "Link kopieren",
+    "unavailable": "Diese Datei oder dieser Ordner ist nicht verfügbar: gelöscht, oder Sie haben keinen Zugriff.",
+    "unavailable_hint": "Bitten Sie die Person, die den Link geschickt hat, ihn mit Ihnen zu teilen."
+  },
   "files_audio": {
     "title": "Audio",
     "play": "{name} abspielen",
