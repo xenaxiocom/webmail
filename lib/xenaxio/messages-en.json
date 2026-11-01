@@ -3468,7 +3468,12 @@
     "account_intro": "Your name, your photo and how you sign in to XenRooms.",
     "sign_in_email": "Sign-in email",
     "assistant_intro": "What the AI assistant remembers about you, your skills and what it may do without asking.",
-    "assistant_open": "Open"
+    "assistant_open": "Open",
+    "meeting_background_title": "Background in meetings and calls",
+    "meeting_background_intro": "Blur or a picture behind your camera – in meetings and in calls in Rooms. Applies in this browser on this device; you can also change it in the meeting itself.",
+    "meeting_background_preview_on": "Preview with camera",
+    "meeting_background_preview_off": "Stop preview",
+    "meeting_background_unsupported": "This browser cannot replace the camera's background. Try Chrome, Edge or Firefox on a computer."
   },
   "colleague_card": {
     "message": "Message in Rooms",

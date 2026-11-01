@@ -48,6 +48,7 @@ import {
   Hand,
   LayoutGrid,
   Maximize2,
+  MeetBackgroundIcon,
   Minimize2,
   MessageSquare,
   Mic,
@@ -696,8 +697,10 @@ function Meeting({
   }, [company]);
   const [canBackground] = useState(backgroundsSupported);
   const background = useBackgroundChoice(company);
-  const { cameraTrack } = useLocalParticipant();
+  const { cameraTrack, isCameraEnabled } = useLocalParticipant();
   const camera = cameraTrack?.videoTrack as LocalVideoTrack | undefined;
+  // Step 116: the background chosen in the dock too — it grows to show one's camera and the tiles.
+  const [backgroundOpen, setBackgroundOpen] = useState(false);
   const effect = useBackgroundEffect(canBackground && sends ? camera : undefined, background.source);
   const [, setPermissions] = useState(0);
   useEffect(() => {
@@ -911,7 +914,11 @@ function Meeting({
   };
   const mobile = typeof navigator !== "undefined" && /Android|iPhone|iPad/i.test(navigator.userAgent);
   // The recording alert needs room: it opens the dock to its video size.
-  const voiceOnly = dock && !webinar && !showsVideo(videoTracks) && !recordingAlert;
+  const dockBackground = dock && backgroundOpen && canBackground && sends;
+  const voiceOnly = dock && !webinar && !showsVideo(videoTracks) && !recordingAlert && !dockBackground;
+  const backgroundPicker = (
+    <BackgroundPicker choice={background.choice} onChoose={background.choose} company={company} own={background.own} onOwnFile={background.setOwnFile} effect={effect} />
+  );
   const endForAll = async () => {
     if (!window.confirm(t("end_confirm"))) return;
     await meet.end(code).catch(() => undefined);
@@ -925,7 +932,7 @@ function Meeting({
         variant === "page" && "relative h-dvh",
         variant === "full" && "fixed inset-0 z-50 h-dvh",
         dock && "fixed inset-x-2 bottom-20 z-50 overflow-hidden rounded-xl border border-white/10 shadow-2xl sm:inset-x-auto sm:bottom-4 sm:right-4 sm:w-[400px]",
-        dock && !voiceOnly && "h-[300px]",
+        dock && !voiceOnly && (dockBackground ? "h-[min(560px,75dvh)]" : "h-[300px]"),
       )}
     >
       <header className={cn("flex items-center gap-3 text-sm", dock ? "px-3 py-1.5" : "px-4 py-2")}>
@@ -963,7 +970,18 @@ function Meeting({
       )}
       <div className="relative flex min-h-0 flex-1">
         <main className={cn("relative min-w-0 flex-1", dock ? "p-1" : "p-2")} data-lk-theme="default">
-          {voiceOnly ? (
+          {dockBackground ? (
+            <div className="h-full space-y-2 overflow-y-auto p-1">
+              <div className="relative aspect-video overflow-hidden rounded-lg bg-black">
+                {isCameraEnabled && cameraTrack ? (
+                  <VideoTrack trackRef={{ participant: localParticipant, source: Track.Source.Camera, publication: cameraTrack }} className="h-full w-full object-cover [transform:scaleX(-1)]" />
+                ) : (
+                  <div className="flex h-full items-center justify-center text-sm text-white/60">{t("camera_off")}</div>
+                )}
+              </div>
+              {backgroundPicker}
+            </div>
+          ) : voiceOnly ? (
             <VoiceStrip hands={hands} />
           ) : (
             <Stage layout={dock ? "speaker" : layout} hands={hands} pinned={pinned} setPinned={setPinned} compact={dock} stageOnly={webinar} />
@@ -1009,22 +1027,7 @@ function Meeting({
                 ))}
               {panel === "chat" && <ChatPanel chat={chat} />}
               {panel === "webinar" && <WebinarPanel code={code} guest={guest} live={live} me={localParticipant.identity} />}
-              {panel === "devices" && (
-                <DevicePanel
-                  background={
-                    canBackground && sends ? (
-                      <BackgroundPicker
-                        choice={background.choice}
-                        onChoose={background.choose}
-                        company={company}
-                        own={background.own}
-                        onOwnFile={background.setOwnFile}
-                        effect={effect}
-                      />
-                    ) : undefined
-                  }
-                />
-              )}
+              {panel === "devices" && <DevicePanel background={canBackground && sends ? backgroundPicker : undefined} />}
             </div>
           </aside>
         )}
@@ -1043,6 +1046,11 @@ function Meeting({
         <footer className="flex items-center justify-center gap-2 px-2 py-2">
           <MediaToggle source={Track.Source.Microphone} />
           <MediaToggle source={Track.Source.Camera} />
+          {canBackground && sends && (
+            <RoundButton label={t("background")} onClick={() => setBackgroundOpen((o) => !o)} active={backgroundOpen || background.choice.kind !== "none"}>
+              <MeetBackgroundIcon className="h-5 w-5" />
+            </RoundButton>
+          )}
           {!mobile && <MediaToggle source={Track.Source.ScreenShare} />}
           {recordButton}
           <RoundButton label={t("leave")} onClick={() => void room.disconnect()} danger>

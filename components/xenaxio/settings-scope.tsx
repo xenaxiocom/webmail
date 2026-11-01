@@ -15,6 +15,7 @@ import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { usePortal } from "@/lib/xenaxio/portal";
+import { MeetBackgroundSetting } from "@/components/xenaxio/meet/background-setting";
 
 export interface SettingsScope {
   /** On the XenRooms address: the companies' column, back to the chat. */
@@ -66,6 +67,8 @@ export function ChatOnlyAccountSettings() {
         )}
       </SettingsSection>
       <XenaxioProfileSetting />
+      {/* Step 116: calls in XenRooms have the camera background too. */}
+      <MeetBackgroundSetting />
     </div>
   );
 }
