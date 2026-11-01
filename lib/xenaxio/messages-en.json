@@ -3473,5 +3473,55 @@
   "colleague_card": {
     "message": "Message in Rooms",
     "message_title": "Message {name} in Rooms"
+  },
+  "notes": {
+    "new_note": "New note",
+    "default_name": "Note",
+    "copy_suffix": "copy",
+    "write": "Write",
+    "preview": "Preview",
+    "save": "Save",
+    "close": "Close",
+    "retry": "Try again",
+    "read_only": "Read only",
+    "read_only_hint": "You may view this file but not change it.",
+    "loading": "Loading…",
+    "load_failed": "The note could not be loaded.",
+    "empty_preview": "Nothing to see yet. Write something under “Write”.",
+    "placeholder": "Write here. Markdown works: # Heading, **bold**, - list, - [ ] task",
+    "link_text": "link text",
+    "status": {
+      "saved": "Saved",
+      "dirty": "Unsaved changes",
+      "saving": "Saving…",
+      "failed": "Not saved",
+      "conflict": "Not saved"
+    },
+    "save_failed": "Saving failed.",
+    "saved_as_copy": "Saved as “{name}”.",
+    "conflict_title": "The file was changed meanwhile",
+    "conflict_text": "Someone saved “{name}” while you were writing. Your text is not lost.",
+    "conflict_copy": "Save as copy",
+    "conflict_reload": "Reload (discard my changes)",
+    "conflict_cancel": "Keep editing",
+    "gone_title": "The file no longer exists",
+    "gone": "The file was deleted or moved. Save your text as a copy.",
+    "discard_title": "Changes not saved",
+    "discard_text": "Your latest changes could not be saved. Close anyway?",
+    "discard_confirm": "Close without saving",
+    "toolbar": {
+      "label": "Formatting",
+      "h1": "Heading 1",
+      "h2": "Heading 2",
+      "bold": "Bold (Ctrl+B)",
+      "italic": "Italic (Ctrl+I)",
+      "strike": "Strikethrough",
+      "code": "Code",
+      "quote": "Quote",
+      "bullet": "List",
+      "number": "Numbered list",
+      "task": "Task with checkbox",
+      "link": "Link (Ctrl+K)"
+    }
   }
 }

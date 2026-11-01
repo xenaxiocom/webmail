@@ -5,7 +5,7 @@ import { useTranslations } from "next-intl";
 import {
   Upload, FolderPlus, Download, Trash2, Pencil, Copy, Clipboard, Scissors, Info,
   FilePlus, CopyPlus, AlertCircle, FolderUp, Share2, SquarePen, Eye, FolderOpen,
-  RefreshCw, Star, StarOff, Plus, CheckSquare,
+  RefreshCw, Star, StarOff, Plus, CheckSquare, NotebookPen,
 } from "@/components/icons";
 import { useIsDesktop, useIsMobile, useMediaQuery } from "@/hooks/use-media-query";
 import { useContextMenu } from "@/hooks/use-context-menu";
@@ -37,6 +37,8 @@ import { ShareCollectionDialog } from "@/components/settings/share-collection-di
 import type { IJMAPClient } from "@/lib/jmap/client-interface";
 import type { FileNodeRights } from "@/lib/jmap/types";
 import type { FileResourceView } from "@/lib/plugin-types";
+import { useXT } from "@/lib/xenaxio/i18n";
+import { defaultNoteName } from "@/lib/xenaxio/notes";
 
 interface ClipboardState {
   mode: "cut" | "copy";
@@ -182,6 +184,7 @@ export function FileBrowser({
   onShare,
 }: FileBrowserProps) {
   const t = useTranslations("files");
+  const xt = useXT();
   const fileNameRules = useMemo(() => client?.getFileNameRules?.() ?? null, [client]);
   const validateFileName = useCallback((name: string) => {
     const problem = fileNameProblem(name, fileNameRules);
@@ -293,6 +296,10 @@ export function FileBrowser({
   // ---- Dialogs and transient UI ---------------------------------------------
   const [showNewFolder, setShowNewFolder] = useState(false);
   const [showNewTextFile, setShowNewTextFile] = useState(false);
+  // Xenaxio step 115: the same dialog makes a note ("Notiz 2026-11-01.md").
+  const [newTextName, setNewTextName] = useState("new-file.txt");
+  const newTextFile = useCallback(() => { setNewTextName("new-file.txt"); setShowNewTextFile(true); }, []);
+  const newNote = useCallback(() => { setNewTextName(defaultNoteName(xt("notes.default_name"))); setShowNewTextFile(true); }, [xt]);
   const [renameTarget, setRenameTarget] = useState<string | null>(null);
   const [renameFolder, setRenameFolder] = useState<FileResource | null>(null);
   const [shareTargetId, setShareTargetId] = useState<string | null>(null);
@@ -858,7 +865,8 @@ export function FileBrowser({
       <ContextMenuItem icon={FolderUp} label={t("upload_folder")} onClick={() => { closeMenu(); folderInputRef.current?.click(); }} />
       <ContextMenuSeparator />
       <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => { closeMenu(); setShowNewFolder(true); }} />
-      <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { closeMenu(); setShowNewTextFile(true); }} />
+      <ContextMenuItem icon={NotebookPen} label={xt("notes.new_note")} onClick={() => { closeMenu(); newNote(); }} />
+      <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { closeMenu(); newTextFile(); }} />
     </>
   );
 
@@ -889,10 +897,11 @@ export function FileBrowser({
   const createIn = useCallback((path: string, id: string | null, kind: CreateKind) => {
     if (id !== currentParentId) onNavigate(path, id);
     if (kind === "folder") setShowNewFolder(true);
-    else if (kind === "text") setShowNewTextFile(true);
+    else if (kind === "text") newTextFile();
+    else if (kind === "note") newNote();
     else if (kind === "files") fileInputRef.current?.click();
     else folderInputRef.current?.click();
-  }, [currentParentId, onNavigate]);
+  }, [currentParentId, onNavigate, newTextFile, newNote]);
 
   // ---- Rendering -------------------------------------------------------------
   const sidebar = !accountPickerMode && (
@@ -909,7 +918,8 @@ export function FileBrowser({
       onUploadFiles={() => fileInputRef.current?.click()}
       onUploadFolder={() => folderInputRef.current?.click()}
       onNewFolder={() => setShowNewFolder(true)}
-      onNewTextFile={() => setShowNewTextFile(true)}
+      onNewTextFile={newTextFile}
+      onNewNote={newNote}
       onToggleFavorite={onToggleFavorite}
       onDropItems={moveNames}
       canShare={canShare}
@@ -1242,8 +1252,8 @@ export function FileBrowser({
 
       {showNewTextFile && (
         <RenameDialog
-          currentName="new-file.txt"
-          title={t("new_text_file")}
+          currentName={newTextName}
+          title={newTextName.endsWith(".md") ? xt("notes.new_note") : t("new_text_file")}
           label={t("file_name")}
           onConfirm={async (name: string) => {
             await onCreateTextFile(name);
