@@ -30,6 +30,9 @@ import { resourceToView, useFileStore, type FileResource } from "@/stores/file-s
 import { PluginActions, usePluginActions } from "@/components/plugins/plugin-actions";
 import { toast } from "@/stores/toast-store";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
+import { useSettingsStore } from "@/stores/settings-store";
+import { useSplitResize } from "@/components/xenaxio/use-split-resize";
+import { SPLIT_DEFAULT, splitStyle } from "@/lib/xenaxio/split";
 import { ShareCollectionDialog } from "@/components/settings/share-collection-dialog";
 import type { IJMAPClient } from "@/lib/jmap/client-interface";
 import type { FileNodeRights } from "@/lib/jmap/types";
@@ -249,6 +252,15 @@ export function FileBrowser({
   const dragStartWidth = useRef(SIDEBAR_DEFAULT_WIDTH);
   const [showDetails, setShowDetails] = useState(() => {
     try { return localStorage.getItem("files-show-details") === "1"; } catch { return false; }
+  });
+  // xenaxio (step 114): the Details panel's width is changed with a divider and kept in the settings (on the server).
+  const detailsAreaRef = useRef<HTMLDivElement>(null);
+  const filesDetailsWidth = useSettingsStore((s) => s.filesDetailsWidth);
+  const updateSetting = useSettingsStore((s) => s.updateSetting);
+  const detailsSplit = useSplitResize({
+    areaRef: detailsAreaRef,
+    saved: filesDetailsWidth ?? SPLIT_DEFAULT,
+    onSave: (value) => updateSetting("filesDetailsWidth", value === null ? null : Math.round(value)),
   });
   const toggleDetails = useCallback((open?: boolean) => {
     setShowDetails((v) => {
@@ -993,7 +1005,7 @@ export function FileBrowser({
       onToggleStar={() => singleSelected && onToggleFavorite(pathOf(singleSelected))}
       className={cn(
         "flex-shrink-0",
-        isNarrow ? "absolute inset-y-0 end-0 z-30 w-80 max-w-[85%] shadow-xl" : "w-72",
+        isNarrow ? "absolute inset-y-0 end-0 z-30 w-80 max-w-[85%] shadow-xl" : "w-full",
       )}
     />
   );
@@ -1092,7 +1104,7 @@ export function FileBrowser({
           </div>
         )}
 
-        <div className="relative flex flex-1 min-h-0">
+        <div ref={detailsAreaRef} className="relative flex flex-1 min-h-0">
           <div
             ref={scrollAreaRef}
             className="relative flex-1 min-w-0 overflow-y-auto"
@@ -1136,7 +1148,16 @@ export function FileBrowser({
             </div>
           )}
 
-          {detailsPanel}
+          {detailsPanel && !isNarrow ? (
+            <>
+              <ResizeHandle testId="files-details-resize" {...detailsSplit.handle} />
+              <div className="flex flex-shrink-0" style={splitStyle(detailsSplit.percent)} data-details-width={Math.round(detailsSplit.percent)}>
+                {detailsPanel}
+              </div>
+            </>
+          ) : (
+            detailsPanel
+          )}
 
           {isNarrow && canCreate && !selectionActions && (
             <Button
