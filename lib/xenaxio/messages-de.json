@@ -3473,7 +3473,12 @@
     "account_intro": "Ihr Name, Ihr Foto und Ihre Anmeldung bei XenRooms.",
     "sign_in_email": "Anmelde-E-Mail",
     "assistant_intro": "Was sich der KI-Assistent über Sie merkt, Ihre Fähigkeiten und was er ohne Rückfrage tun darf.",
-    "assistant_open": "Öffnen"
+    "assistant_open": "Öffnen",
+    "meeting_background_title": "Hintergrund in Meetings und Anrufen",
+    "meeting_background_intro": "Weichzeichnen oder ein Bild hinter Ihrer Kamera – in Meetings und in Anrufen in Rooms. Gilt in diesem Browser auf diesem Gerät; ändern können Sie ihn auch im Meeting selbst.",
+    "meeting_background_preview_on": "Vorschau mit Kamera",
+    "meeting_background_preview_off": "Vorschau beenden",
+    "meeting_background_unsupported": "Dieser Browser kann den Hintergrund der Kamera nicht ersetzen. Versuchen Sie Chrome, Edge oder Firefox auf dem Computer."
   },
   "colleague_card": {
     "message": "Nachricht in Rooms",
