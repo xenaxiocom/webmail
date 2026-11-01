@@ -7,6 +7,7 @@ import { ChatError, mx, newTxnId, paths } from "./api";
 import { isPollEnd, isPollResponse, isPollStart, type PollState, pollOf, responseAnswers } from "./poll";
 import { type Bookmark, BOOKMARKS_TYPE, bookmarksOf, CANVAS_TYPE, FORUM_TYPE, keepPost, VOICE_TYPE } from "./extras";
 import type { ChannelRef } from "./format";
+import { clampThreadWidth, parseThreadWidths, THREAD_WIDTH_DEFAULT, THREAD_WIDTHS_TYPE } from "./thread-width";
 import { BACKGROUND_TYPE, backgroundCodeOf, backgroundImageOf, NO_ROOM_BACKGROUNDS, parseRoomBackgrounds, ROOM_BACKGROUNDS_TYPE, type RoomBackgrounds } from "./room-background";
 
 const KEYWORD_PREFIX = "xenaxio-kw-";
@@ -413,6 +414,8 @@ export class ChatClient {
   sidebar: SidebarLayout = EMPTY_LAYOUT;
   /** Step 109: the person's own view of channel backgrounds (account data). */
   roomBackgrounds: RoomBackgrounds = NO_ROOM_BACKGROUNDS;
+  /** Step 114: the person's own thread width per room, in percent (account data). */
+  threadWidths: Record<string, number> = {};
   /** Step 99, part E: drafts per channel and thread ("roomId|threadRoot"). */
   drafts: Record<string, Draft> = {};
   private draftTimer: ReturnType<typeof setTimeout> | null = null;
@@ -601,6 +604,8 @@ export class ChatClient {
       this.sidebar = parseLayout(ev.content);
     } else if (ev.type === ROOM_BACKGROUNDS_TYPE) {
       this.roomBackgrounds = parseRoomBackgrounds(ev.content);
+    } else if (ev.type === THREAD_WIDTHS_TYPE) {
+      this.threadWidths = parseThreadWidths(ev.content);
     } else if (ev.type === "m.push_rules") {
       this.roomLevels = roomLevelsOf(ev.content);
       this.defaultLevel = defaultLevelOf(ev.content);
@@ -1222,6 +1227,29 @@ export class ChatClient {
       await mx("PUT", paths.accountData(this.userId, ROOM_BACKGROUNDS_TYPE), next);
     } catch (err) {
       this.roomBackgrounds = previous;
+      this.changed();
+      throw err;
+    }
+  }
+
+  /** Step 114: how wide a thread opens in this room for the person (percent of the room). */
+  threadWidth(roomId: string): number {
+    return this.threadWidths[roomId] ?? THREAD_WIDTH_DEFAULT;
+  }
+
+  /** Step 114: the person's own thread width in a room (null: back to half and half), kept on the server. */
+  async setThreadWidth(roomId: string, percent: number | null): Promise<void> {
+    const previous = this.threadWidths;
+    const next = { ...previous };
+    if (percent === null) delete next[roomId];
+    else next[roomId] = Math.round(clampThreadWidth(percent));
+    if (next[roomId] === previous[roomId]) return;
+    this.threadWidths = next;
+    this.changed();
+    try {
+      await mx("PUT", paths.accountData(this.userId, THREAD_WIDTHS_TYPE), { rooms: next });
+    } catch (err) {
+      this.threadWidths = previous;
       this.changed();
       throw err;
     }

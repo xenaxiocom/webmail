@@ -3282,6 +3282,8 @@
       "remove_flow_person": "Remove a person from own flows",
       "get_meeting_transcript": "Read a meeting transcript",
       "set_chat_notifications": "Chat notifications: Xenaxio or XenRooms",
+      "set_channel_background": "Background of a channel in Rooms",
+      "set_thread_width": "Width of threads in Rooms (only for you)",
       "set_display_name": "Change your own name",
       "rename_user": "Change an employee's name (admin)",
       "get_profile": "View a profile",
