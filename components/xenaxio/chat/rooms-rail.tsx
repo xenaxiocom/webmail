@@ -190,7 +190,8 @@ export function RoomsRail() {
   const icon = "rounded-lg p-2 text-muted-foreground hover:bg-muted hover:text-foreground";
 
   return (
-    <nav aria-label={c.t("rooms.companies")} className="flex h-full w-[68px] flex-shrink-0 flex-col items-center gap-3 bg-secondary py-3" style={{ borderRight: "1px solid rgba(128, 128, 128, 0.3)" }}>
+    // data-app-rail: the company's background (step 42) shows through it as frosted glass (step 113).
+    <nav data-app-rail="" aria-label={c.t("rooms.companies")} className="flex h-full w-[68px] flex-shrink-0 flex-col items-center gap-3 bg-secondary py-3" style={{ borderRight: "1px solid rgba(128, 128, 128, 0.3)" }}>
       <img src={withBasePath(ROOMS_LOGO)} alt={ROOMS_NAME} title={ROOMS_NAME} className="h-8 w-8 rounded-lg" />
       <div className="h-px w-8 bg-border" />
       <div className="flex min-h-0 flex-1 flex-col items-center gap-3 overflow-y-auto px-2 pt-1.5">

@@ -88,6 +88,8 @@ describe("RoomsRail (step 67)", () => {
     const bg = (account: string) => (container.querySelector(`img[src*="account=${account}"]`) as HTMLImageElement).style.backgroundColor;
     expect(bg("u-acme")).toBe("rgb(10, 27, 44)");
     expect(bg("u-beta")).toBe("rgb(255, 255, 255)");
+    // The company's background (step 42) shows through the column as frosted glass.
+    expect(screen.getByRole("navigation", { name: "Companies" }).hasAttribute("data-app-rail")).toBe(true);
   });
 
   it("switches without a password and stays in the chat", async () => {

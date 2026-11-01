@@ -1378,7 +1378,7 @@
     "logo_remove": "Remove",
     "logo_hint": "PNG or WebP, at most 256 KB and 1024 × 1024 pixels. A wide logo with a transparent background works best.",
     "icon_title": "App icon",
-    "icon_intro": "When your team installs the app (e.g. “Add to Dock”), your logo is placed on this background colour. White by default.",
+    "icon_intro": "When your team installs the app (e.g. “Add to Dock”), your logo is placed on this background colour. In XenRooms, too, the logo sits on it in the column of companies. White by default.",
     "icon_preview": "App icon preview",
     "icon_use_brand": "Use brand colour",
     "icon_save": "Save background",
@@ -1408,7 +1408,11 @@
     "own_remove": "Remove",
     "own_remove_confirm": "Remove {host}? The address stops working at once.",
     "col_type": "Type",
-    "logo_intro_rooms": "Shows for your company in XenRooms: in the column of companies and at the top of the channel list."
+    "logo_intro_rooms": "Shows for your company in XenRooms: in the column of companies and at the top of the channel list.",
+    "icon_title_rooms": "Background behind the logo",
+    "icon_intro_rooms": "Many logos are transparent. In XenRooms your logo sits on this colour in the column of companies and in the company menu. White by default.",
+    "icon_preview_rooms": "Preview of the logo in XenRooms",
+    "icon_saved_rooms": "Saved."
   },
   "mail_apps": {
     "title": "Mail apps",
@@ -1600,7 +1604,7 @@
     "gradients": "Gradients",
     "error": "The background could not be saved. Please try again.",
     "company_title": "Background for everyone",
-    "company_intro": "A picture or colour gradient behind the window of mail, calendar and contacts. Applies to everyone in your team who has not picked their own; anyone can change it in Settings → Appearance.",
+    "company_intro": "A picture or colour gradient behind the window of mail, calendar, contacts and chat. Applies to everyone in your team who has not picked their own; anyone can change it in Settings → Appearance.",
     "company_saved": "Saved. Your team sees the background the next time the page loads.",
     "names": {
       "mountains": "Mountains",
@@ -1615,7 +1619,8 @@
       "orange": "Orange",
       "red": "Red",
       "green": "Green"
-    }
+    },
+    "company_intro_rooms": "A picture or colour gradient behind the column of companies and the channel list, on screens from tablet size. Applies to everyone in your team who has not picked their own; anyone can change it in Settings → Appearance."
   },
   "avatar": {
     "title": "Profile picture",

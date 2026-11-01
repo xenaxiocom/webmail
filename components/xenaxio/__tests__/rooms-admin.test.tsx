@@ -67,15 +67,21 @@ describe("step 110: Verwaltung in XenRooms", () => {
     expect(links()).toEqual(["/workspace/assistant", "/workspace/mcp", "/workspace/permissions", "/workspace/password"]);
   });
 
-  it("Erscheinungsbild: logo and colour; no portal address, own hostname, app icon, background (it shows behind the mail's navigation) or booking pages", async () => {
+  it("Erscheinungsbild: logo, colour, the background behind the logo and for everyone (step 113); no portal address, own hostname, app icon or booking pages", async () => {
     api.adminPortal.mockResolvedValue(portal);
     render(<AppearancePage />);
     expect(await screen.findByText("Erscheint bei Ihrer Firma in XenRooms: in der Spalte der Firmen und oben in der Kanalliste.")).toBeTruthy();
     expect(screen.getByRole("button", { name: /Logo ersetzen|Logo hochladen|ersetzen/ })).toBeTruthy();
     expect(screen.queryByText(/Adresse/)).toBeNull();
     expect(screen.queryByText("booking pages")).toBeNull();
-    expect(screen.queryByLabelText(/Vorschau|App-Symbol/)).toBeNull();
-    expect(screen.queryByText("Hintergrund für alle")).toBeNull();
+    // Step 113: the background behind the logo — about XenRooms, not about installing an app icon.
+    expect(screen.getByText("Hintergrund hinter dem Logo")).toBeTruthy();
+    expect(screen.getByRole("img", { name: "Vorschau des Logos in XenRooms" })).toBeTruthy();
+    expect(screen.queryByText("App-Symbol")).toBeNull();
+    expect(screen.queryByText(/Zum Dock hinzufügen/)).toBeNull();
+    // Step 113: the background for everyone shows behind the column of companies and the channel list.
+    expect(screen.getByText("Hintergrund für alle")).toBeTruthy();
+    expect(screen.getByText(/hinter der Spalte der Firmen und der Kanalliste/)).toBeTruthy();
   });
 
   it("Erscheinungsbild in Xenaxio keeps the address and the booking pages", async () => {

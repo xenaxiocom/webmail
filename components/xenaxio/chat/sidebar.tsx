@@ -453,7 +453,8 @@ export function ChatSidebar({
   );
 
   return (
-    <nav className="flex h-full min-h-0 w-full flex-col bg-secondary/60 md:w-64 md:border-r md:border-border" aria-label={t("chat.title")}>
+    // data-app-sidebar: the company's background (step 42) shows through it as frosted glass (step 113).
+    <nav data-app-sidebar="" className="flex h-full min-h-0 w-full flex-col bg-secondary/60 md:w-64 md:border-r md:border-border" aria-label={t("chat.title")}>
       <div className="flex h-14 shrink-0 items-center gap-1 border-b border-border px-3">
         {companies ? <CompanyButton name={companyName} /> : <span className="min-w-0 flex-1 truncate text-base font-bold">{companyName}</span>}
         <SidebarCollapseButton />
