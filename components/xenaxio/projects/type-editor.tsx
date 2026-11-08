@@ -20,6 +20,7 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { refreshObjectMenu } from "@/lib/xenaxio/projects-nav";
 import { FIELD_KINDS, type FieldKind, local, type ObjectType, projectsApi, STATUS_COLORS, type Text, type TypeAccess, type TypeField, type TypeStatus, typeHref } from "@/lib/xenaxio/projects";
 import { Modal, selectClass, StatusChip } from "./bits";
+import { FormulaEditor, RollupEditor, RulesEditor } from "./computed";
 
 type Group = { id: string; name: string };
 type Msg = { kind: "error" | "success"; text: string } | null;
@@ -88,6 +89,7 @@ function FieldDialog({ type, types, field, onClose, onSaved }: { type: ObjectTyp
   const [confirm, setConfirm] = useState<string | null>(null);
   const editing = !!field;
   const withOptions = def.type === "select" || def.type === "multiselect";
+  const computed = def.type === "formula" || def.type === "rollup";
 
   const build = (): TypeField => {
     const label = { de: def.label.de.trim() || def.label.en.trim(), en: def.label.en.trim() || def.label.de.trim() };
@@ -95,6 +97,9 @@ function FieldDialog({ type, types, field, onClose, onSaved }: { type: ObjectTyp
     if (def.required) out.required = true;
     if (def.sensitive) out.sensitive = true;
     if (def.ref) out.ref = def.ref;
+    // Step 126: computed fields carry their definition (checked by the platform).
+    if (def.type === "formula") out.formula = { expr: def.formula?.expr ?? "", result: def.formula?.result ?? "number", ...(def.formula?.result === "money" ? { currency: def.formula.currency ?? "EUR" } : {}) };
+    if (def.type === "rollup" && def.rollup) out.rollup = { from: def.rollup.from, via: def.rollup.via, op: def.rollup.op, ...(def.rollup.op !== "count" && def.rollup.field ? { field: def.rollup.field } : {}), ...(def.rollup.where?.trim() ? { where: def.rollup.where.trim() } : {}) };
     if (withOptions) {
       const before = field?.options ?? [];
       out.options = optionsText
@@ -148,6 +153,8 @@ function FieldDialog({ type, types, field, onClose, onSaved }: { type: ObjectTyp
           </select>
           {editing && <span className="text-xs text-muted-foreground">{t("typeeditor.kind_hint")}</span>}
         </label>
+        {def.type === "formula" && <FormulaEditor type={type} fieldKey={editing ? field!.key : null} value={def.formula ?? { expr: "", result: "number" }} onChange={(formula) => setDef({ ...def, formula })} />}
+        {def.type === "rollup" && <RollupEditor type={type} types={types} value={def.rollup ?? { from: "", via: "", op: "count" }} onChange={(rollup) => setDef({ ...def, rollup })} />}
         {withOptions && (
           <label className="block space-y-1">
             <span className="text-xs text-muted-foreground">{t("typeeditor.options")}</span>
@@ -167,11 +174,13 @@ function FieldDialog({ type, types, field, onClose, onSaved }: { type: ObjectTyp
             </select>
           </label>
         )}
-        <label className="flex items-center gap-2">
-          <input type="checkbox" checked={!!def.required} onChange={(e) => setDef({ ...def, required: e.target.checked })} />
-          {t("typeeditor.required")}
-        </label>
-        {!["ref", "refs", "user"].includes(def.type) && (
+        {!computed && (
+          <label className="flex items-center gap-2">
+            <input type="checkbox" checked={!!def.required} onChange={(e) => setDef({ ...def, required: e.target.checked })} />
+            {t("typeeditor.required")}
+          </label>
+        )}
+        {!["ref", "refs", "user", "formula", "rollup"].includes(def.type) && (
           <label className="flex items-start gap-2">
             <input type="checkbox" className="mt-0.5" checked={!!def.sensitive} onChange={(e) => setDef({ ...def, sensitive: e.target.checked })} />
             <span>
@@ -184,7 +193,10 @@ function FieldDialog({ type, types, field, onClose, onSaved }: { type: ObjectTyp
           <Button variant="ghost" onClick={onClose}>
             {t("common.cancel")}
           </Button>
-          <Button onClick={() => void save()} disabled={!(def.label.en.trim() || def.label.de.trim()) || ((def.type === "ref" || def.type === "refs") && !def.ref)}>
+          <Button
+            onClick={() => void save()}
+            disabled={!(def.label.en.trim() || def.label.de.trim()) || ((def.type === "ref" || def.type === "refs") && !def.ref) || (def.type === "formula" && !def.formula?.expr.trim()) || (def.type === "rollup" && !(def.rollup?.from && def.rollup.via))}
+          >
             {t("common.save")}
           </Button>
         </div>
@@ -397,6 +409,11 @@ function TypeForm({ type, types, groups, onChanged, onGone }: { type: ObjectType
             ))}
           </ul>
         )}
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-lg font-semibold">{t("computed.rules")}</h2>
+        <RulesEditor type={type} onSaved={(next) => (onChanged(next), setMsg({ kind: "success", text: t("typeeditor.saved") }))} />
       </section>
 
       <section className="space-y-3">

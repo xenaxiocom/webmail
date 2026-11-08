@@ -43,6 +43,7 @@ import {
 import { toast } from "@/stores/toast-store";
 import { Board } from "./board";
 import { TaskChart } from "./task-chart";
+import { ComputedMark } from "./computed";
 import { ColorPicker, Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
 import { NewProjectDialog } from "./project-list";
 import { FieldInput } from "./fields";
@@ -756,6 +757,7 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
           {local(f.label, locale)}
           {f.required ? " *" : ""}
           {f.sensitive && <Lock className="h-3 w-3" aria-label={t("objects.sensitive")} />}
+          <ComputedMark field={f} />
         </label>
         <FieldInput id={`f-${f.key}`} field={f} objectId={project.id} value={project.fields?.[f.key] ?? null} disabled={!canEdit} onSave={(v) => void save({ fields: { [f.key]: v } })} />
       </div>

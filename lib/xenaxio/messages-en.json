@@ -338,7 +338,13 @@
     "object_too_many_views": "This type already has 20 views.",
     "object_task_parent_invalid": "The parent task is not in this project.",
     "object_task_parent_cycle": "A task cannot sit under itself or one of its own subtasks.",
-    "object_task_too_deep": "Subtasks go up to 10 levels deep."
+    "object_task_too_deep": "Subtasks go up to 10 levels deep.",
+    "object_formula_invalid": "The formula is not right: {error}",
+    "object_rollup_invalid": "The calculation over linked records is not right ({error}).",
+    "object_rules_invalid": "A validation rule is not right: {error}",
+    "object_rule_failed": "{text}",
+    "object_field_computed": "This field is computed and cannot be changed.",
+    "object_field_in_use": "The field is still in use: {usedBy}. Change those formulas, rules or calculations first."
   },
   "login": {
     "title": "Sign in",
@@ -4128,7 +4134,9 @@
       "external": "From a service",
       "file": "File",
       "image": "Picture",
-      "location": "Place"
+      "location": "Place",
+      "formula": "Formula",
+      "rollup": "Rollup of linked records"
     },
     "colors": {
       "blue": "Blue",
@@ -4253,5 +4261,47 @@
     "level_ask": "Ask me first",
     "level_deny": "Never",
     "user_privacy": "The assistant uses your sign-in only while you work with it or for your scheduled tasks. The audit log records which tool ran, never what it returned."
+  },
+  "computed": {
+    "checking": "Checking …",
+    "error": "Error: {error}",
+    "ok": "Expression is fine",
+    "example": "Example (newest record): {value}",
+    "builtin": {
+      "title": "Title",
+      "status": "Stage",
+      "due": "Due",
+      "created": "Created on"
+    },
+    "formula": "Formula",
+    "result": "Result",
+    "currency": "Currency",
+    "result_number": "Number",
+    "result_money": "Amount",
+    "result_date": "Date",
+    "result_text": "Text",
+    "result_checkbox": "Yes/no",
+    "formula_help": "Calculates with this record's fields: + − * /, comparisons (==, >, <), and/or and functions like round(x, 2), coalesce(a, 0), days_between(today(), due), add_days(due, 7), upper(title). When a value is missing the result stays empty.",
+    "rollup_none": "No other type points to this one with a \"linked record\" field – add such a field there first.",
+    "rollup_from": "Records of",
+    "rollup_via": "Linked through",
+    "rollup_op": "Calculation",
+    "rollup_field": "Field",
+    "rollup_where": "Only when (optional)",
+    "op_count": "Count",
+    "op_sum": "Sum",
+    "op_avg": "Average",
+    "op_min": "Minimum",
+    "op_max": "Maximum",
+    "rules": "Validation rules",
+    "rules_help": "A record is not saved while a condition holds – for example status == \"won\" and empty(close_on). Everyone editing the record sees the message (in imports and the assistant too).",
+    "rule_when": "Error when",
+    "rule_breaks": "the newest record breaks this rule",
+    "rule_passes": "the newest record passes this rule",
+    "rule_message_de": "Message (German)",
+    "rule_message_en": "Message (English)",
+    "rule_add": "Add rule",
+    "rule_remove": "Remove rule",
+    "mark": "computed"
   }
 }

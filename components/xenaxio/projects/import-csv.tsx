@@ -44,13 +44,13 @@ export function ImportDialog({ type, onClose, onDone }: { type: ObjectType; onCl
   const [map, setMap] = useState<Record<number, string>>({});
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ added: number; skipped: { row: number; error: string; field?: string }[] } | null>(null);
+  const [result, setResult] = useState<{ added: number; skipped: { row: number; error: string; field?: string; message?: string }[] } | null>(null);
   const targets = useMemo(
     () => [
       { key: "title", label: t("projects.field.title") },
       { key: "status", label: t("projects.field.status") },
       { key: "due", label: t("projects.field.due") },
-      ...type.fields.filter((f) => f.type !== "ref" && f.type !== "refs" && f.type !== "external").map((f) => ({ key: f.key, label: local(f.label, locale) })),
+      ...type.fields.filter((f) => f.type !== "ref" && f.type !== "refs" && f.type !== "external" && f.type !== "formula" && f.type !== "rollup").map((f) => ({ key: f.key, label: local(f.label, locale) })),
     ],
     [type, locale, t],
   );
@@ -165,7 +165,7 @@ export function ImportDialog({ type, onClose, onDone }: { type: ObjectType; onCl
               <ul className="max-h-60 overflow-y-auto rounded-md border border-border text-xs">
                 {result.skipped.map((x) => (
                   <li key={x.row} className="border-b border-border px-2 py-1 last:border-0">
-                    {t("objects.import_row", { n: x.row })}: {t(`errors.${x.error}`)}
+                    {t("objects.import_row", { n: x.row })}: {x.message ?? t(`errors.${x.error}`)}
                     {x.field ? ` (${fieldName(x.field === "due" ? "due" : x.field)})` : ""}
                   </li>
                 ))}

@@ -12,7 +12,7 @@ import { Notice } from "@/components/xenaxio/ui";
 import { cn } from "@/lib/utils";
 import { errorText } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { type AggregateResult, type ChartConfig, type ChartKind, type FieldFilter, type GroupBy, type GroupSpec, local, type Measure, type ObjectType, type ObjectView, type Period, projectsApi } from "@/lib/xenaxio/projects";
+import { type AggregateResult, type ChartConfig, type ChartKind, type FieldFilter, type GroupBy, type GroupSpec, asValueField, local, type Measure, type ObjectType, type ObjectView, type Period, projectsApi } from "@/lib/xenaxio/projects";
 import { toast } from "@/stores/toast-store";
 import { selectClass } from "./bits";
 import { Chart, ChartTable, type ChartText } from "./chart";
@@ -49,9 +49,9 @@ export function validChart(type: ObjectType, raw: unknown): ChartConfig | null {
   if (!raw || typeof raw !== "object") return null;
   const c = raw as Partial<ChartConfig>;
   if (c.kind !== "chart" || !CHARTS.includes(c.chart as ChartKind) || !c.groupBy || !c.measure) return null;
-  const fieldOk = (g: GroupSpec) => g.by !== "field" || type.fields.some((f) => f.key === g.field && !f.sensitive && GROUPABLE.includes(f.type));
+  const fieldOk = (g: GroupSpec) => g.by !== "field" || type.fields.some((f) => f.key === g.field && !f.sensitive && GROUPABLE.includes(asValueField(f).type));
   if (!fieldOk(c.groupBy) || (c.splitBy && !fieldOk(c.splitBy))) return null;
-  if (c.measure.op !== "count" && !type.fields.some((f) => f.key === c.measure!.field && (f.type === "number" || f.type === "money") && !f.sensitive)) return null;
+  if (c.measure.op !== "count" && !type.fields.some((f) => f.key === c.measure!.field && ["number", "money"].includes(asValueField(f).type) && !f.sensitive)) return null;
   return c as ChartConfig;
 }
 
@@ -96,10 +96,10 @@ export function ChartView({
     out.push({ value: "owner", label: t("projects.field.owner") });
     out.push({ value: "created", label: t("objects.chart.created"), date: true });
     out.push({ value: "due", label: t("projects.field.due"), date: true });
-    for (const f of type.fields) if (!f.sensitive && GROUPABLE.includes(f.type)) out.push({ value: `field:${f.key}`, label: local(f.label, locale), date: f.type === "date" });
+    for (const f of type.fields) if (!f.sensitive && GROUPABLE.includes(asValueField(f).type)) out.push({ value: `field:${f.key}`, label: local(f.label, locale), date: asValueField(f).type === "date" });
     return out;
   }, [type, locale, t]);
-  const numberFields = useMemo(() => type.fields.filter((f) => (f.type === "number" || f.type === "money") && !f.sensitive), [type]);
+  const numberFields = useMemo(() => type.fields.filter((f) => ["number", "money"].includes(asValueField(f).type) && !f.sensitive), [type]);
   const isDate = (g?: GroupSpec) => !!g && !!groupOptions.find((o) => o.value === specValue(g))?.date;
 
   const key = JSON.stringify([type.key, config.groupBy, config.chart === "stacked" ? config.splitBy : null, config.measure, scope]);

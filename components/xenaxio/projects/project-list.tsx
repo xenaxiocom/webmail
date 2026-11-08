@@ -160,7 +160,7 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
         {(type?.fields ?? []).length > 0 && (
           <div className="grid gap-3 sm:grid-cols-2">
             {type!.fields
-              .filter((f) => f.type !== "external")
+              .filter((f) => f.type !== "external" && f.type !== "formula" && f.type !== "rollup")
               .map((f) => (
                 <div key={f.key} className={cn("space-y-1.5 text-sm", (f.type === "textarea" || f.type === "refs" || f.type === "multiselect") && "sm:col-span-2")}>
                   <label htmlFor={`new-${f.key}`} className="font-medium">
