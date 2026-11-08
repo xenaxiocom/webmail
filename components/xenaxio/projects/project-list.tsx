@@ -340,7 +340,7 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
   const groupField = type?.fields.find((f) => f.key === groupBy);
   const NONE = "__none";
   const lanes = useMemo(() => {
-    if (groupBy === "status") return (type?.statuses ?? []).map((s) => ({ id: s.key, title: local(s.name, locale), done: s.closed }));
+    if (groupBy === "status") return (type?.statuses ?? []).map((s) => ({ id: s.key, title: local(s.name, locale), done: s.closed, color: s.color }));
     if (groupField?.type === "select") return [...(groupField.options ?? []).map((o) => ({ id: o.key, title: local(o.label, locale) })), { id: NONE, title: "—" }];
     if (groupField?.type === "user") return [...[...people.values()].sort((a, b) => a.displayName.localeCompare(b.displayName)).map((p) => ({ id: p.id, title: p.displayName })), { id: NONE, title: "—" }];
     return [];
