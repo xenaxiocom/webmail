@@ -338,7 +338,13 @@
     "object_too_many_views": "Es gibt schon 20 Ansichten für diesen Typ.",
     "object_task_parent_invalid": "Die übergeordnete Aufgabe gehört nicht zu diesem Projekt.",
     "object_task_parent_cycle": "Eine Aufgabe kann nicht unter sich selbst oder ihren eigenen Unteraufgaben liegen.",
-    "object_task_too_deep": "Unteraufgaben gehen bis zu 10 Ebenen tief."
+    "object_task_too_deep": "Unteraufgaben gehen bis zu 10 Ebenen tief.",
+    "object_formula_invalid": "Die Formel stimmt nicht: {error}",
+    "object_rollup_invalid": "Die Berechnung über verknüpfte Einträge stimmt nicht ({error}).",
+    "object_rules_invalid": "Eine Prüfregel stimmt nicht: {error}",
+    "object_rule_failed": "{text}",
+    "object_field_computed": "Dieses Feld wird berechnet und kann nicht geändert werden.",
+    "object_field_in_use": "Das Feld wird noch verwendet: {usedBy}. Ändere zuerst diese Formeln, Regeln oder Berechnungen."
   },
   "login": {
     "title": "Anmelden",
@@ -4128,7 +4134,9 @@
       "external": "Aus einem Dienst",
       "file": "Datei",
       "image": "Bild",
-      "location": "Ort"
+      "location": "Ort",
+      "formula": "Formel",
+      "rollup": "Berechnung aus verknüpften Einträgen"
     },
     "colors": {
       "blue": "Blau",
@@ -4253,5 +4261,47 @@
     "level_ask": "Erst fragen",
     "level_deny": "Nie",
     "user_privacy": "Der Assistent nutzt Ihre Anmeldung nur, während Sie mit ihm arbeiten, oder für Ihre geplanten Aufgaben. Das Protokoll hält fest, welches Tool lief, nie, was es zurückgab."
+  },
+  "computed": {
+    "checking": "Wird geprüft …",
+    "error": "Fehler: {error}",
+    "ok": "Ausdruck in Ordnung",
+    "example": "Beispiel (neuester Eintrag): {value}",
+    "builtin": {
+      "title": "Titel",
+      "status": "Phase",
+      "due": "Fällig",
+      "created": "Erstellt am"
+    },
+    "formula": "Formel",
+    "result": "Ergebnis",
+    "currency": "Währung",
+    "result_number": "Zahl",
+    "result_money": "Betrag",
+    "result_date": "Datum",
+    "result_text": "Text",
+    "result_checkbox": "Ja/Nein",
+    "formula_help": "Rechnet mit den Feldern dieses Eintrags: + − * /, Vergleiche (==, >, <), and/or und Funktionen wie round(x, 2), coalesce(a, 0), days_between(today(), due), add_days(due, 7), upper(title). Fehlt ein Wert, bleibt das Ergebnis leer.",
+    "rollup_none": "Kein anderer Typ verweist mit einem Feld „Verknüpfter Eintrag“ auf diesen Typ – lege dort zuerst so ein Feld an.",
+    "rollup_from": "Einträge von",
+    "rollup_via": "Verknüpft über",
+    "rollup_op": "Berechnung",
+    "rollup_field": "Feld",
+    "rollup_where": "Nur wenn (optional)",
+    "op_count": "Anzahl",
+    "op_sum": "Summe",
+    "op_avg": "Durchschnitt",
+    "op_min": "Minimum",
+    "op_max": "Maximum",
+    "rules": "Prüfregeln",
+    "rules_help": "Ein Eintrag wird nicht gespeichert, solange eine Bedingung zutrifft – zum Beispiel status == \"won\" and empty(close_on). Die Meldung sehen alle, die den Eintrag bearbeiten (auch beim Import und beim Assistenten).",
+    "rule_when": "Fehler, wenn",
+    "rule_breaks": "der neueste Eintrag verstößt gegen diese Regel",
+    "rule_passes": "der neueste Eintrag erfüllt diese Regel",
+    "rule_message_de": "Meldung (Deutsch)",
+    "rule_message_en": "Meldung (Englisch)",
+    "rule_add": "Regel hinzufügen",
+    "rule_remove": "Regel entfernen",
+    "mark": "berechnet"
   }
 }

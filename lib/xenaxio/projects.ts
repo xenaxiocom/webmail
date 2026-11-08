@@ -20,7 +20,7 @@ export type LinkKind = "email" | "file" | "channel" | "event" | "flow_run" | "ob
 export type Text = { de: string; en: string };
 
 /** Step 119: kinds of fields a company's admin can add to a type. */
-export const FIELD_KINDS = ["text", "textarea", "number", "money", "date", "select", "multiselect", "user", "checkbox", "url", "email", "phone", "ref", "refs", "file", "image", "location"] as const;
+export const FIELD_KINDS = ["text", "textarea", "number", "money", "date", "select", "multiselect", "user", "checkbox", "url", "email", "phone", "ref", "refs", "file", "image", "location", "formula", "rollup"] as const;
 export type FieldKind = (typeof FIELD_KINDS)[number] | "external";
 export const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "PLN", "CZK", "SEK", "DKK", "NOK", "UAH"] as const;
 export const STATUS_COLORS = ["blue", "amber", "green", "red", "gray", "violet", "teal", "pink"] as const;
@@ -36,6 +36,41 @@ export interface TypeField {
   options?: { key: string; label: Text }[];
   ref?: string;
   sensitive?: boolean;
+  /** Step 126: computed fields. */
+  formula?: FormulaDef;
+  rollup?: RollupDef;
+}
+
+/** Step 126: a formula over the record's own fields (the flow's expression language). */
+export type FormulaResult = "number" | "money" | "date" | "text" | "checkbox";
+export interface FormulaDef {
+  expr: string;
+  result: FormulaResult;
+  currency?: string;
+}
+/** Step 126: counts or sums records of another type whose ref field points here. */
+export type RollupOp = "count" | "sum" | "avg" | "min" | "max";
+export interface RollupDef {
+  from: string;
+  via: string;
+  op: RollupOp;
+  field?: string;
+  where?: string;
+  money?: boolean;
+}
+/** Step 126: the record is refused when `when` holds, with this message. */
+export interface TypeRule {
+  id: string;
+  when: string;
+  message: Text;
+}
+export const COMPUTED_KINDS: readonly string[] = ["formula", "rollup"];
+
+/** A field as lists, filters and charts see it: a computed field takes the kind of its values. */
+export function asValueField(f: TypeField): TypeField {
+  if (f.type === "formula") return { ...f, type: f.formula?.result ?? "number" };
+  if (f.type === "rollup") return { ...f, type: f.rollup?.money && f.rollup.op !== "avg" ? "money" : "number" };
+  return f;
 }
 
 export interface TypeAccess {
@@ -93,6 +128,8 @@ export interface ObjectType {
   access: TypeAccess;
   menu: TypeMenu;
   archivedAt: string | null;
+  /** Step 126: rules that refuse a record. */
+  rules?: TypeRule[];
   /** Admin list only: how many records the type has. */
   records?: number;
 }
@@ -374,7 +411,7 @@ export const projectsApi = {
   query: (body: { type: string; status?: string; archived?: boolean; q?: string; mine?: boolean; filters?: FieldFilter[]; sort?: { field: string; dir: "asc" | "desc" }; limit?: number }) =>
     call<{ objects: ObjectSummary[] }>("POST", `${OBJECTS}/query`, body),
   importRows: (type: string, rows: { title: string; status?: string; dueOn?: string | null; fields?: Record<string, unknown> }[]) =>
-    call<{ added: number; skipped: { row: number; error: string; field?: string }[] }>("POST", `${OBJECTS}/import`, { type, rows }),
+    call<{ added: number; skipped: { row: number; error: string; field?: string; message?: string }[] }>("POST", `${OBJECTS}/import`, { type, rows }),
   menu: () => call<{ items: MenuItem[] }>("GET", `${OBJECTS}/menu`),
   aggregate: (body: { type: string; status?: string; archived?: boolean; mine?: boolean; filters?: FieldFilter[]; groupBy: GroupSpec; splitBy?: GroupSpec; measure: Measure }) =>
     call<AggregateResult>("POST", `${OBJECTS}/aggregate`, body),
@@ -439,6 +476,9 @@ export const projectsApi = {
     call<ObjectType>("PATCH", `${OBJECT_TYPES}/${seg(key)}`, body),
   archiveType: (key: string, archived: boolean) => call<ObjectType>("POST", `${OBJECT_TYPES}/${seg(key)}/archive`, { archived }),
   removeType: (key: string) => call<Record<string, never>>("DELETE", `${OBJECT_TYPES}/${seg(key)}`),
+  setRules: (key: string, rules: TypeRule[]) => call<ObjectType>("PUT", `${OBJECT_TYPES}/${seg(key)}/rules`, { rules }),
+  checkExpression: (key: string, body: { kind: "formula" | "rule" | "where"; expr: string; result?: FormulaResult; currency?: string; field?: string; from?: string }) =>
+    call<{ ok: true; example: unknown } | { ok: false; error: string }>("POST", `${OBJECT_TYPES}/${seg(key)}/check-expression`, body),
   addField: (key: string, field: TypeField) => call<ObjectType>("POST", `${OBJECT_TYPES}/${seg(key)}/fields`, field),
   updateField: (key: string, field: TypeField) => call<{ type: ObjectType; affected: number }>("PUT", `${OBJECT_TYPES}/${seg(key)}/fields/${seg(field.key)}`, field),
   removeField: (key: string, field: string) => call<{ type: ObjectType; affected: number }>("DELETE", `${OBJECT_TYPES}/${seg(key)}/fields/${seg(field)}`),

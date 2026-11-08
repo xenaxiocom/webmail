@@ -10,7 +10,7 @@ import { Link } from "@/i18n/navigation";
 import { cn } from "@/lib/utils";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { usePeopleStore } from "@/lib/xenaxio/people";
-import { CURRENCIES, dayText, local, type ObjectFile, type ObjectSummary, objectFileUrl as objectFileHref, mapApps, mapHref, osmHref, type Place, projectsApi, type TypeField, typeHref } from "@/lib/xenaxio/projects";
+import { asValueField, COMPUTED_KINDS, CURRENCIES, dayText, local, type ObjectFile, type ObjectSummary, objectFileUrl as objectFileHref, mapApps, mapHref, osmHref, type Place, projectsApi, type TypeField, typeHref } from "@/lib/xenaxio/projects";
 import { selectClass } from "./bits";
 
 type Money = { amount: number; currency: string };
@@ -18,6 +18,8 @@ type Money = { amount: number; currency: string };
 /** A value as people read it (lists and cards). */
 export function fieldText(field: TypeField, value: unknown, locale: string, people?: Map<string, { displayName: string; id: string }>): string {
   if (value === null || value === undefined || value === "") return "";
+  // Step 126: computed fields read like their values.
+  if (COMPUTED_KINDS.includes(field.type)) return fieldText(asValueField(field), value, locale, people);
   const option = (k: unknown) => local(field.options?.find((o) => o.key === k)?.label, locale) || String(k);
   switch (field.type) {
     case "money": {
@@ -151,6 +153,15 @@ export function FieldInput({ field, value, onSave, disabled, id, objectId }: { f
     const v = draft.trim();
     if ((v || null) !== ((value as string) ?? null)) onSave(v || null);
   };
+  // Step 126: computed values are shown, never edited.
+  if (COMPUTED_KINDS.includes(field.type)) {
+    const text = fieldText(field, value, locale);
+    return (
+      <p id={id} className={cn("min-h-9 rounded-md bg-muted/50 px-2 py-2 text-sm", !text && "text-muted-foreground")} title={field.formula?.expr}>
+        {text || "—"}
+      </p>
+    );
+  }
   const toNumber = (s: string) => {
     const n = Number(s.replace(/\s/g, "").replace(",", "."));
     return s.trim() === "" ? null : Number.isFinite(n) ? n : undefined;
