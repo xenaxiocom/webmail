@@ -3764,6 +3764,8 @@
     "labels_hint": "Separated by commas",
     "column_menu": "Column menu",
     "column_add": "Add column",
+    "column_name": "Name",
+    "column_done_check": "Tasks in this column count as done",
     "column_rename": "Rename column",
     "column_done": "Mark as done column",
     "column_not_done": "Not a done column",
