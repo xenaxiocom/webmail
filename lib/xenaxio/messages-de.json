@@ -1345,7 +1345,7 @@
     "profile_smart_hint": "Abgleich, Briefe, lange Aufgaben.",
     "profile_default": "Modell des Unternehmens ({model})",
     "transcription_title": "Audio transkribieren",
-    "transcription_intro": "Sprachnachrichten in Dateien und Aufnahmen von Besprechungen können in Text umgewandelt werden – per Knopf neben der Datei, durch den Assistenten und nach einer aufgenommenen Besprechung.",
+    "transcription_intro": "Sprachnachrichten in Rooms werden gleich nach dem Senden in Text umgewandelt. Auch Sprachnachrichten in Dateien und Aufnahmen von Besprechungen können in Text umgewandelt werden – per Knopf neben der Datei, durch den Assistenten und nach einer aufgenommenen Besprechung.",
     "transcription_xenaxio": "Sprachmodell von Xenaxio",
     "transcription_xenaxio_hint": "{model} von Mistral, gehostet in der EU. Zählt zum KI-Kontingent.",
     "transcription_custom": "Sprachmodell auf dem eigenen Server",
@@ -2387,7 +2387,49 @@
     "admin_remove": "Entfernen",
     "admin_removed": "Entfernt",
     "sidebar_hide": "Seitenleiste ausblenden",
-    "sidebar_show": "Seitenleiste einblenden"
+    "sidebar_show": "Seitenleiste einblenden",
+    "voice_message": "Sprachnachricht",
+    "voice_record": "Sprachnachricht aufnehmen",
+    "voice_recording": "Aufnahme",
+    "voice_send": "Sprachnachricht senden",
+    "voice_cancel": "Aufnahme verwerfen",
+    "voice_sending": "Wird gesendet…",
+    "voice_limit": "Sprachnachrichten dürfen bis zu 5 Minuten lang sein: diese wurde gesendet.",
+    "voice_mic_denied": "Kein Zugriff auf das Mikrofon. Erlauben Sie es im Browser (Symbol neben der Adresse) und versuchen Sie es erneut.",
+    "voice_unsupported": "Dieser Browser kann keine Sprachnachrichten aufnehmen.",
+    "voice_failed": "Die Sprachnachricht konnte nicht gesendet werden.",
+    "voice_play": "Sprachnachricht abspielen",
+    "voice_pause": "Sprachnachricht anhalten",
+    "voice_cannot_play": "Dieser Browser kann die Aufnahme nicht abspielen. Laden Sie sie stattdessen herunter.",
+    "voice_transcribing": "Wird transkribiert…",
+    "voice_transcribe": "Transkribieren",
+    "voice_again": "Neu transkribieren",
+    "voice_more": "Mehr anzeigen",
+    "voice_less": "Weniger anzeigen",
+    "voice_no_speech": "Keine Sprache erkannt.",
+    "voice_language": "Sprache",
+    "voice_language_auto": "Automatisch erkennen",
+    "voice_transcript": "Transkript",
+    "voice_unavailable": {
+      "ai_disabled": "Transkripte sind eine KI-Funktion, und die KI ist für Sie oder Ihre Firma ausgeschaltet.",
+      "transcription_off": "Der Admin Ihrer Firma hat das Transkribieren ausgeschaltet.",
+      "ai_not_configured": "Für Ihre Firma ist kein Sprachmodell eingerichtet.",
+      "transcription_model_missing": "Der Admin hat das Sprachmodell noch nicht eingetragen.",
+      "speech_server_missing": "Der Sprachserver der Firma ist nicht eingerichtet.",
+      "ai_limit_reached": "Ihr monatliches KI-Kontingent ist aufgebraucht.",
+      "free_limit_reached": "Die Transkripte dieses Monats in XenRooms Free sind aufgebraucht. Im bezahlten Tarif gibt es diese Grenze nicht."
+    },
+    "voice_errors": {
+      "audio_refused": "Das Sprachmodell konnte diese Aufnahme nicht lesen.",
+      "audio_too_large": "Die Aufnahme ist zu groß zum Transkribieren.",
+      "transcription_failed": "Das Sprachmodell hat nicht geantwortet. Bitte später erneut versuchen.",
+      "voice_download_failed": "Die Aufnahme konnte nicht geladen werden. Bitte erneut versuchen.",
+      "demo_ai_limit": "Die KI-Anfragen der Demo sind aufgebraucht.",
+      "rate_limited": "Zu viele Anfragen. Bitte eine Minute warten.",
+      "message_not_found": "Die Nachricht ist nicht mehr da.",
+      "network": "Keine Verbindung. Bitte erneut versuchen.",
+      "internal": "Das hat nicht geklappt. Bitte erneut versuchen."
+    }
   },
   "chatadmin": {
     "title": "Rooms",
@@ -3486,7 +3528,8 @@
       "ai_not_configured": "Für Ihre Firma ist kein Sprachmodell eingerichtet.",
       "transcription_model_missing": "Ihre Firma transkribiert auf dem eigenen Server, aber der Admin hat das Sprachmodell noch nicht eingetragen (Verwaltung → KI).",
       "ai_limit_reached": "Ihr monatliches KI-Kontingent ist aufgebraucht.",
-      "speech_server_missing": "Ihre Firma transkribiert auf ihrem eigenen Sprachserver, aber er ist nicht eingerichtet oder sein Test ist fehlgeschlagen (Verwaltung → KI)."
+      "speech_server_missing": "Ihre Firma transkribiert auf ihrem eigenen Sprachserver, aber er ist nicht eingerichtet oder sein Test ist fehlgeschlagen (Verwaltung → KI).",
+      "free_limit_reached": "Die Transkripte dieses Monats in XenRooms Free sind aufgebraucht. Im bezahlten Tarif gibt es diese Grenze nicht."
     },
     "errors": {
       "ai_disabled": "Die KI ist für Sie oder Ihre Firma ausgeschaltet.",
@@ -3502,7 +3545,8 @@
       "file_not_found": "Die Datei ist nicht mehr da.",
       "network": "Keine Verbindung. Bitte erneut versuchen.",
       "internal": "Das hat nicht geklappt. Bitte erneut versuchen.",
-      "speech_server_missing": "Der Sprachserver der Firma ist nicht eingerichtet."
+      "speech_server_missing": "Der Sprachserver der Firma ist nicht eingerichtet.",
+      "free_limit_reached": "Die Transkripte dieses Monats in XenRooms Free sind aufgebraucht. Im bezahlten Tarif gibt es diese Grenze nicht."
     },
     "show_transcript": "Transkript von {name} anzeigen"
   },

@@ -38,6 +38,8 @@ import { findBackground } from "@/lib/xenaxio/backgrounds";
 import { ImageViewer } from "./image-viewer";
 import { CallCard } from "@/components/xenaxio/meet/call";
 import { callOf } from "@/lib/xenaxio/meet-call";
+import { voiceOf } from "@/lib/xenaxio/chat/voice";
+import { VoiceMessage } from "./voice-message";
 
 interface Props {
   message: Message;
@@ -166,7 +168,9 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
       <div className="text-sm" onClick={onLink}>
         {note && <RichHtml html={messageHtml({ body: note }, channels)} />}
         <ForwardedFrom source={forwarded} />
-        {media ? (
+        {voiceOf(c) ? (
+          <VoiceMessage content={c} roomId={message.roomId} eventId={message.id} ts={message.ts} />
+        ) : media ? (
           <Attachment content={c} />
         ) : (
           <div className="mt-1 border-l-4 border-border pl-3 text-foreground/90">
@@ -177,6 +181,8 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
       </div>
     );
   }
+  // Step 138: a voice message plays inline and shows its transcript.
+  if (voiceOf(c)) return <VoiceMessage content={c} roomId={message.roomId} eventId={message.id} ts={message.ts} />;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
   // Step 78, part D: a call in the room: its card, live.
   const call = callOf(c);
