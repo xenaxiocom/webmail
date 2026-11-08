@@ -7,6 +7,7 @@
 // never changes them.
 import { useCallback, useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
+import { Link } from "@/i18n/navigation";
 import { Notice, Spinner } from "@/components/xenaxio/ui";
 import { errorText, type ToolCeilingPage, type ToolLevel, type ToolPermission, type ToolPermissionPage, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -149,6 +150,15 @@ export function ToolPermissions() {
           </ul>
         </section>
       ))}
+
+      {/* Step 122: levels for the company's MCP servers live with the sign-in to them. */}
+      <section className="space-y-1 rounded-lg border border-border p-4">
+        <h2 className="font-medium">{t("permissions.outside_title")}</h2>
+        <p className="text-xs text-muted-foreground">{t("permissions.outside_hint")}</p>
+        <Link href="/workspace/connections" className="text-sm text-primary underline underline-offset-4">
+          {t("permissions.outside_link")}
+        </Link>
+      </section>
 
       <p className="text-xs text-muted-foreground">{t("permissions.read_note")}</p>
       <p className="text-xs text-muted-foreground">{t("permissions.never")}</p>

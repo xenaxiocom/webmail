@@ -1169,6 +1169,49 @@ export interface TranscriptLookup {
   transcripts: Record<string, FileTranscript>;
 }
 
+
+/** Step 122: an MCP server of the company, as its admin sees it. */
+export interface ExternalServer {
+  id: string;
+  slug: string;
+  title: string;
+  url: string;
+  auth: "oauth" | "key";
+  keyHeader: string | null;
+  hasKey: boolean;
+  clientId: string | null;
+  access: "all" | "some";
+  users: string[];
+  enabled: boolean;
+  toolsCheckedAt: string | null;
+  tools: { name: string; title?: string; description: string; readOnly: boolean; approved: boolean; confirm: boolean; change: "new" | "changed" | null }[];
+  review: number;
+  connected: number;
+}
+
+export type ExternalLevel = "allow" | "ask" | "deny";
+
+/** Step 122: a server an employee may use, with their sign-in and levels. */
+export interface ExternalConnection {
+  id: string;
+  slug: string;
+  title: string;
+  auth: "oauth" | "key";
+  connected: boolean;
+  tools: number;
+  levels: { read: ExternalLevel; write: ExternalLevel };
+}
+
+export interface ExternalServerInput {
+  title: string;
+  url: string;
+  auth: "oauth" | "key";
+  keyHeader?: string;
+  key?: string;
+  clientId?: string;
+  clientSecret?: string;
+}
+
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
   lookupTranscripts: (files: { id: string; accountId?: string }[]) => request<TranscriptLookup>("POST", "/api/files/transcripts/lookup", { files }),
@@ -1398,6 +1441,18 @@ export const xenaxio = {
   setActiveCustomModel: (model: string) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/active", { model }),
   setCustomModelFallback: (enabled: boolean) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/fallback", { enabled }),
   removeCustomModel: () => request<{ ok: true }>("DELETE", "/api/admin/ai/custom"),
+  // Step 122: MCP servers of the company (admin) and the employee's sign-in to them.
+  externalServers: () => request<{ servers: ExternalServer[]; redirectUri: string }>("GET", "/api/admin/ai/mcp-servers"),
+  addExternalServer: (input: ExternalServerInput) => request<{ server: ExternalServer }>("POST", "/api/admin/ai/mcp-servers", input),
+  updateExternalServer: (id: string, patch: { title?: string; enabled?: boolean; access?: "all" | "some"; users?: string[]; key?: string; keyHeader?: string }) =>
+    request<{ server: ExternalServer }>("PATCH", `/api/admin/ai/mcp-servers/${id}`, patch),
+  approveExternalTools: (id: string, tools: { name: string; approved: boolean; confirm?: boolean }[]) => request<{ server: ExternalServer }>("POST", `/api/admin/ai/mcp-servers/${id}/tools`, { tools }),
+  checkExternalServer: (id: string) => request<{ server: ExternalServer }>("POST", `/api/admin/ai/mcp-servers/${id}/check`, {}),
+  removeExternalServer: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/ai/mcp-servers/${id}`),
+  connections: () => request<{ connections: ExternalConnection[] }>("GET", "/api/ai/connections"),
+  connect: (id: string) => request<{ url: string }>("POST", `/api/ai/connections/${id}/connect`, {}),
+  disconnect: (id: string) => request<{ ok: true }>("DELETE", `/api/ai/connections/${id}`),
+  setConnectionLevel: (id: string, kind: "read" | "write", level: ExternalLevel | null) => request<{ connections: ExternalConnection[] }>("PUT", `/api/ai/connections/${id}/levels`, { kind, level }),
   // Step 84: skills and model profiles.
   adminSkills: () => request<{ company: SkillItem[]; platform: (SkillSummary & { enabled: boolean })[]; max: number }>("GET", "/api/admin/ai/skills"),
   setPlatformSkill: (name: string, enabled: boolean) => request<{ platform: (SkillSummary & { enabled: boolean })[] }>("PUT", `/api/admin/ai/platform-skills/${encodeURIComponent(name)}`, { enabled }),

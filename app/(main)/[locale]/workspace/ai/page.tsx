@@ -403,6 +403,14 @@ function AiSettings() {
           {t("aiadmin.skills_open")}
         </Link>
       </section>
+      {/* Step 122: MCP servers of the company (CRM, accounting) for the assistant. */}
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <h2 className="font-medium">{t("external.admin_title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("external.admin_link_intro")}</p>
+        <Link href="/workspace/ai/tools" className="text-sm text-primary underline underline-offset-4">
+          {t("external.admin_link_open")}
+        </Link>
+      </section>
       {/* Step 91: facts every employee's assistant knows. */}
       <section className="space-y-2 rounded-lg border border-border bg-card p-4">
         <h2 className="font-medium">{t("memory.company_title")}</h2>
