@@ -7,7 +7,7 @@
 // and go out together on "send". Step 87: ":" and a word suggests emoji;
 // typed emoticons (":)") go out as emoji. Step 99: code blocks, numbered
 // lists, links and code snippets (a long paste offers one, as in Slack).
-import { IconBold, IconChartBar, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
+import { IconBold, IconChartBar, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMicrophone, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconTrash, IconX } from "@tabler/icons-react";
 import { pastesAsText } from "@/lib/xenaxio/paste";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
@@ -34,6 +34,8 @@ import { withGroupMentions } from "@/lib/xenaxio/chat/format";
 import { type Command, dndUntil, parseSlash, personArg, slashSuggestions } from "@/lib/xenaxio/chat/slash";
 import { useChatLater } from "@/lib/xenaxio/chat/later";
 import { isLongPaste, snippetContent, snippetFileFields, snippetFileName } from "@/lib/xenaxio/chat/snippet";
+import { canRecordVoice, type Recording, VoiceRecorder, voiceContent } from "@/lib/xenaxio/chat/voice";
+import { formatTime } from "@/lib/xenaxio/audio-player";
 
 
 async function imageSize(file: File): Promise<{ w: number; h: number } | null> {
@@ -70,6 +72,16 @@ export async function sendFiles(client: ChatClient, roomId: string, files: File[
     }
   }
   return failed;
+}
+
+/** Step 139: uploads a recorded voice message and sends it (in the thread, if any). */
+export async function sendVoice(client: ChatClient, roomId: string, recording: Recording, label: string, threadRoot?: string): Promise<void> {
+  const url = await uploadFile(recording.blob, `voice.${recording.format.ext}`);
+  await client.send(
+    roomId,
+    voiceContent({ url, format: recording.format, size: recording.blob.size, durationMs: recording.durationMs, waveform: recording.waveform, label }),
+    threadRoot ? { threadRoot } : {},
+  );
 }
 
 /**
@@ -167,6 +179,62 @@ export function Composer({
   const schedule = useChatLater((s) => s.schedule);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
+  // Step 139: a voice message — recording, how long and how loud, and sending it.
+  const [voiceOk, setVoiceOk] = useState(false);
+  useEffect(() => setVoiceOk(canRecordVoice()), []);
+  const [recorder, setRecorder] = useState<VoiceRecorder | null>(null);
+  const [recElapsed, setRecElapsed] = useState(0);
+  const [recLevel, setRecLevel] = useState(0);
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const recorderRef = useRef<VoiceRecorder | null>(null);
+  const finishVoiceRef = useRef<() => void>(() => undefined);
+  useEffect(() => {
+    if (!recorder) return;
+    const id = setInterval(() => setRecElapsed(recorder.elapsedMs), 250);
+    return () => clearInterval(id);
+  }, [recorder]);
+  // Leaving the room (or the thread) drops a recording in progress.
+  useEffect(() => () => recorderRef.current?.cancel(), []);
+  const startVoice = async () => {
+    const r = new VoiceRecorder({
+      level: setRecLevel,
+      onLimit: () => {
+        toast.info(t("chat.voice_limit"));
+        finishVoiceRef.current();
+      },
+    });
+    try {
+      await r.start();
+    } catch (err) {
+      toast.error(t(err instanceof Error && err.message === "mic_denied" ? "chat.voice_mic_denied" : "chat.voice_unsupported"));
+      return;
+    }
+    recorderRef.current = r;
+    setRecElapsed(0);
+    setRecLevel(0);
+    setRecorder(r);
+  };
+  const finishVoice = async () => {
+    const r = recorderRef.current;
+    if (!r) return;
+    recorderRef.current = null;
+    setRecorder(null);
+    setVoiceBusy(true);
+    try {
+      const recording = await r.stop();
+      if (recording) await sendVoice(client, room.id, recording, t("chat.voice_message"), threadRoot);
+    } catch {
+      toast.error(t("chat.voice_failed"));
+    } finally {
+      setVoiceBusy(false);
+    }
+  };
+  finishVoiceRef.current = () => void finishVoice();
+  const cancelVoice = () => {
+    recorderRef.current?.cancel();
+    recorderRef.current = null;
+    setRecorder(null);
+  };
   const box = useRef<HTMLDivElement>(null);
   const writable = client.can(room, "send");
 
@@ -642,6 +710,29 @@ export function Composer({
             ))}
           </ul>
         )}
+        {recorder || voiceBusy ? (
+          <div className="flex items-center gap-2 px-2.5 pb-1.5" role="status" aria-live="polite">
+            <button type="button" className={tool} onClick={cancelVoice} disabled={voiceBusy} title={t("chat.voice_cancel")} aria-label={t("chat.voice_cancel")}>
+              <IconTrash size={16} />
+            </button>
+            <span className="relative flex h-2.5 w-2.5 shrink-0" aria-hidden>
+              <span className="absolute inset-0 rounded-full bg-destructive" style={{ transform: `scale(${1 + recLevel * 0.8})`, opacity: voiceBusy ? 0.4 : 1 }} />
+            </span>
+            <span className="text-xs text-muted-foreground">{voiceBusy ? t("chat.voice_sending") : t("chat.voice_recording")}</span>
+            <span className="text-xs tabular-nums text-foreground">{formatTime(recElapsed / 1000)}</span>
+            <span className="flex-1" />
+            <button
+              type="button"
+              onClick={() => void finishVoice()}
+              disabled={voiceBusy}
+              className="flex h-7 items-center gap-1 rounded-md bg-primary px-2.5 text-xs text-primary-foreground disabled:opacity-40"
+              aria-label={t("chat.voice_send")}
+              title={t("chat.voice_send")}
+            >
+              {voiceBusy ? <IconLoader2 size={14} className="animate-spin" /> : <IconSend size={14} />}
+            </button>
+          </div>
+        ) : (
         <div className="flex items-center gap-0.5 px-1.5 pb-1.5">
           <button type="button" className={tool} onClick={() => files.current?.click()} title={t("chat.attach")} aria-label={t("chat.attach")} disabled={busy || pending.length >= MAX_PENDING_FILES}>
             <IconPaperclip size={16} />
@@ -690,6 +781,12 @@ export function Composer({
             </label>
           )}
           <span className="flex-1" />
+          {/* Step 139: a voice message instead of typing. */}
+          {voiceOk && (
+            <button type="button" className={cn(tool, "mr-1")} onClick={() => void startVoice()} disabled={busy} title={t("chat.voice_record")} aria-label={t("chat.voice_record")}>
+              <IconMicrophone size={16} />
+            </button>
+          )}
           <span className="flex">
             <button
               type="button"
@@ -713,6 +810,7 @@ export function Composer({
             </button>
           </span>
         </div>
+        )}
       </div>
       {remindAbout && (
         <TimePicker

@@ -324,7 +324,9 @@ export function plainPreview(content: Record<string, unknown>, max = 140): strin
     const title = typeof snippet.title === "string" && snippet.title.trim() ? snippet.title.trim() : "Snippet";
     return `</> ${title.length > max ? `${title.slice(0, max - 1)}…` : title}`;
   }
-  const prefix = type === "m.image" ? "🖼 " : type === "m.file" ? "📎 " : type === "m.video" ? "🎬 " : type === "m.audio" ? "🎵 " : "";
+  // Step 139: a voice message (MSC3245) is not music.
+  const voice = type === "m.audio" && "org.matrix.msc3245.voice" in content;
+  const prefix = type === "m.image" ? "🖼 " : type === "m.file" ? "📎 " : type === "m.video" ? "🎬 " : voice ? "🎤 " : type === "m.audio" ? "🎵 " : "";
   const text = body.replace(/\s+/g, " ").trim();
   return prefix + (text.length > max ? `${text.slice(0, max - 1)}…` : text);
 }

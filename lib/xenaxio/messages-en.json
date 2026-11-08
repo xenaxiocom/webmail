@@ -1345,7 +1345,7 @@
     "profile_smart_hint": "Checking, letters, long tasks.",
     "profile_default": "Company model ({model})",
     "transcription_title": "Transcribing audio",
-    "transcription_intro": "Voice messages in Files and recordings of meetings can be turned into text, by the button next to the file, by the assistant and after a recorded meeting.",
+    "transcription_intro": "Voice messages in Rooms are turned into text right after they are sent. Voice messages in Files and recordings of meetings can be turned into text too, by the button next to the file, by the assistant and after a recorded meeting.",
     "transcription_xenaxio": "Xenaxio speech model",
     "transcription_xenaxio_hint": "{model} from Mistral, hosted in the EU. Counts towards the AI allowance.",
     "transcription_custom": "Speech model on our own server",
@@ -2387,7 +2387,49 @@
     "admin_remove": "Remove",
     "admin_removed": "Removed",
     "sidebar_hide": "Hide sidebar",
-    "sidebar_show": "Show sidebar"
+    "sidebar_show": "Show sidebar",
+    "voice_message": "Voice message",
+    "voice_record": "Record a voice message",
+    "voice_recording": "Recording",
+    "voice_send": "Send voice message",
+    "voice_cancel": "Discard recording",
+    "voice_sending": "Sending…",
+    "voice_limit": "Voice messages can be up to 5 minutes long: this one was sent.",
+    "voice_mic_denied": "No access to the microphone. Allow it in the browser (the icon next to the address) and try again.",
+    "voice_unsupported": "This browser cannot record voice messages.",
+    "voice_failed": "The voice message could not be sent.",
+    "voice_play": "Play voice message",
+    "voice_pause": "Pause voice message",
+    "voice_cannot_play": "This browser cannot play the recording. Download it instead.",
+    "voice_transcribing": "Transcribing…",
+    "voice_transcribe": "Transcribe",
+    "voice_again": "Transcribe again",
+    "voice_more": "Show more",
+    "voice_less": "Show less",
+    "voice_no_speech": "No speech recognised.",
+    "voice_language": "Language",
+    "voice_language_auto": "Detect automatically",
+    "voice_transcript": "Transcript",
+    "voice_unavailable": {
+      "ai_disabled": "Transcripts are an AI function, and AI is switched off for you or your company.",
+      "transcription_off": "Your company's admin has switched transcription off.",
+      "ai_not_configured": "No speech model is set up for your company.",
+      "transcription_model_missing": "The admin has not named the speech model yet.",
+      "speech_server_missing": "The company's speech server is not set up.",
+      "ai_limit_reached": "Your monthly AI allowance is used up.",
+      "free_limit_reached": "This month's transcripts in XenRooms Free are used up. The paid plan has no such limit."
+    },
+    "voice_errors": {
+      "audio_refused": "The speech model could not read this recording.",
+      "audio_too_large": "The recording is too large to transcribe.",
+      "transcription_failed": "The speech model did not answer. Please try again later.",
+      "voice_download_failed": "The recording could not be loaded. Please try again.",
+      "demo_ai_limit": "The demo's AI requests are used up.",
+      "rate_limited": "Too many requests. Please wait a minute.",
+      "message_not_found": "The message is no longer there.",
+      "network": "No connection. Please try again.",
+      "internal": "That did not work. Please try again."
+    }
   },
   "chatadmin": {
     "title": "Rooms",
@@ -3486,7 +3528,8 @@
       "ai_not_configured": "No speech model is set up for your company.",
       "transcription_model_missing": "Your company transcribes on its own server, but the admin has not named the speech model yet (Administration → AI).",
       "ai_limit_reached": "Your monthly AI allowance is used up.",
-      "speech_server_missing": "Your company transcribes on its own speech server, but it is not set up or its test did not pass (Administration → AI)."
+      "speech_server_missing": "Your company transcribes on its own speech server, but it is not set up or its test did not pass (Administration → AI).",
+      "free_limit_reached": "This month's transcripts in XenRooms Free are used up. The paid plan has no such limit."
     },
     "errors": {
       "ai_disabled": "AI is switched off for you or your company.",
@@ -3502,7 +3545,8 @@
       "file_not_found": "The file is no longer there.",
       "network": "No connection. Please try again.",
       "internal": "That did not work. Please try again.",
-      "speech_server_missing": "The company's speech server is not set up."
+      "speech_server_missing": "The company's speech server is not set up.",
+      "free_limit_reached": "This month's transcripts in XenRooms Free are used up. The paid plan has no such limit."
     },
     "show_transcript": "Show the transcript of {name}"
   },
