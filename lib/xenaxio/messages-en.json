@@ -1147,6 +1147,7 @@
     "tool_list_project_tasks": "Checking project tasks…",
     "tool_create_project_task": "Preparing a project task…",
     "tool_update_project_task": "Preparing a change to the task…",
+    "tool_move_project_task": "Preparing to move the task…",
     "tool_update_project_column": "Preparing a change to the column…",
     "tool_list_object_types": "Checking the object types…",
     "tool_set_menu_items": "Preparing a change to your menu…",
@@ -3479,6 +3480,7 @@
       "list_project_tasks": "See tasks on project boards",
       "create_project_task": "Add tasks to project boards",
       "update_project_task": "Change and move tasks on project boards",
+      "move_project_task": "Move tasks to other projects",
       "update_project_column": "Rename and colour columns on project boards",
       "list_object_types": "See the company's object types, fields and stages",
       "set_menu_items": "Order and hide entries in my menu",
@@ -3914,7 +3916,8 @@
       "labels": "changed the labels",
       "done": "changed the state",
       "checklist": "changed the checklist",
-      "parent": "changed the parent task"
+      "parent": "changed the parent task",
+      "project": "moved it to another project"
     },
     "history_done": "done",
     "history_open": "open",
@@ -3992,7 +3995,21 @@
     "close_subtasks_text": "This task still has {count} open subtasks.",
     "close_this": "Only this task",
     "close_all": "Close all",
-    "hide_subtasks": "Hide subtasks"
+    "hide_subtasks": "Hide subtasks",
+    "move": "Move",
+    "move_title": "Move to another project",
+    "move_other": "Choose another",
+    "move_subtasks_one": "With 1 subtask",
+    "move_subtasks": "With {count} subtasks",
+    "move_detached": "It is a subtask; in the new project it becomes a task of its own.",
+    "move_joining": "{names} becomes a member of {project}.",
+    "move_leaving_one": "{names} doesn't see {project} and stops watching the task.",
+    "move_leaving": "{names} don't see {project} and stop watching the task.",
+    "move_number": "It gets a new number there; the old number and old links still lead to it. Comments, files, links and history go with it.",
+    "move_done": "Moved to {project}: {ref}",
+    "move_open": "Open",
+    "former_refs": "formerly {refs}",
+    "former_refs_hint": "Earlier numbers in projects the task was moved out of"
   },
   "objects": {
     "title": "Records",
@@ -4041,7 +4058,9 @@
       "file_add": "added the file {name}",
       "file_remove": "deleted the file {name}",
       "archived": "archived it",
-      "restored": "restored it"
+      "restored": "restored it",
+      "task_out": "moved the task {name} to {to}",
+      "task_in": "moved the task {name} here (formerly {from})"
     },
     "chart": {
       "tab": "Chart",
@@ -4225,7 +4244,8 @@
       "task_comment": "commented",
       "task_done": "finished a task",
       "task_due_changed": "changed a due date",
-      "task_due": "Due today"
+      "task_due": "Due today",
+      "task_moved": "moved a task to another project"
     },
     "settings_title": "Notifications about tasks",
     "settings_intro": "In Xenaxio — the bell at the top, and push on devices where chat notifications are on.",
@@ -4240,7 +4260,8 @@
       "task_comment": "New comment on a task I watch",
       "task_done": "A task I watch is done",
       "task_due_changed": "The due date of a task I watch changes",
-      "task_due": "A task of mine is due today"
+      "task_due": "A task of mine is due today",
+      "task_moved": "A task I watch moves to another project"
     },
     "assign_email": "Email when a task is assigned to me",
     "due_email": "Email on the morning a task is due",

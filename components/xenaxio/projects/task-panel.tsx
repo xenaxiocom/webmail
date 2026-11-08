@@ -7,9 +7,10 @@
 // Step 124: the task's number, a checklist, watchers, @mentions and the history.
 // Step 135: subtasks (a tree), the way down to the task and the task it belongs to.
 // Step 134: pictures and files pasted or dropped into the description and comments.
+// Step 142: "In anderes Projekt verschieben…"; an old link of a moved task leads to its new place.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
-import { Copy, Eye, EyeOff, Trash, X } from "@/components/icons";
+import { Copy, Eye, EyeOff, FolderInput, Trash, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
@@ -26,7 +27,8 @@ import { Checklist, CommentBody, History, MentionInput } from "./task-extras";
 import { FileText, useFileText } from "./file-text";
 import { Attachments } from "./attachments";
 import { linkHref } from "./project-view";
-import { Link } from "@/i18n/navigation";
+import { Link, useRouter } from "@/i18n/navigation";
+import { MoveTaskDialog, taskHref } from "./move-task";
 
 export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { project: ObjectDetail; taskId: string; onClose: () => void; onChanged: () => void; onOpen?: (taskId: string) => void }) {
   const t = useXT();
@@ -42,6 +44,8 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
   // Step 135: all tasks of the project (for "belongs to") and the question when closing a branch.
   const [all, setAll] = useState<TaskSummary[] | null>(null);
   const [closing, setClosing] = useState(false);
+  const [moving, setMoving] = useState(false);
+  const router = useRouter();
   const canEdit = project.can.edit;
   const ref = useFocusTrap({ isActive: true, onEscape: onClose, restoreFocus: true });
   // Step 134: pictures and files in the description and comments become the task's files.
@@ -71,11 +75,14 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
     projectsApi
       .task(project.id, taskId)
       .then(show)
-      .catch((err: unknown) => {
-        if (err instanceof XenaxioApiError && err.status === 404) setMissing(true);
-        else toast.error(errorText(t, err));
+      .catch(async (err: unknown) => {
+        if (!(err instanceof XenaxioApiError && err.status === 404)) return toast.error(errorText(t, err));
+        // Step 142: moved to another project — go there (if the person sees it).
+        const now = await projectsApi.whereTask(taskId).catch(() => null);
+        if (now && now.objectId !== project.id) router.replace(taskHref(now.typeKey, now.objectId, now.taskId));
+        else setMissing(true);
       });
-  }, [project.id, taskId, show, t, loadAll]);
+  }, [project.id, taskId, show, t, loadAll, router]);
 
   const save = async (body: TaskInput, id = taskId) => {
     try {
@@ -157,6 +164,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
                 <Copy className="h-3 w-3" aria-hidden="true" />
               </button>
             ) : null}
+            {task?.formerRefs && task.formerRefs.length > 0 ? <span title={t("projects.former_refs_hint")}> ({t("projects.former_refs", { refs: task.formerRefs.join(", ") })})</span> : null}
             {task ? " · " : ""}
             {project.title}
           </span>
@@ -171,6 +179,11 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
               {task.watching ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
               <span className="hidden sm:inline">{task.watching ? t("projects.unwatch") : t("projects.watch")}</span>
               {task.watchers.length > 0 && <span className="tabular-nums">{task.watchers.length}</span>}
+            </button>
+          )}
+          {task && canEdit && (
+            <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setMoving(true)} aria-label={t("projects.move_title")} title={t("projects.move_title")}>
+              <FolderInput className="h-4 w-4" />
             </button>
           )}
           {task && canEdit && (
@@ -390,6 +403,20 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
           <Button onClick={() => (setClosing(false), void save({ done: true, closeSubtasks: true }))}>{t("projects.close_all")}</Button>
         </div>
       </Modal>
+      {moving && task && (
+        <MoveTaskDialog
+          objectId={project.id}
+          typeKey={project.type}
+          task={task}
+          onClose={() => setMoving(false)}
+          onMoved={() => {
+            setMoving(false);
+            onChanged();
+            onClose();
+          }}
+          onOpen={(href) => router.push(href)}
+        />
+      )}
       <ConfirmDialog
         isOpen={deleting}
         onClose={() => setDeleting(false)}

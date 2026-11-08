@@ -8,7 +8,7 @@ import { XenaxioApiError } from "@/lib/xenaxio/api";
 const NOTIFICATIONS = "/api/notifications";
 const PREFS = "/api/me/notify-prefs";
 
-export const NOTICE_KINDS = ["task_assigned", "task_mention", "task_comment", "task_done", "task_due_changed", "task_due"] as const;
+export const NOTICE_KINDS = ["task_assigned", "task_mention", "task_comment", "task_done", "task_due_changed", "task_due", "task_moved"] as const;
 export type NoticeKind = (typeof NOTICE_KINDS)[number];
 export type NoticeLevel = "push" | "bell" | "off";
 
