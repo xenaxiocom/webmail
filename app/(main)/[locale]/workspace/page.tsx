@@ -94,6 +94,8 @@ function Overview() {
         <Tile href="/workspace/menu" icon={<LayoutGrid className="w-5 h-5" />} title={t("workspace.my_menu")} description={t("workspace.my_menu_desc")} />
         <Tile href="/workspace/mail-apps" icon={<Smartphone className="w-5 h-5" />} title={t("workspace.mail_apps")} description={t("workspace.mail_apps_desc")} />
         <Tile href="/workspace/mcp" icon={<Terminal className="w-5 h-5" />} title={t("workspace.mcp")} description={t("workspace.mcp_desc")} />
+        {/* Step 122: the company's outside systems (MCP servers) and the employee's sign-in to them. */}
+        <Tile href="/workspace/connections" icon={<Share2 className="w-5 h-5" />} title={t("workspace.connections")} description={t("workspace.connections_desc")} />
         <Tile href="/workspace/permissions" icon={<ShieldCheck className="w-5 h-5" />} title={t("workspace.permissions")} description={t("workspace.permissions_desc")} />
         <Tile href="/workspace/password" icon={<KeyRound className="w-5 h-5" />} title={t("workspace.password")} description={t("workspace.password_desc")} />
       </div>
