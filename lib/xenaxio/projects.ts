@@ -195,7 +195,7 @@ export interface TaskSummary {
   /** Step 124 B: files and links of the task. */
   attachments: number;
   updatedAt: string;
-  /** Step 134: the task above it, the way down to it, and its subtasks (all levels). */
+  /** Step 135: the task above it, the way down to it, and its subtasks (all levels). */
   parentId?: string | null;
   path?: { id: string; ref: string; title: string }[];
   subtasks?: { done: number; total: number };
@@ -225,7 +225,7 @@ export interface TaskDetail extends TaskSummary {
   /** Step 124 C. */
   watchers: PersonRef[];
   watching: boolean;
-  /** Step 134: all subtasks below it, each with its parentId, in board order. */
+  /** Step 135: all subtasks below it, each with its parentId, in board order. */
   subtaskList?: TaskSummary[];
 }
 
@@ -281,9 +281,9 @@ export interface TaskInput {
   labels?: string[];
   done?: boolean;
   checklist?: { id?: string; text: string; done?: boolean }[];
-  /** Step 134: a subtask of this task; null: a task of its own again. */
+  /** Step 135: a subtask of this task; null: a task of its own again. */
   parentId?: string | null;
-  /** Step 134: with done, also its open subtasks. */
+  /** Step 135: with done, also its open subtasks. */
   closeSubtasks?: boolean;
 }
 
@@ -434,7 +434,7 @@ export const projectsApi = {
   creators: () => call<{ creators: "all" | "admins" }>("GET", ADMIN_PROJECTS),
   // Step 119: the admin's editor of object types.
   adminTypes: () => call<{ types: ObjectType[] }>("GET", OBJECT_TYPES),
-  createType: (body: { name: Text; plural: Text; prefix?: string; hasTasks?: boolean; menu?: TypeMenu; access?: TypeAccess }) => call<ObjectType>("POST", OBJECT_TYPES, body),
+  createType: (body: { name: Text; plural: Text; prefix?: string; hasTasks?: boolean; attachments?: boolean; menu?: TypeMenu; access?: TypeAccess }) => call<ObjectType>("POST", OBJECT_TYPES, body),
   updateType: (key: string, body: { name?: Text; plural?: Text; prefix?: string; hasTasks?: boolean; comments?: boolean; attachments?: boolean; parentTypes?: string[]; card?: string[]; menu?: TypeMenu; access?: TypeAccess }) =>
     call<ObjectType>("PATCH", `${OBJECT_TYPES}/${seg(key)}`, body),
   archiveType: (key: string, archived: boolean) => call<ObjectType>("POST", `${OBJECT_TYPES}/${seg(key)}/archive`, { archived }),
@@ -489,7 +489,7 @@ export interface TaskFilter {
   due?: "overdue" | "week" | null;
   label?: string | null;
   text?: string;
-  /** Step 134: only top tasks on the board. */
+  /** Step 135: only top tasks on the board. */
   hideSubtasks?: boolean;
 }
 

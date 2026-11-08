@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import { filterTasks, type TaskSummary } from "@/lib/xenaxio/projects";
 import { parentChoices, Subtasks, TaskPath, treeRows } from "../projects/subtasks";
 
-// Step 134: subtasks nested without a practical limit.
+// Step 135: subtasks nested without a practical limit.
 const task = (id: string, parentId: string | null, path: string[] = [], extra: Partial<TaskSummary> = {}): TaskSummary => ({
   id,
   objectId: "p",
