@@ -3,7 +3,7 @@
 // Xenaxio step 115: a Markdown note as GitHub shows it. Used by the note
 // editor's preview and by the file preview of .md files.
 import { useMemo } from "react";
-import { renderMarkdown } from "@/lib/xenaxio/markdown";
+import { type FileUrl, renderMarkdown } from "@/lib/xenaxio/markdown";
 import { cn } from "@/lib/utils";
 
 const STYLES = [
@@ -21,10 +21,12 @@ const STYLES = [
   "[&_hr]:my-6 [&_hr]:border-border",
   "[&_table]:my-3 [&_table]:block [&_table]:w-max [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse",
   "[&_th]:border [&_th]:border-border [&_th]:px-3 [&_th]:py-1.5 [&_th]:font-semibold [&_th]:bg-muted/50 [&_td]:border [&_td]:border-border [&_td]:px-3 [&_td]:py-1.5",
+  "[&_img]:my-1 [&_img]:inline-block [&_img]:max-h-96 [&_img]:max-w-full [&_img]:rounded-md [&_img]:border [&_img]:border-border",
   "[&_kbd]:rounded [&_kbd]:border [&_kbd]:border-border [&_kbd]:px-1 [&_kbd]:font-mono [&_kbd]:text-xs",
 ].join(" ");
 
-export function MarkdownView({ source, className }: { source: string; className?: string }) {
-  const html = useMemo(() => renderMarkdown(source), [source]);
+/** `files`: where "file:<id>" of a task's or record's attached files points (step 132). */
+export function MarkdownView({ source, className, files }: { source: string; className?: string; files?: FileUrl }) {
+  const html = useMemo(() => renderMarkdown(source, files), [source, files]);
   return <div className={cn(STYLES, className)} dangerouslySetInnerHTML={{ __html: html }} />;
 }

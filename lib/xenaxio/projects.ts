@@ -367,7 +367,7 @@ export const projectsApi = {
   creators: () => call<{ creators: "all" | "admins" }>("GET", ADMIN_PROJECTS),
   // Step 119: the admin's editor of object types.
   adminTypes: () => call<{ types: ObjectType[] }>("GET", OBJECT_TYPES),
-  createType: (body: { name: Text; plural: Text; prefix?: string; hasTasks?: boolean; menu?: TypeMenu; access?: TypeAccess }) => call<ObjectType>("POST", OBJECT_TYPES, body),
+  createType: (body: { name: Text; plural: Text; prefix?: string; hasTasks?: boolean; attachments?: boolean; menu?: TypeMenu; access?: TypeAccess }) => call<ObjectType>("POST", OBJECT_TYPES, body),
   updateType: (key: string, body: { name?: Text; plural?: Text; prefix?: string; hasTasks?: boolean; comments?: boolean; attachments?: boolean; parentTypes?: string[]; card?: string[]; menu?: TypeMenu; access?: TypeAccess }) =>
     call<ObjectType>("PATCH", `${OBJECT_TYPES}/${seg(key)}`, body),
   archiveType: (key: string, archived: boolean) => call<ObjectType>("POST", `${OBJECT_TYPES}/${seg(key)}/archive`, { archived }),

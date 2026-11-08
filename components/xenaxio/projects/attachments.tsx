@@ -4,7 +4,8 @@
 // platform keeps them with the record's rights (who sees the record sees its files);
 // people who change the record add them by dropping or choosing; pictures show a
 // preview; pictures and PDFs open in the browser, everything else downloads. "Save in
-// Files" puts a copy into the person's own Files (their mailbox account).
+// Files" puts a copy into the person's own Files (their mailbox account). Step 132:
+// a picture pasted from the clipboard while the block has the focus is added too.
 import { type DragEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { Download, FileText, FolderInput, Paperclip, Trash } from "@/components/icons";
@@ -12,6 +13,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { cn } from "@/lib/utils";
 import { errorText } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
+import { pastedFiles, pastedName } from "@/lib/xenaxio/paste";
 import { type ObjectFile, objectFileUrl, projectsApi, uploadObjectFile } from "@/lib/xenaxio/projects";
 import { useAuthStore } from "@/stores/auth-store";
 import { toast } from "@/stores/toast-store";
@@ -42,7 +44,8 @@ async function saveInFiles(objectId: string, f: ObjectFile): Promise<void> {
   await client.createFileNode(f.name, blobId, type || f.type || "application/octet-stream", f.size, null);
 }
 
-export function Attachments({ objectId, taskId, canEdit, onChanged, compact = false }: { objectId: string; taskId?: string | null; canEdit: boolean; onChanged?: () => void; compact?: boolean }) {
+/** `reloadKey`: changes when files were added elsewhere (a picture pasted into a comment, step 132). */
+export function Attachments({ objectId, taskId, canEdit, onChanged, compact = false, reloadKey = 0 }: { objectId: string; taskId?: string | null; canEdit: boolean; onChanged?: () => void; compact?: boolean; reloadKey?: number }) {
   const t = useXT();
   const locale = useLocale();
   const [files, setFiles] = useState<ObjectFile[] | null>(null);
@@ -57,10 +60,11 @@ export function Attachments({ objectId, taskId, canEdit, onChanged, compact = fa
       .then((r) => setFiles(r.files))
       .catch((err: unknown) => toast.error(errorText(t, err)));
   }, [objectId, taskId, t]);
-  useEffect(load, [load]);
+  useEffect(load, [load, reloadKey]);
 
   const add = async (list: FileList | File[]) => {
-    for (const file of Array.from(list)) {
+    for (const raw of Array.from(list)) {
+      const file = raw.name && !/^image\.(png|jpe?g|gif|webp)$/i.test(raw.name) ? raw : new File([raw], pastedName(raw), { type: raw.type });
       if (file.size > MAX_BYTES) {
         toast.error(t("errors.object_file_too_large"));
         continue;
@@ -105,6 +109,13 @@ export function Attachments({ objectId, taskId, canEdit, onChanged, compact = fa
       }}
       onDragLeave={() => setOver(false)}
       onDrop={onDrop}
+      // Step 132: a picture pasted (Ctrl+V) while the block or its button has the focus.
+      onPaste={(e) => {
+        const list = canEdit && busy === null ? pastedFiles(e.clipboardData) : [];
+        if (list.length === 0) return;
+        e.preventDefault();
+        void add(list);
+      }}
     >
       <div className="flex items-center gap-2">
         <span className="text-xs text-muted-foreground">{t("projects.files")}</span>

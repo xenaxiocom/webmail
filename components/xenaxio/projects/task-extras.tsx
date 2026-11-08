@@ -14,6 +14,7 @@ import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 import { useXT } from "@/lib/xenaxio/i18n";
 import type { ChecklistItem, PersonRef, TaskEvent } from "@/lib/xenaxio/projects";
+import { type FileTarget, useFileText } from "./file-text";
 
 type Draft = { id?: string; text: string; done?: boolean };
 
@@ -150,13 +151,15 @@ export function mentionsIn(text: string, picked: PersonRef[]): string[] {
   return [...new Set(picked.filter((p) => text.includes(`@${p.name}`)).map((p) => p.id))];
 }
 
-export function MentionInput({ people, onSend, disabled }: { people: PersonRef[]; onSend: (body: string, mentions: string[]) => Promise<boolean>; disabled?: boolean }) {
+/** `files` (step 132): pictures pasted, files dropped or chosen go into the task's files and the comment points to them. */
+export function MentionInput({ people, onSend, disabled, files }: { people: PersonRef[]; onSend: (body: string, mentions: string[]) => Promise<boolean>; disabled?: boolean; files?: FileTarget }) {
   const t = useXT();
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<PersonRef[]>([]);
   const [query, setQuery] = useState<string | null>(null);
   const [active, setActive] = useState(0);
   const input = useRef<HTMLTextAreaElement>(null);
+  const attachments = useFileText({ field: input, files, value: text, onChange: setText });
 
   const options = useMemo(() => {
     if (query === null) return [];
@@ -221,6 +224,7 @@ export function MentionInput({ people, onSend, disabled }: { people: PersonRef[]
         aria-autocomplete="list"
         onChange={(e) => change(e.target.value, e.target.selectionStart ?? e.target.value.length)}
         onKeyDown={onKey}
+        {...attachments.fieldProps}
       />
       {options.length > 0 && (
         <ul id="task-mention-options" role="listbox" aria-label={t("projects.mention_pick")} className="absolute left-0 right-0 top-full z-10 mt-1 max-h-48 overflow-auto rounded-md border border-border bg-popover p-1 shadow-md">
@@ -238,8 +242,9 @@ export function MentionInput({ people, onSend, disabled }: { people: PersonRef[]
           ))}
         </ul>
       )}
-      <div className="flex justify-end">
-        <Button type="submit" size="sm" disabled={disabled || !text.trim()}>
+      <div className="flex items-center justify-end gap-2">
+        {attachments.attach && <span className="mr-auto">{attachments.attach}</span>}
+        <Button type="submit" size="sm" disabled={disabled || !text.trim() || attachments.busy !== null}>
           {t("projects.comment_send")}
         </Button>
       </div>
