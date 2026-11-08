@@ -54,6 +54,9 @@ export function useEventText(type: ObjectType | undefined) {
         return t("objects.history.person_add", { name: e.to ?? "—" });
       case "person_remove":
         return t("objects.history.person_remove", { name: e.from ?? "—" });
+      case "task_out":
+      case "task_in":
+        return t(`objects.history.${e.field}`, { name: e.detail ?? "", from: e.from ?? "—", to: e.to ?? "—" });
       case "link_add":
       case "link_remove":
       case "file_add":

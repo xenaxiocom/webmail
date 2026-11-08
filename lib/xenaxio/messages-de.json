@@ -1147,6 +1147,7 @@
     "tool_list_project_tasks": "Prüfe Projektaufgaben…",
     "tool_create_project_task": "Bereite eine Projektaufgabe vor…",
     "tool_update_project_task": "Bereite eine Aufgabenänderung vor…",
+    "tool_move_project_task": "Bereite das Verschieben der Aufgabe vor…",
     "tool_update_project_column": "Bereite eine Spaltenänderung vor…",
     "tool_list_object_types": "Prüfe die Objekttypen…",
     "tool_set_menu_items": "Bereite eine Änderung deines Menüs vor…",
@@ -3479,6 +3480,7 @@
       "list_project_tasks": "Aufgaben auf Projekt-Boards sehen",
       "create_project_task": "Aufgaben auf Projekt-Boards anlegen",
       "update_project_task": "Aufgaben auf Projekt-Boards ändern und verschieben",
+      "move_project_task": "Aufgaben in andere Projekte verschieben",
       "update_project_column": "Spalten auf Projekt-Boards umbenennen und einfärben",
       "list_object_types": "Objekttypen, Felder und Phasen der Firma sehen",
       "set_menu_items": "Einträge in meinem Menü ordnen und ausblenden",
@@ -3914,7 +3916,8 @@
       "labels": "hat die Labels geändert",
       "done": "hat den Stand geändert",
       "checklist": "hat die Checkliste geändert",
-      "parent": "hat die übergeordnete Aufgabe geändert"
+      "parent": "hat die übergeordnete Aufgabe geändert",
+      "project": "hat sie in ein anderes Projekt verschoben"
     },
     "history_done": "erledigt",
     "history_open": "offen",
@@ -3992,7 +3995,21 @@
     "close_subtasks_text": "Diese Aufgabe hat noch {count} offene Unteraufgaben.",
     "close_this": "Nur diese Aufgabe",
     "close_all": "Alle erledigen",
-    "hide_subtasks": "Unteraufgaben ausblenden"
+    "hide_subtasks": "Unteraufgaben ausblenden",
+    "move": "Verschieben",
+    "move_title": "In anderes Projekt verschieben",
+    "move_other": "Anderes wählen",
+    "move_subtasks_one": "Mit 1 Unteraufgabe",
+    "move_subtasks": "Mit {count} Unteraufgaben",
+    "move_detached": "Sie ist eine Unteraufgabe; im neuen Projekt wird sie eine eigene Aufgabe.",
+    "move_joining": "{names} wird Mitglied von {project}.",
+    "move_leaving_one": "{names} sieht {project} nicht und beobachtet die Aufgabe nicht mehr.",
+    "move_leaving": "{names} sehen {project} nicht und beobachten die Aufgabe nicht mehr.",
+    "move_number": "Sie bekommt dort eine neue Nummer; die alte Nummer und alte Links führen weiter zu ihr. Kommentare, Dateien, Verknüpfungen und Verlauf gehen mit.",
+    "move_done": "Verschoben nach {project}: {ref}",
+    "move_open": "Öffnen",
+    "former_refs": "früher {refs}",
+    "former_refs_hint": "Frühere Nummern aus Projekten, aus denen die Aufgabe verschoben wurde"
   },
   "objects": {
     "title": "Einträge",
@@ -4041,7 +4058,9 @@
       "file_add": "hat die Datei {name} hinzugefügt",
       "file_remove": "hat die Datei {name} gelöscht",
       "archived": "hat ihn archiviert",
-      "restored": "hat ihn wiederhergestellt"
+      "restored": "hat ihn wiederhergestellt",
+      "task_out": "hat die Aufgabe {name} nach {to} verschoben",
+      "task_in": "hat die Aufgabe {name} hierher verschoben (vorher {from})"
     },
     "chart": {
       "tab": "Diagramm",
@@ -4225,7 +4244,8 @@
       "task_comment": "hat kommentiert",
       "task_done": "hat eine Aufgabe erledigt",
       "task_due_changed": "hat eine Fälligkeit geändert",
-      "task_due": "Heute fällig"
+      "task_due": "Heute fällig",
+      "task_moved": "hat eine Aufgabe in ein anderes Projekt verschoben"
     },
     "settings_title": "Benachrichtigungen zu Aufgaben",
     "settings_intro": "In Xenaxio — die Glocke oben und Push auf Geräten, auf denen Chat-Benachrichtigungen an sind.",
@@ -4240,7 +4260,8 @@
       "task_comment": "Neuer Kommentar in einer beobachteten Aufgabe",
       "task_done": "Eine beobachtete Aufgabe ist erledigt",
       "task_due_changed": "Die Fälligkeit einer beobachteten Aufgabe ändert sich",
-      "task_due": "Eine meiner Aufgaben ist heute fällig"
+      "task_due": "Eine meiner Aufgaben ist heute fällig",
+      "task_moved": "Eine beobachtete Aufgabe wird in ein anderes Projekt verschoben"
     },
     "assign_email": "E-Mail, wenn mir eine Aufgabe zugewiesen wird",
     "due_email": "E-Mail am Morgen des Fälligkeitstags",

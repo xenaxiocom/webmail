@@ -205,7 +205,7 @@ export interface ChecklistItem {
 export interface TaskEvent {
   id: string;
   author: PersonRef | null;
-  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist" | "parent";
+  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist" | "parent" | "project";
   from: string | null;
   to: string | null;
   createdAt: string;
@@ -264,6 +264,22 @@ export interface TaskDetail extends TaskSummary {
   watching: boolean;
   /** Step 135: all subtasks below it, each with its parentId, in board order. */
   subtaskList?: TaskSummary[];
+  /** Step 142: its references in projects it was moved out of, oldest first. */
+  formerRefs?: string[];
+}
+
+/** Step 142: what moving a task (with all its subtasks) to another record does. */
+export interface TaskTransfer {
+  target: { id: string; ref: string; title: string; typeKey: string };
+  column: { id: string; name: string };
+  tasks: number;
+  subtasks: number;
+  /** Assignees who become people of the target. */
+  joining: PersonRef[];
+  /** Watchers who do not see the target and stop watching. */
+  leaving: PersonRef[];
+  /** It was a subtask: on the new board it is a task of its own. */
+  detached: boolean;
 }
 
 /** Step 124 H: a task of the parent or a sub-project on the parent's board. */
@@ -459,6 +475,11 @@ export const projectsApi = {
   createTask: (id: string, body: TaskInput & { title: string; index?: number }) => call<TaskSummary>("POST", `${one(id)}/tasks`, body),
   updateTask: (id: string, taskId: string, body: TaskInput) => call<TaskSummary>("PATCH", `${one(id)}/tasks/${seg(taskId)}`, body),
   moveTask: (id: string, taskId: string, columnId: string, index: number) => call<TaskSummary>("POST", `${one(id)}/tasks/${seg(taskId)}/move`, { columnId, index }),
+  // Step 142: to the board of another record, with all its subtasks; first what it would do.
+  transferPreview: (id: string, taskId: string, to: { targetId: string; columnId?: string }) => call<TaskTransfer>("POST", `${one(id)}/tasks/${seg(taskId)}/transfer/preview`, to),
+  transfer: (id: string, taskId: string, to: { targetId: string; columnId?: string }) => call<TaskTransfer & { task: TaskSummary }>("POST", `${one(id)}/tasks/${seg(taskId)}/transfer`, to),
+  /** Where a task is now (old links name the project it was moved out of). */
+  whereTask: (taskId: string) => call<{ objectId: string; typeKey: string; taskId: string }>("GET", `${OBJECTS}/tasks/${seg(taskId)}/where`),
   deleteTask: (id: string, taskId: string) => call<Record<string, never>>("DELETE", `${one(id)}/tasks/${seg(taskId)}`),
   comment: (id: string, taskId: string, body: string, mentions: string[] = []) => call<TaskDetail>("POST", `${one(id)}/tasks/${seg(taskId)}/comments`, { body, ...(mentions.length ? { mentions } : {}) }),
   watch: (id: string, taskId: string, watching: boolean) => call<TaskDetail>("PUT", `${one(id)}/tasks/${seg(taskId)}/watch`, { watching }),
