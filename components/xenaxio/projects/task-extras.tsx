@@ -152,7 +152,22 @@ export function mentionsIn(text: string, picked: PersonRef[]): string[] {
 }
 
 /** `files` (step 134): pictures pasted, files dropped or chosen go into the task's files and the comment points to them. */
-export function MentionInput({ people, onSend, disabled, files }: { people: PersonRef[]; onSend: (body: string, mentions: string[]) => Promise<boolean>; disabled?: boolean; files?: FileTarget }) {
+/** Step 142: in the chat, Enter sends (Shift+Enter: a new line) and typing is told to the others. */
+export function MentionInput({
+  people,
+  onSend,
+  disabled,
+  files,
+  enterSends = false,
+  onTyping,
+}: {
+  people: PersonRef[];
+  onSend: (body: string, mentions: string[]) => Promise<boolean>;
+  disabled?: boolean;
+  files?: FileTarget;
+  enterSends?: boolean;
+  onTyping?: () => void;
+}) {
   const t = useXT();
   const [text, setText] = useState("");
   const [picked, setPicked] = useState<PersonRef[]>([]);
@@ -169,6 +184,7 @@ export function MentionInput({ people, onSend, disabled, files }: { people: Pers
 
   const change = (value: string, caret: number) => {
     setText(value);
+    if (value) onTyping?.();
     const m = /(^|\s)@([^\s@]{0,30})$/.exec(value.slice(0, caret));
     setQuery(m ? m[2]! : null);
     setActive(0);
@@ -205,7 +221,10 @@ export function MentionInput({ people, onSend, disabled, files }: { people: Pers
       if (e.key === "Enter" || e.key === "Tab") return e.preventDefault(), pick(options[active]!);
       if (e.key === "Escape") return e.preventDefault(), setQuery(null);
     }
-    if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void submit();
+    if (e.key === "Enter" && (e.metaKey || e.ctrlKey || (enterSends && !e.shiftKey && !e.nativeEvent.isComposing))) {
+      e.preventDefault();
+      void submit();
+    }
   };
 
   return (

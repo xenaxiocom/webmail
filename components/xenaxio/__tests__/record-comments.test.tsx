@@ -7,6 +7,8 @@ const api = vi.hoisted(() => ({
   addComment: vi.fn(),
   editComment: vi.fn(),
   deleteComment: vi.fn(),
+  reactComment: vi.fn(),
+  readObject: vi.fn().mockResolvedValue({}),
 }));
 vi.mock("@/lib/xenaxio/projects", async (orig) => {
   const real = await orig<typeof import("@/lib/xenaxio/projects")>();
@@ -27,7 +29,9 @@ describe("record comments", () => {
     expect(screen.getAllByRole("button", { name: /edit/i })).toHaveLength(1);
     fireEvent.change(screen.getByRole("textbox"), { target: { value: "Reifen neu" } });
     fireEvent.submit(screen.getByRole("textbox").closest("form")!);
-    await waitFor(() => expect(api.addComment).toHaveBeenCalledWith("o1", "Reifen neu"));
+    await waitFor(() => expect(api.addComment).toHaveBeenCalledWith("o1", "Reifen neu", null));
+    // Step 142: opening the chat reads it.
+    expect(api.readObject).toHaveBeenCalledWith("o1");
     expect(await screen.findByText("Reifen neu")).toBeTruthy();
   });
 

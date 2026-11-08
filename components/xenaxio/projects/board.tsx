@@ -115,6 +115,12 @@ function Lane({ lane, ids, disabled, render, emptyText }: { lane: BoardLane; ids
   );
 }
 
+// Step 142: a card is in someone's hand — live updates from colleagues wait until it is dropped.
+let dragging = 0;
+export function boardBusy(): boolean {
+  return dragging > 0;
+}
+
 export function Board({
   lanes,
   items,
@@ -151,7 +157,10 @@ export function Board({
     useSensor(KeyboardSensor, { coordinateGetter: sortableKeyboardCoordinates }),
   );
 
-  const onDragStart = (e: DragStartEvent) => setActive(String(e.active.id));
+  const onDragStart = (e: DragStartEvent) => {
+    dragging++;
+    setActive(String(e.active.id));
+  };
 
   // Between lanes the card moves while dragging, so the others make room.
   const onDragOver = (e: DragOverEvent) => {
@@ -170,6 +179,7 @@ export function Board({
   };
 
   const onDragEnd = (e: DragEndEvent) => {
+    dragging = Math.max(0, dragging - 1);
     setActive(null);
     const id = String(e.active.id);
     const over = e.over ? String(e.over.id) : null;
@@ -190,7 +200,7 @@ export function Board({
   };
 
   return (
-    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => (setActive(null), setLayout(source))}>
+    <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={onDragStart} onDragOver={onDragOver} onDragEnd={onDragEnd} onDragCancel={() => ((dragging = Math.max(0, dragging - 1)), setActive(null), setLayout(source))}>
       {rows ? (
         <div role="list" aria-label={label} className="min-h-0 flex-1 space-y-4 overflow-auto overscroll-contain p-3 sm:p-4">
           {rows.map((row) => {

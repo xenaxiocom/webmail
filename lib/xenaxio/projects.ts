@@ -160,6 +160,8 @@ export interface ObjectSummary {
   updatedAt: string;
   /** Step 119: values of the type's fields (never sensitive ones). */
   fields: Record<string, unknown>;
+  /** Step 142: unread messages in the record's chat (for its people). */
+  unread?: number;
 }
 
 export interface ObjectLink {
@@ -236,6 +238,8 @@ export interface TaskSummary {
   parentId?: string | null;
   path?: { id: string; ref: string; title: string }[];
   subtasks?: { done: number; total: number };
+  /** Step 142: messages in the task's chat the person (a watcher) has not read. */
+  unread?: number;
 }
 
 /** Step 127 A, 124 B: a file attached to a record or a task. */
@@ -254,7 +258,10 @@ export interface TaskDetail extends TaskSummary {
   description: string;
   createdBy: PersonRef | null;
   createdAt: string;
-  commentList: { id: string; author: PersonRef | null; body: string; createdAt: string }[];
+  /** Step 142: the task's chat (its comments), oldest first. */
+  commentList: ChatMessage[];
+  /** Step 142: up to when the person has read the chat; null: never opened. */
+  lastRead?: string | null;
   checklistItems: ChecklistItem[];
   history: TaskEvent[];
   /** Step 124 B: emails and files from Files linked to the task. */
@@ -294,14 +301,22 @@ export interface ProjectTemplate {
   canDelete: boolean;
 }
 
-export interface ObjectComment {
+/** Step 142: one message of the chat of a task or a record (their comments). */
+export interface ChatMessage {
   id: string;
   author: PersonRef | null;
   body: string;
   createdAt: string;
-  editedAt: string | null;
-  can: { edit: boolean; delete: boolean };
+  editedAt?: string | null;
+  /** A deleted message keeps its place with an empty text. */
+  deleted?: boolean;
+  replyTo?: { id: string; author: string | null; text: string; deleted: boolean } | null;
+  reactions?: { emoji: string; count: number; mine: boolean; people: string[] }[];
+  can?: { edit: boolean; delete: boolean };
 }
+
+/** Step 119: comments on records are the same messages (step 142). */
+export type ObjectComment = ChatMessage;
 
 export interface MyTask extends TaskSummary {
   object: { id: string; ref: string; title: string };
@@ -460,12 +475,20 @@ export const projectsApi = {
   updateTask: (id: string, taskId: string, body: TaskInput) => call<TaskSummary>("PATCH", `${one(id)}/tasks/${seg(taskId)}`, body),
   moveTask: (id: string, taskId: string, columnId: string, index: number) => call<TaskSummary>("POST", `${one(id)}/tasks/${seg(taskId)}/move`, { columnId, index }),
   deleteTask: (id: string, taskId: string) => call<Record<string, never>>("DELETE", `${one(id)}/tasks/${seg(taskId)}`),
-  comment: (id: string, taskId: string, body: string, mentions: string[] = []) => call<TaskDetail>("POST", `${one(id)}/tasks/${seg(taskId)}/comments`, { body, ...(mentions.length ? { mentions } : {}) }),
+  comment: (id: string, taskId: string, body: string, mentions: string[] = [], replyTo?: string | null) =>
+    call<TaskDetail>("POST", `${one(id)}/tasks/${seg(taskId)}/comments`, { body, ...(mentions.length ? { mentions } : {}), ...(replyTo ? { replyTo } : {}) }),
+  // Step 142: the task's chat — correct and delete own messages, reactions, read up to now.
+  editTaskComment: (id: string, taskId: string, commentId: string, body: string) => call<TaskDetail>("PATCH", `${one(id)}/tasks/${seg(taskId)}/comments/${seg(commentId)}`, { body }),
+  deleteTaskComment: (id: string, taskId: string, commentId: string) => call<TaskDetail>("DELETE", `${one(id)}/tasks/${seg(taskId)}/comments/${seg(commentId)}`),
+  reactTaskComment: (id: string, taskId: string, commentId: string, emoji: string) => call<TaskDetail>("POST", `${one(id)}/tasks/${seg(taskId)}/comments/${seg(commentId)}/reactions`, { emoji }),
+  readTask: (id: string, taskId: string) => call<Record<string, never>>("POST", `${one(id)}/tasks/${seg(taskId)}/read`, {}),
   watch: (id: string, taskId: string, watching: boolean) => call<TaskDetail>("PUT", `${one(id)}/tasks/${seg(taskId)}/watch`, { watching }),
   checklistToTask: (id: string, taskId: string, itemId: string) => call<TaskSummary>("POST", `${one(id)}/tasks/${seg(taskId)}/checklist/${seg(itemId)}/task`, {}),
   // Step 119: comments on the record itself.
-  comments: (id: string) => call<{ comments: ObjectComment[] }>("GET", `${one(id)}/comments`),
-  addComment: (id: string, body: string) => call<{ comments: ObjectComment[] }>("POST", `${one(id)}/comments`, { body }),
+  comments: (id: string) => call<{ comments: ObjectComment[]; lastRead?: string | null }>("GET", `${one(id)}/comments`),
+  addComment: (id: string, body: string, replyTo?: string | null) => call<{ comments: ObjectComment[] }>("POST", `${one(id)}/comments`, { body, ...(replyTo ? { replyTo } : {}) }),
+  reactComment: (id: string, commentId: string, emoji: string) => call<{ comments: ObjectComment[] }>("POST", `${one(id)}/comments/${seg(commentId)}/reactions`, { emoji }),
+  readObject: (id: string) => call<Record<string, never>>("POST", `${one(id)}/read`, {}),
   editComment: (id: string, commentId: string, body: string) => call<{ comments: ObjectComment[] }>("PATCH", `${one(id)}/comments/${seg(commentId)}`, { body }),
   deleteComment: (id: string, commentId: string) => call<{ comments: ObjectComment[] }>("DELETE", `${one(id)}/comments/${seg(commentId)}`),
   creators: () => call<{ creators: "all" | "admins" }>("GET", ADMIN_PROJECTS),

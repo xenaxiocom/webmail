@@ -7,6 +7,9 @@
 // Step 124: the task's number, a checklist, watchers, @mentions and the history.
 // Step 135: subtasks (a tree), the way down to the task and the task it belongs to.
 // Step 134: pictures and files pasted or dropped into the description and comments.
+// Step 142: live — colleagues' changes and messages appear at once; the comments are a
+// chat (answers, reactions, edit, delete, "… is typing"); a description being edited is
+// never overwritten silently.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { Copy, Eye, EyeOff, Trash, X } from "@/components/icons";
@@ -20,10 +23,13 @@ import { useXT } from "@/lib/xenaxio/i18n";
 import { type ObjectDetail, objectFileUrl, type Priority, projectsApi, type TaskDetail, type TaskInput, type TaskSummary } from "@/lib/xenaxio/projects";
 import { cn } from "@/lib/utils";
 import { toast } from "@/stores/toast-store";
-import { Modal, PersonBadge, selectClass } from "./bits";
+import { Modal, selectClass } from "./bits";
 import { ParentSelect, Subtasks, TaskPath } from "./subtasks";
-import { Checklist, CommentBody, History, MentionInput } from "./task-extras";
-import { FileText, useFileText } from "./file-text";
+import { Checklist, CommentBody, History } from "./task-extras";
+import { Chat, type ChatActions } from "./chat";
+import { sendTyping, useDebounced, useLive, useTyping, useViewing } from "@/lib/xenaxio/live";
+import { useXenaxioMe } from "@/lib/xenaxio/me-store";
+import { useFileText } from "./file-text";
 import { Attachments } from "./attachments";
 import { linkHref } from "./project-view";
 import { Link } from "@/i18n/navigation";
@@ -50,11 +56,22 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
   const fileUrl = useCallback((fileId: string, inline: boolean) => objectFileUrl(project.id, fileId, inline), [project.id]);
   const descriptionField = useRef<HTMLTextAreaElement>(null);
   const descriptionFiles = useFileText({ field: descriptionField, files: fileTarget, value: description, onChange: setDescription });
+  const me = useXenaxioMe()?.user.id ?? null;
+  // Step 142: while the person edits the description, a colleague's new version waits.
+  const editingRef = useRef(false);
+  editingRef.current = editing;
+  const [newerDescription, setNewerDescription] = useState<string | null>(null);
+  const descriptionBase = useRef("");
 
   const show = useCallback((d: TaskDetail) => {
     setTask(d);
     setTitle(d.title);
-    setDescription(d.description);
+    if (editingRef.current) setNewerDescription((cur) => (d.description !== descriptionBase.current ? d.description : cur));
+    else {
+      setDescription(d.description);
+      descriptionBase.current = d.description;
+      setNewerDescription(null);
+    }
     setLabels(d.labels.join(", "));
   }, []);
 
@@ -108,15 +125,63 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
   };
   const open = (id: string) => (onOpen ? onOpen(id) : undefined);
 
-  const addComment = async (body: string, mentions: string[]): Promise<boolean> => {
-    try {
-      show(await projectsApi.comment(project.id, taskId, body, mentions));
+  // ---- step 142: live updates and the chat --------------------------------
+  const typing = useTyping(project.id, taskId);
+  useViewing(project.id, taskId);
+  const read = useCallback(() => {
+    void projectsApi.readTask(project.id, taskId).catch(() => undefined);
+  }, [project.id, taskId]);
+  // Opening the task reads its chat.
+  useEffect(() => {
+    if (task?.id !== taskId) return;
+    if ((task.unread ?? 0) > 0) {
+      read();
       onChanged();
+    } else if (task.lastRead === null || task.lastRead === undefined) read();
+    // only when another task opens
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [task?.id]);
+  const refresh = useDebounced(() => {
+    projectsApi
+      .task(project.id, taskId)
+      .then((d) => {
+        show(d);
+        if ((d.unread ?? 0) > 0 && document.visibilityState === "visible") read();
+      })
+      .catch((err: unknown) => {
+        if (err instanceof XenaxioApiError && err.status === 404) setMissing(true);
+      });
+  });
+  useLive((e) => {
+    if (e.k === "reset") return refresh();
+    if (e.o !== project.id || e.task !== taskId) return;
+    if (e.k === "task" && e.a === "removed") return setMissing(true);
+    if ((e.k === "task" || e.k === "message") && e.by !== me) refresh();
+  });
+
+  const chatRun = async (fn: () => Promise<TaskDetail>): Promise<boolean> => {
+    try {
+      show(await fn());
       return true;
     } catch (err) {
       toast.error(errorText(t, err));
       return false;
     }
+  };
+  const chat: ChatActions = {
+    send: async (body, mentions, replyTo) => {
+      const ok = await chatRun(() => projectsApi.comment(project.id, taskId, body, mentions, replyTo));
+      if (ok) onChanged();
+      return ok;
+    },
+    edit: (id, body) => chatRun(() => projectsApi.editTaskComment(project.id, taskId, id, body)),
+    remove: async (id) => {
+      const ok = await chatRun(() => projectsApi.deleteTaskComment(project.id, taskId, id));
+      if (ok) onChanged();
+      return ok;
+    },
+    react: (id, emoji) => chatRun(() => projectsApi.reactTaskComment(project.id, taskId, id, emoji)),
+    typing: () => sendTyping(project.id, taskId),
   };
 
   const watch = async (watching: boolean) => {
@@ -264,13 +329,29 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
               <div className="flex items-center gap-2">
                 <span className="text-xs text-muted-foreground">{t("projects.field.description")}</span>
                 {canEdit && !editing && (
-                  <button type="button" className="text-xs text-primary hover:underline" onClick={() => setEditing(true)}>
+                  <button type="button" className="text-xs text-primary hover:underline" onClick={() => ((descriptionBase.current = task.description), setNewerDescription(null), setEditing(true))}>
                     {t("projects.edit")}
                   </button>
                 )}
               </div>
               {editing ? (
                 <div className="space-y-2">
+                  {newerDescription !== null && (
+                    <p role="status" className="flex flex-wrap items-center gap-2 rounded-md border border-warning/50 bg-warning/10 px-2 py-1.5 text-xs">
+                      {t("projects.description_changed")}
+                      <button
+                        type="button"
+                        className="font-medium text-primary hover:underline"
+                        onClick={() => {
+                          setDescription(newerDescription);
+                          descriptionBase.current = newerDescription;
+                          setNewerDescription(null);
+                        }}
+                      >
+                        {t("projects.description_reload")}
+                      </button>
+                    </p>
+                  )}
                   <textarea
                     ref={descriptionField}
                     className="min-h-32 w-full rounded-md border border-input bg-background p-2 font-mono text-sm"
@@ -285,7 +366,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
                     <Button size="sm" onClick={() => (setEditing(false), void save({ description }))}>
                       {t("common.save")}
                     </Button>
-                    <Button size="sm" variant="ghost" onClick={() => (setEditing(false), setDescription(task.description))}>
+                    <Button size="sm" variant="ghost" onClick={() => (setEditing(false), setNewerDescription(null), setDescription(newerDescription ?? task.description))}>
                       {t("common.cancel")}
                     </Button>
                     {descriptionFiles.attach && <span className="ml-auto">{descriptionFiles.attach}</span>}
@@ -340,25 +421,22 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
               </div>
             )}
 
-            <div className="space-y-2 text-sm">
-              <span className="text-xs text-muted-foreground">{t("projects.comments")}</span>
-              <ul className="space-y-2">
-                {task.commentList.map((c) => (
-                  <li key={c.id} className="flex gap-2">
-                    <PersonBadge name={c.author?.name ?? "?"} email={c.author?.email} />
-                    <div className="min-w-0 flex-1 rounded-md bg-muted/60 px-2.5 py-1.5">
-                      <p className="text-xs text-muted-foreground">
-                        {c.author?.name ?? "—"} · {new Date(c.createdAt).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" })}
-                      </p>
-                      <div className="whitespace-pre-wrap break-words">
-                        <FileText body={c.body} objectId={project.id} text={(part) => <CommentBody body={part} people={project.people} />} />
-                      </div>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-              {canEdit && <MentionInput people={project.people} onSend={addComment} files={fileTarget} />}
-            </div>
+            <section className="space-y-2" aria-label={t("projects.chat")}>
+              <span className="text-xs text-muted-foreground">{t("projects.chat")}</span>
+              <Chat
+                key={task.id}
+                messages={task.commentList}
+                lastRead={task.lastRead}
+                me={me}
+                people={project.people}
+                canWrite={canEdit}
+                objectId={project.id}
+                files={fileTarget}
+                typing={typing}
+                actions={chat}
+                body={(part) => <CommentBody body={part} people={project.people} />}
+              />
+            </section>
             {task.watchers.length > 0 && (
               <p className="text-xs text-muted-foreground">
                 {t("projects.watchers")}: {task.watchers.map((w) => w.name).join(", ")}

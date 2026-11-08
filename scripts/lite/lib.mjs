@@ -162,6 +162,10 @@ export const LITE_API_STRING_ALLOWLIST = [
   // Step 124 C: the bell and notification settings (lib/xenaxio/notifications.ts).
   "/api/notifications",
   "/api/me/notify-prefs",
+  // Step 142: the live channel (lib/xenaxio/live.ts) — boards, chats and the bell.
+  "/api/live",
+  "/api/live/typing",
+  "/api/live/viewing",
   // Step 86: transcripts of audio files (lib/xenaxio/transcripts.ts).
   "/api/files/transcripts",
   // Step 108, part C3: the admin's switch for the automatic check of chat pictures (components/xenaxio/chat/image-check-admin.tsx).

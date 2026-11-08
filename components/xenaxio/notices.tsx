@@ -5,6 +5,8 @@
 // browser's own entries, and the unread count added to the bell's badge. The
 // platform keeps them (90 days); the list is read every minute while the page
 // is visible, and when the page comes back.
+// Step 142: a new notice arrives through the live channel at once; the minute-by-minute
+// reading stays only for when the channel is away.
 import { useEffect } from "react";
 import { create } from "zustand";
 import { useFormatter } from "next-intl";
@@ -14,6 +16,7 @@ import { cn } from "@/lib/utils";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { type Notice, noticeHref, notificationsApi } from "@/lib/xenaxio/notifications";
+import { liveOpen, subscribeLive } from "@/lib/xenaxio/live";
 
 interface NoticesState {
   notices: Notice[];
@@ -49,6 +52,7 @@ export const useXenaxioNotices = create<NoticesState>((set, get) => ({
 
 let watchers = 0;
 let timer: ReturnType<typeof setInterval> | null = null;
+let stopLive: (() => void) | null = null;
 const onVisible = () => document.visibilityState === "visible" && void useXenaxioNotices.getState().refresh();
 
 /** The unread count for the bell's badge; the first user starts reading the list every minute. */
@@ -59,14 +63,19 @@ export function useXenaxioNoticeCount(): number {
     watchers += 1;
     if (watchers === 1) {
       void useXenaxioNotices.getState().refresh();
-      timer = setInterval(() => document.visibilityState === "visible" && void useXenaxioNotices.getState().refresh(), 60_000);
+      timer = setInterval(() => document.visibilityState === "visible" && !liveOpen() && void useXenaxioNotices.getState().refresh(), 60_000);
       document.addEventListener("visibilitychange", onVisible);
+      stopLive = subscribeLive((e) => {
+        if (e.k === "notice" || e.k === "reset") void useXenaxioNotices.getState().refresh();
+      });
     }
     return () => {
       watchers -= 1;
       if (watchers === 0) {
         if (timer) clearInterval(timer);
         timer = null;
+        stopLive?.();
+        stopLive = null;
         document.removeEventListener("visibilitychange", onVisible);
       }
     };

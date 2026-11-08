@@ -20,7 +20,8 @@ import { usePeopleStore } from "@/lib/xenaxio/people";
 import { FieldInput, fieldText, PlaceMenu } from "./fields";
 import { ImportDialog, exportCsv } from "./import-csv";
 import { toast } from "@/stores/toast-store";
-import { Board } from "./board";
+import { Board, boardBusy } from "./board";
+import { useDebounced, useLive } from "@/lib/xenaxio/live";
 import { ChartView, defaultChart, validChart } from "./chart-view";
 import { Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
 
@@ -209,6 +210,17 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
   );
 }
 
+/** Step 142: unread messages in the chat of a record or a task. */
+export function UnreadBadge({ count }: { count: number | undefined }) {
+  const t = useXT();
+  if (!count) return null;
+  return (
+    <span className="shrink-0 rounded-full bg-primary px-1.5 text-xs font-medium tabular-nums text-primary-foreground" title={t("projects.chat_unread", { count })}>
+      💬 {count}
+    </span>
+  );
+}
+
 function ProjectCard({ p, type, locale, onOpen, showStatus = true }: { p: ObjectSummary; type: ObjectType | undefined; locale: string; onOpen: () => void; showStatus?: boolean }) {
   const t = useXT();
   const total = p.openTasks + p.doneTasks;
@@ -218,6 +230,9 @@ function ProjectCard({ p, type, locale, onOpen, showStatus = true }: { p: Object
       <div className="flex items-start gap-2">
         <span className="text-xs text-muted-foreground">{p.ref}</span>
         {p.visibility === "company" && <span className="text-xs text-muted-foreground">· {t("projects.visibility.company_short")}</span>}
+        <span className="ml-auto">
+          <UnreadBadge count={p.unread} />
+        </span>
       </div>
       <p className="mt-0.5 line-clamp-2 text-sm font-medium">{p.title}</p>
       {/* Step 119: the first two filled fields of the type (never sensitive ones). */}
@@ -318,13 +333,30 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
     return () => window.clearTimeout(timer);
   }, [load, q]);
 
-  useEffect(() => {
-    if (view !== "tasks") return;
+  const loadTasks = useCallback(() => {
     projectsApi
       .myTasks("open")
       .then((r) => setTasks(r.tasks))
       .catch((err: unknown) => setError(errorText(t, err)));
-  }, [view, t]);
+  }, [t]);
+  useEffect(() => {
+    if (view === "tasks") loadTasks();
+  }, [view, loadTasks]);
+  // Step 142: colleagues' changes arrive live — records of the list, the person's tasks, unread marks.
+  const myId = me?.user.id ?? null;
+  const reloadList = useDebounced(load, boardBusy, 400);
+  const reloadTasks = useDebounced(loadTasks, () => false, 400);
+  useLive((e) => {
+    const tasksView = view === "tasks";
+    if (e.k === "reset") return tasksView ? reloadTasks() : reloadList();
+    if (tasksView) {
+      if ((e.k === "task" && e.by !== myId) || (e.k === "message" && e.task && e.by !== myId) || (e.k === "read" && e.task)) reloadTasks();
+      return;
+    }
+    if ((e.k === "object" && e.by !== myId) || (e.k === "message" && !e.task && e.by !== myId) || (e.k === "read" && !e.task)) reloadList();
+    // The progress of a project ("3/8") follows its tasks.
+    else if (isProject && e.k === "task" && e.a !== "changed" && e.by !== myId) reloadList();
+  });
 
   const byId = useMemo(() => new Map((projects ?? []).map((p) => [p.id, p])), [projects]);
   // Step 119 (variant B): the board groups by the stage, any choice field or a person field;
@@ -544,6 +576,11 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
                       <button type="button" className="font-medium hover:underline" onClick={() => onOpen(p.id)}>
                         {p.title}
                       </button>
+                      {p.unread ? (
+                        <span className="ml-2">
+                          <UnreadBadge count={p.unread} />
+                        </span>
+                      ) : null}
                     </td>
                     {(type?.statuses.length ?? 1) > 0 && <td className="px-2 py-2">{status && <StatusChip text={local(status.name, locale)} color={status.color} />}</td>}
                     {columns.map((f) => (
@@ -574,6 +611,7 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
               <li key={task.id}>
                 <button type="button" onClick={() => onOpen(task.object.id, task.id)} className="flex w-full flex-wrap items-center gap-2 rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-muted/50">
                   <span className="min-w-0 flex-1 truncate font-medium">{task.title}</span>
+                  <UnreadBadge count={task.unread} />
                   <span className="text-xs text-muted-foreground">
                     {task.object.ref} · {task.object.title} · {task.column}
                   </span>

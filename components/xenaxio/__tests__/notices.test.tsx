@@ -45,7 +45,7 @@ describe("task notification settings", () => {
     api.prefs.mockResolvedValue({ kinds: { task_assigned: "push", task_mention: "push", task_comment: "bell", task_done: "bell", task_due_changed: "bell", task_due: "push" }, assignEmail: true, dueEmail: false, calendarTasks: true });
     api.savePrefs.mockImplementation(async (c) => ({ kinds: { task_assigned: "push", task_mention: "push", task_comment: "off", task_done: "bell", task_due_changed: "bell", task_due: "push" }, assignEmail: true, dueEmail: false, calendarTasks: true, ...c }));
     render(<TaskNotifySettings />);
-    expect(await screen.findByText("New comment on a task I watch")).toBeTruthy();
+    expect(await screen.findByText("New message in a task I watch")).toBeTruthy();
     const selects = screen.getAllByRole("combobox");
     fireEvent.change(selects[2]!, { target: { value: "off" } });
     await waitFor(() => expect(api.savePrefs).toHaveBeenCalledWith({ kinds: { task_comment: "off" } }));

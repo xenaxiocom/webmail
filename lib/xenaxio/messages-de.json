@@ -1151,6 +1151,7 @@
     "tool_list_object_types": "Prüfe die Objekttypen…",
     "tool_set_menu_items": "Bereite eine Änderung deines Menüs vor…",
     "tool_add_object_comment": "Bereite einen Kommentar vor…",
+    "tool_add_task_message": "Bereite eine Nachricht in der Aufgabe vor…",
     "helper_working": "{helper} arbeitet …",
     "helpers": {
       "mail_research": "Mail-Recherche",
@@ -3483,6 +3484,7 @@
       "list_object_types": "Objekttypen, Felder und Phasen der Firma sehen",
       "set_menu_items": "Einträge in meinem Menü ordnen und ausblenden",
       "add_object_comment": "Einträge kommentieren",
+      "add_task_message": "In Aufgaben schreiben",
       "delegate": "Hilfsagenten",
       "list_connections": "Externe Systeme ansehen, die Sie verbinden können"
     },
@@ -3856,6 +3858,22 @@
     "comments": "Kommentare",
     "comment_add": "Kommentar schreiben",
     "comment_send": "Senden",
+    "chat": "Chat",
+    "chat_empty": "Noch keine Nachrichten.",
+    "chat_new": "Neu",
+    "chat_deleted": "Nachricht gelöscht",
+    "chat_reaction": "{emoji} {count}",
+    "chat_react": "Reagieren",
+    "chat_react_with": "Mit {emoji} reagieren",
+    "chat_reply": "Antworten",
+    "chat_replying": "Antwort an {name}",
+    "chat_reply_cancel": "Antwort abbrechen",
+    "chat_delete": "Nachricht löschen",
+    "chat_typing_one": "{name} schreibt …",
+    "chat_typing_many": "{names} schreiben …",
+    "chat_unread": "Ungelesene Nachrichten: {count}",
+    "description_changed": "Jemand hat die Beschreibung inzwischen geändert.",
+    "description_reload": "Neue Fassung laden",
     "created_by": "Angelegt von {name} am {date}",
     "linked_intro": "E-Mails, Dateien, der Chat-Kanal und Termine, die zu diesem Projekt gehören. E-Mails fügen Sie mit „Zu Projekt hinzufügen“ in der E-Mail hinzu, Dateien über ihr Menü in „Dateien“.",
     "linked_none": "Noch nichts verknüpft.",
@@ -4222,7 +4240,7 @@
     "kind": {
       "task_assigned": "hat Ihnen eine Aufgabe zugewiesen",
       "task_mention": "hat Sie erwähnt",
-      "task_comment": "hat kommentiert",
+      "task_comment": "hat geschrieben",
       "task_done": "hat eine Aufgabe erledigt",
       "task_due_changed": "hat eine Fälligkeit geändert",
       "task_due": "Heute fällig"
@@ -4237,7 +4255,7 @@
     "setting": {
       "task_assigned": "Mir wird eine Aufgabe zugewiesen",
       "task_mention": "Jemand erwähnt mich",
-      "task_comment": "Neuer Kommentar in einer beobachteten Aufgabe",
+      "task_comment": "Neue Nachricht in einer beobachteten Aufgabe",
       "task_done": "Eine beobachtete Aufgabe ist erledigt",
       "task_due_changed": "Die Fälligkeit einer beobachteten Aufgabe ändert sich",
       "task_due": "Eine meiner Aufgaben ist heute fällig"

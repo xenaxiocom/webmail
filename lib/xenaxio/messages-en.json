@@ -1151,6 +1151,7 @@
     "tool_list_object_types": "Checking the object types…",
     "tool_set_menu_items": "Preparing a change to your menu…",
     "tool_add_object_comment": "Preparing a comment…",
+    "tool_add_task_message": "Preparing a message in the task…",
     "helper_working": "{helper} is working …",
     "helpers": {
       "mail_research": "Mail research",
@@ -3483,6 +3484,7 @@
       "list_object_types": "See the company's object types, fields and stages",
       "set_menu_items": "Order and hide entries in my menu",
       "add_object_comment": "Comment on records",
+      "add_task_message": "Write in tasks",
       "delegate": "Helpers",
       "list_connections": "See the outside systems you may connect"
     },
@@ -3856,6 +3858,22 @@
     "comments": "Comments",
     "comment_add": "Write a comment",
     "comment_send": "Send",
+    "chat": "Chat",
+    "chat_empty": "No messages yet.",
+    "chat_new": "New",
+    "chat_deleted": "Message deleted",
+    "chat_reaction": "{emoji} {count}",
+    "chat_react": "React",
+    "chat_react_with": "React with {emoji}",
+    "chat_reply": "Reply",
+    "chat_replying": "Replying to {name}",
+    "chat_reply_cancel": "Cancel reply",
+    "chat_delete": "Delete message",
+    "chat_typing_one": "{name} is typing …",
+    "chat_typing_many": "{names} are typing …",
+    "chat_unread": "Unread messages: {count}",
+    "description_changed": "Someone has changed the description in the meantime.",
+    "description_reload": "Load the new version",
     "created_by": "Created by {name} on {date}",
     "linked_intro": "Emails, files, the chat channel and events that belong to this project. Add emails with “Add to project” in the email, files from their menu in Files.",
     "linked_none": "Nothing linked yet.",
@@ -4222,7 +4240,7 @@
     "kind": {
       "task_assigned": "assigned a task to you",
       "task_mention": "mentioned you",
-      "task_comment": "commented",
+      "task_comment": "wrote",
       "task_done": "finished a task",
       "task_due_changed": "changed a due date",
       "task_due": "Due today"
@@ -4237,7 +4255,7 @@
     "setting": {
       "task_assigned": "A task is assigned to me",
       "task_mention": "Someone mentions me",
-      "task_comment": "New comment on a task I watch",
+      "task_comment": "New message in a task I watch",
       "task_done": "A task I watch is done",
       "task_due_changed": "The due date of a task I watch changes",
       "task_due": "A task of mine is due today"

@@ -41,7 +41,8 @@ import {
   type TaskSummary,
 } from "@/lib/xenaxio/projects";
 import { toast } from "@/stores/toast-store";
-import { Board } from "./board";
+import { Board, boardBusy } from "./board";
+import { useDebounced, useLive } from "@/lib/xenaxio/live";
 import { TaskChart } from "./task-chart";
 import { ComputedMark } from "./computed";
 import { ColorPicker, Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
@@ -104,7 +105,13 @@ function TaskCard({ task, locale, onOpen, project }: { task: TaskSummary; locale
           </span>
         )}
         {task.attachments > 0 && <span title={t("projects.attachments_count", { count: task.attachments })}>📎 {task.attachments}</span>}
-        {task.comments > 0 && <span>💬 {task.comments}</span>}
+        {(task.unread ?? 0) > 0 ? (
+          <span className="rounded-full bg-primary px-1.5 font-medium tabular-nums text-primary-foreground" title={t("projects.chat_unread", { count: task.unread ?? 0 })}>
+            💬 {task.unread}
+          </span>
+        ) : (
+          task.comments > 0 && <span>💬 {task.comments}</span>
+        )}
         <span className="ml-auto">{task.assignee && <PersonBadge name={task.assignee.name} email={task.assignee.email} />}</span>
       </div>
     </button>
@@ -336,7 +343,19 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
   }, [project.id, subs, t]);
 
   useEffect(load, [load, reloadKey]);
-  // Colleagues' changes: read again when the tab comes back (no live updates yet, C1).
+  // Step 142: colleagues' changes arrive live (not while a card is in the hand); when
+  // the tab comes back, read once more in case the channel was away.
+  const reload = useDebounced(load, boardBusy);
+  const me = useXenaxioMe()?.user.id ?? null;
+  const watched = useMemo(() => new Set([project.id, ...(subs ? subProjects.map((p) => p.id) : [])]), [project.id, subs, subProjects]);
+  useLive((e) => {
+    if (e.k === "reset") return reload();
+    if (!e.o || !watched.has(e.o)) return;
+    // Own changes are already on the screen; a read or a message changes only the marks.
+    if ((e.k === "task" || e.k === "columns") && e.by !== me) reload();
+    else if (e.k === "message" && e.task && e.by !== me) reload();
+    else if (e.k === "read") reload();
+  });
   useEffect(() => {
     const onVisible = () => document.visibilityState === "visible" && load();
     document.addEventListener("visibilitychange", onVisible);
@@ -1063,6 +1082,14 @@ export function ProjectView({ id, taskId, onOpenTask, onOpenProject, onBack }: {
       })
       .catch(() => undefined);
   }, [kind]);
+  // Step 142: a colleague changed the record (fields, people, links, files) or it went away.
+  const reloadProject = useDebounced(load);
+  useLive((e) => {
+    if (e.k === "reset") return reloadProject();
+    if (e.k !== "object" || e.o !== id || e.by === myId) return;
+    if (e.a === "removed") setError(t("projects.not_found"));
+    else reloadProject();
+  });
 
   if (error)
     return (
