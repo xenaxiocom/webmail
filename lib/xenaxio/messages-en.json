@@ -3800,6 +3800,11 @@
     "linked_none": "Nothing linked yet.",
     "link_remove": "Remove link",
     "channel_create": "Create Rooms channel",
+    "channel_link": "Link existing channel",
+    "channel_link_title": "Link a Rooms channel",
+    "channel_link_search": "Find a channel",
+    "channel_link_none": "No channels of yours match.",
+    "channel_link_loading": "Loading channels…",
     "link_kind": {
       "email": "Email",
       "file": "File",
