@@ -128,6 +128,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/chat/scheduled",
   "/api/chat/preview",
   "/api/chat/threads",
+  // Step 139: voice messages and their transcripts (lib/xenaxio/chat/voice-texts.ts).
+  "/api/chat/voice",
   // Step 99, part G: profiles (job title, contacts, banner and frame).
   "/api/profile",
   // Step 107: colleagues with their profile for the card in mail, contacts and calendar (lib/xenaxio/people.ts).
