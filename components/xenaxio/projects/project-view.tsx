@@ -5,7 +5,7 @@
 // people, description, sub-projects) and what is linked to it (emails, files,
 // the chat channel, events). People of the project change it; its owners
 // manage people, who sees it and the archive.
-import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
+import { type FormEvent, useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { Archive, ArrowLeft, Calendar, FileText, Folder, Link as LinkIcon, Mail, MessagesSquare, MoreHorizontal, Plus, Trash, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -46,9 +46,10 @@ import { NewProjectDialog } from "./project-list";
 import { FieldInput } from "./fields";
 import { RecordComments } from "./record-comments";
 import { Attachments } from "./attachments";
+import { useFileText } from "./file-text";
 import { RecordHistory } from "./record-history";
 import { Lock } from "@/components/icons";
-import { typeHref } from "@/lib/xenaxio/projects";
+import { objectFileUrl, typeHref } from "@/lib/xenaxio/projects";
 import { TaskPanel } from "./task-panel";
 
 type Tab = "board" | "overview" | "linked" | "history";
@@ -587,6 +588,13 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
   const [creatingSub, setCreatingSub] = useState(false);
   const canEdit = project.can.edit;
   const canManage = project.can.manage;
+  // Step 132: pictures and files in the description and comments become the record's files.
+  const [filesVersion, setFilesVersion] = useState(0);
+  const canAttach = canEdit && !project.archivedAt && (type?.attachments ?? false);
+  const fileTarget = useMemo(() => (canAttach ? { objectId: project.id, onUploaded: () => setFilesVersion((v) => v + 1) } : undefined), [canAttach, project.id]);
+  const fileUrl = useCallback((fileId: string, inline: boolean) => objectFileUrl(project.id, fileId, inline), [project.id]);
+  const descriptionField = useRef<HTMLTextAreaElement>(null);
+  const descriptionFiles = useFileText({ field: descriptionField, files: fileTarget, value: description, onChange: setDescription });
 
   const save = async (body: Parameters<typeof projectsApi.update>[1]) => {
     try {
@@ -689,18 +697,27 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
         </div>
         {editing ? (
           <div className="space-y-2">
-            <textarea className="min-h-40 w-full rounded-md border border-input bg-background p-2 font-mono text-sm" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={20000} aria-label={t("projects.field.description")} />
-            <div className="flex gap-2">
+            <textarea
+              ref={descriptionField}
+              className="min-h-40 w-full rounded-md border border-input bg-background p-2 font-mono text-sm"
+              value={description}
+              onChange={(e) => setDescription(e.target.value)}
+              maxLength={20000}
+              aria-label={t("projects.field.description")}
+              {...descriptionFiles.fieldProps}
+            />
+            <div className="flex items-center gap-2">
               <Button size="sm" onClick={() => (setEditing(false), void save({ description }))}>
                 {t("common.save")}
               </Button>
               <Button size="sm" variant="ghost" onClick={() => setEditing(false)}>
                 {t("common.cancel")}
               </Button>
+              {descriptionFiles.attach && <span className="ml-auto">{descriptionFiles.attach}</span>}
             </div>
           </div>
         ) : project.description ? (
-          <MarkdownView source={project.description} className="rounded-md border border-border p-3" />
+          <MarkdownView source={project.description} className="rounded-md border border-border p-3" files={fileUrl} />
         ) : (
           <p className="text-muted-foreground">{t("projects.description_none")}</p>
         )}
@@ -744,8 +761,8 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
             </ul>
           </div>
         ))}
-        {(type?.attachments ?? false) && <Attachments objectId={project.id} canEdit={project.can.edit && !project.archivedAt} />}
-        {type?.comments && <RecordComments objectId={project.id} archived={!!project.archivedAt} type={type} />}
+        {(type?.attachments ?? false) && <Attachments objectId={project.id} canEdit={project.can.edit && !project.archivedAt} reloadKey={filesVersion} />}
+        {type?.comments && <RecordComments objectId={project.id} archived={!!project.archivedAt} type={type} files={fileTarget} />}
         {nests && <div className="space-y-1.5 text-sm sm:col-span-2">
           <div className="flex items-center gap-2">
             <span className="text-xs text-muted-foreground">{t("projects.sub")}</span>
