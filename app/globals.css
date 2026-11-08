@@ -63,6 +63,10 @@
   --color-warning-foreground: #ffffff;
   --color-info: #3b82f6;
   --color-info-foreground: #ffffff;
+  /* xenaxio step 132: board columns and stages; a theme may override them. */
+  --color-tag-violet: #7c3aed;
+  --color-tag-teal: #0d9488;
+  --color-tag-pink: #db2777;
 
   /* Selection states */
   --color-selection: #dbeafe;
@@ -139,6 +143,9 @@
   --color-warning-foreground: #ffffff;
   --color-info: #60a5fa;
   --color-info-foreground: #ffffff;
+  --color-tag-violet: #a78bfa;
+  --color-tag-teal: #2dd4bf;
+  --color-tag-pink: #f472b6;
 
   /* Selection states */
   --color-selection: rgba(59, 130, 246, 0.25);
