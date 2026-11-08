@@ -4,7 +4,8 @@
 // flows. One page: the list of projects, or one project (?id=…) with its
 // board, overview and linked emails and files; ?task=… opens a task. The
 // client is a static export, so the project and task travel in the query.
-import { useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { InlineAppView } from "@/components/layout/inline-app-view";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
 import { NavigationRail } from "@/components/layout/navigation-rail";
@@ -27,45 +28,35 @@ interface Place {
   task: string | null;
 }
 
-/** Step 119: the type on /objects?type=… (projects have their own page). */
-function readType(): string | null {
-  if (typeof window === "undefined") return null;
-  return new URLSearchParams(window.location.search).get("type");
-}
-
-function readPlace(): Place {
-  if (typeof window === "undefined") return { id: null, task: null };
-  const q = new URLSearchParams(window.location.search);
-  return { id: q.get("id"), task: q.get("task") };
-}
-
-/** Moves within the section without reloading: the address bar follows, Back works. */
-function writePlace(place: Place, replace = false): void {
+/**
+ * Moves within the section without reloading: the address bar follows, Back works.
+ * Next.js picks up history.pushState, so useSearchParams() below follows too.
+ */
+function writePlace(type: string | null, place: Place, replace = false): void {
   const q = new URLSearchParams();
-  const type = readType();
   if (type) q.set("type", type);
   if (place.id) q.set("id", place.id);
   if (place.id && place.task) q.set("task", place.task);
   const s = q.toString();
   const path = window.location.pathname.replace(/\/?$/, "/");
   const url = `${path}${s ? `?${s}` : ""}`;
-  if (replace) window.history.replaceState(window.history.state, "", url);
-  else window.history.pushState(window.history.state, "", url);
+  // null, not window.history.state: Next.js ignores a state that already carries its own
+  // markers (__NA) and would not update useSearchParams().
+  if (replace) window.history.replaceState(null, "", url);
+  else window.history.pushState(null, "", url);
 }
 
-function ProjectsSection({ typeKey }: { typeKey: string }) {
-  const [place, setPlace] = useState<Place>(readPlace);
+/**
+ * The place comes from useSearchParams(), not from window.location: on a soft
+ * navigation (a menu item, a link to a record) Next.js renders the new page
+ * before the address bar changes, so window.location still held the previous
+ * page and a type opened from the menu showed "This type does not exist".
+ */
+function ProjectsSection({ typeKey, objects }: { typeKey: string; objects: boolean }) {
+  const params = useSearchParams();
+  const place: Place = { id: params.get("id"), task: params.get("task") };
 
-  useEffect(() => {
-    const onPop = () => setPlace(readPlace());
-    window.addEventListener("popstate", onPop);
-    return () => window.removeEventListener("popstate", onPop);
-  }, []);
-
-  const go = useCallback((next: Place, replace = false) => {
-    writePlace(next, replace);
-    setPlace(next);
-  }, []);
+  const go = useCallback((next: Place, replace = false) => writePlace(objects ? typeKey : null, next, replace), [objects, typeKey]);
 
   if (place.id) {
     return (
@@ -79,12 +70,20 @@ function ProjectsSection({ typeKey }: { typeKey: string }) {
       />
     );
   }
-  return <ProjectList typeKey={typeKey} onOpen={(id, task) => go({ id, task: task ?? null })} />;
+  return <ProjectList key={typeKey} typeKey={typeKey} onOpen={(id, task) => go({ id, task: task ?? null })} />;
+}
+
+/** Step 119: the type on /objects?type=… (projects have their own page). */
+function SectionForType({ objects }: { objects: boolean }) {
+  const t = useXT();
+  const type = useSearchParams().get("type");
+  const typeKey = objects ? (type ?? "") : "project";
+  if (!typeKey) return <p className="p-4 text-sm text-muted-foreground">{t("objects.type_missing")}</p>;
+  return <ProjectsSection typeKey={typeKey} objects={objects} />;
 }
 
 export function ProjectsApp({ objects = false }: { objects?: boolean } = {}) {
   const t = useXT();
-  const [typeKey] = useState(() => (objects ? (readType() ?? "") : "project"));
   useDocumentTitle(objects ? t("objects.title") : t("projects.title"));
   const { logout, checkAuth } = useAuthStore();
   const { quota, isPushConnected } = useEmailStore();
@@ -126,7 +125,9 @@ export function ProjectsApp({ objects = false }: { objects?: boolean } = {}) {
         <div className="flex min-w-0 flex-1 flex-col">
           {inlineApp && <InlineAppView apps={loadedApps} activeAppId={inlineApp.id} onClose={closeInlineApp} />}
           <div className={cn("flex min-h-0 flex-1", inlineApp && "hidden")}>
-            {typeKey ? <ProjectsSection typeKey={typeKey} /> : <p className="p-4 text-sm text-muted-foreground">{t("objects.type_missing")}</p>}
+            <Suspense fallback={null}>
+              <SectionForType objects={objects} />
+            </Suspense>
           </div>
           {isMobile && !isEmbedded && <NavigationRail orientation="horizontal" onManageApps={handleManageApps} onInlineApp={handleInlineApp} onCloseInlineApp={closeInlineApp} activeAppId={inlineApp?.id ?? null} />}
         </div>
