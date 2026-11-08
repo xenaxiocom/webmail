@@ -35,6 +35,7 @@ import {
   projectsApi,
   type RollupProject,
   type RollupTask,
+  type StatusColor,
   type TaskFilter,
   type TaskSummary,
 } from "@/lib/xenaxio/projects";
@@ -200,6 +201,52 @@ function ColumnMenu({ column, columns, onChanged, canEdit }: { column: BoardColu
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** A new board column with its name, colour and whether its tasks count as done. */
+export function AddColumnDialog({ open, onClose, onAdd }: { open: boolean; onClose: () => void; onAdd: (body: { name: string; color: StatusColor | null; done: boolean }) => void }) {
+  const t = useXT();
+  const [name, setName] = useState("");
+  const [color, setColor] = useState<StatusColor | null>(null);
+  const [done, setDone] = useState(false);
+  useEffect(() => {
+    if (!open) return;
+    setName("");
+    setColor(null);
+    setDone(false);
+  }, [open]);
+  const submit = (e: FormEvent) => {
+    e.preventDefault();
+    if (name.trim()) onAdd({ name: name.trim(), color, done });
+  };
+  return (
+    <Modal open={open} onClose={onClose} title={t("projects.column_add")}>
+      <form onSubmit={submit} className="space-y-3">
+        <div>
+          <label htmlFor="new-column-name" className="mb-1 block text-sm font-medium">
+            {t("projects.column_name")}
+          </label>
+          <Input id="new-column-name" value={name} maxLength={60} autoFocus onChange={(e) => setName(e.target.value)} />
+        </div>
+        <div>
+          <p className="mb-1.5 text-sm font-medium">{t("projects.column_color")}</p>
+          <ColorPicker value={color} onChange={setColor} />
+        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={done} onChange={(e) => setDone(e.target.checked)} />
+          {t("projects.column_done_check")}
+        </label>
+        <div className="flex justify-end gap-2 pt-1">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            {t("common.cancel")}
+          </Button>
+          <Button type="submit" disabled={!name.trim()}>
+            {t("projects.column_add")}
+          </Button>
+        </div>
+      </form>
+    </Modal>
   );
 }
 
@@ -514,15 +561,13 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
           {shown.length === 0 && <p className="px-4 py-6 text-sm text-muted-foreground">{t("projects.tasks_none")}</p>}
         </div>
       )}
-      <PromptDialog
-        isOpen={addingColumn}
+      <AddColumnDialog
+        open={addingColumn}
         onClose={() => setAddingColumn(false)}
-        title={t("projects.column_add")}
-        onSubmit={(name) => {
+        onAdd={(body) => {
           setAddingColumn(false);
-          if (!name.trim()) return;
           projectsApi
-            .addColumn(project.id, { name: name.trim() })
+            .addColumn(project.id, body)
             .then((r) => setColumns(r.columns))
             .catch(fail);
         }}
