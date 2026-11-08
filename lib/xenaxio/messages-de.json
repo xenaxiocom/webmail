@@ -3764,6 +3764,8 @@
     "labels_hint": "Mit Kommas getrennt",
     "column_menu": "Spaltenmenü",
     "column_add": "Spalte hinzufügen",
+    "column_name": "Name",
+    "column_done_check": "Aufgaben in dieser Spalte gelten als erledigt",
     "column_rename": "Spalte umbenennen",
     "column_done": "Als Erledigt-Spalte markieren",
     "column_not_done": "Keine Erledigt-Spalte",
