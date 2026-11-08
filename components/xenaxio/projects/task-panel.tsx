@@ -5,6 +5,7 @@
 // labels, description (Markdown, as the notes of step 115) and comments.
 // Someone assigned by another person gets an email from the platform (B1).
 // Step 124: the task's number, a checklist, watchers, @mentions and the history.
+// Step 135: subtasks (a tree), the way down to the task and the task it belongs to.
 // Step 134: pictures and files pasted or dropped into the description and comments.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
@@ -16,17 +17,18 @@ import { MarkdownView } from "@/components/xenaxio/markdown-view";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { errorText, XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { type ObjectDetail, objectFileUrl, type Priority, projectsApi, type TaskDetail, type TaskInput } from "@/lib/xenaxio/projects";
+import { type ObjectDetail, objectFileUrl, type Priority, projectsApi, type TaskDetail, type TaskInput, type TaskSummary } from "@/lib/xenaxio/projects";
 import { cn } from "@/lib/utils";
 import { toast } from "@/stores/toast-store";
-import { PersonBadge, selectClass } from "./bits";
+import { Modal, PersonBadge, selectClass } from "./bits";
+import { ParentSelect, Subtasks, TaskPath } from "./subtasks";
 import { Checklist, CommentBody, History, MentionInput } from "./task-extras";
 import { FileText, useFileText } from "./file-text";
 import { Attachments } from "./attachments";
 import { linkHref } from "./project-view";
 import { Link } from "@/i18n/navigation";
 
-export function TaskPanel({ project, taskId, onClose, onChanged }: { project: ObjectDetail; taskId: string; onClose: () => void; onChanged: () => void }) {
+export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { project: ObjectDetail; taskId: string; onClose: () => void; onChanged: () => void; onOpen?: (taskId: string) => void }) {
   const t = useXT();
   const locale = useLocale();
   const [task, setTask] = useState<TaskDetail | null>(null);
@@ -37,6 +39,9 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
   const [labels, setLabels] = useState("");
   const [deleting, setDeleting] = useState(false);
   const [showHistory, setShowHistory] = useState(false);
+  // Step 135: all tasks of the project (for "belongs to") and the question when closing a branch.
+  const [all, setAll] = useState<TaskSummary[] | null>(null);
+  const [closing, setClosing] = useState(false);
   const canEdit = project.can.edit;
   const ref = useFocusTrap({ isActive: true, onEscape: onClose, restoreFocus: true });
   // Step 134: pictures and files in the description and comments become the task's files.
@@ -53,7 +58,16 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
     setLabels(d.labels.join(", "));
   }, []);
 
+  const loadAll = useCallback(() => {
+    projectsApi
+      .tasks(project.id)
+      .then((r) => setAll(r.tasks))
+      .catch(() => setAll(null));
+  }, [project.id]);
   useEffect(() => {
+    setTask(null);
+    setMissing(false);
+    loadAll();
     projectsApi
       .task(project.id, taskId)
       .then(show)
@@ -61,17 +75,38 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
         if (err instanceof XenaxioApiError && err.status === 404) setMissing(true);
         else toast.error(errorText(t, err));
       });
-  }, [project.id, taskId, show, t]);
+  }, [project.id, taskId, show, t, loadAll]);
 
-  const save = async (body: TaskInput) => {
+  const save = async (body: TaskInput, id = taskId) => {
     try {
-      await projectsApi.updateTask(project.id, taskId, body);
+      await projectsApi.updateTask(project.id, id, body);
       show(await projectsApi.task(project.id, taskId));
+      if (body.parentId !== undefined || body.done !== undefined) loadAll();
       onChanged();
     } catch (err) {
       toast.error(errorText(t, err));
     }
   };
+
+  const addSubtask = async (parentId: string, title: string): Promise<boolean> => {
+    try {
+      await projectsApi.createTask(project.id, { title, parentId });
+      show(await projectsApi.task(project.id, taskId));
+      loadAll();
+      onChanged();
+      return true;
+    } catch (err) {
+      toast.error(errorText(t, err));
+      return false;
+    }
+  };
+
+  // Closing a task with open subtasks asks whether to close them too.
+  const setDone = (done: boolean) => {
+    if (done && task?.subtasks && task.subtasks.done < task.subtasks.total) setClosing(true);
+    else void save({ done });
+  };
+  const open = (id: string) => (onOpen ? onOpen(id) : undefined);
 
   const addComment = async (body: string, mentions: string[]): Promise<boolean> => {
     try {
@@ -152,13 +187,14 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
         {!task && !missing && <p className="p-4 text-sm text-muted-foreground">{t("common.loading")}</p>}
         {task && (
           <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">
+            <TaskPath task={task} onOpen={open} />
             <div className="flex items-start gap-2">
               <input
                 type="checkbox"
                 className="mt-1.5 h-4 w-4"
                 checked={task.done}
                 disabled={!canEdit}
-                onChange={(e) => void save({ done: e.target.checked })}
+                onChange={(e) => setDone(e.target.checked)}
                 aria-label={task.done ? t("projects.task_reopen") : t("projects.task_done")}
               />
               <textarea
@@ -221,6 +257,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
                   }}
                 />
               </label>
+              <ParentSelect task={task} all={all} canEdit={canEdit} onChange={(parentId) => void save({ parentId })} />
             </div>
 
             <div className="space-y-1.5 text-sm">
@@ -260,6 +297,8 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
                 <p className="text-muted-foreground">{t("projects.description_none")}</p>
               )}
             </div>
+
+            <Subtasks task={task} canEdit={canEdit} locale={locale} onOpen={open} onToggle={(id, done) => void save({ done }, id)} onAdd={addSubtask} />
 
             <Checklist items={task.checklistItems} canEdit={canEdit} onSave={(next) => void save({ checklist: next })} onToTask={(id) => void toTask(id)} />
 
@@ -339,6 +378,18 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
           </div>
         )}
       </aside>
+      <Modal open={closing} onClose={() => setClosing(false)} title={t("projects.close_subtasks_title")}>
+        <p className="text-sm">{t("projects.close_subtasks_text", { count: (task?.subtasks?.total ?? 0) - (task?.subtasks?.done ?? 0) })}</p>
+        <div className="mt-4 flex flex-wrap justify-end gap-2">
+          <Button variant="ghost" onClick={() => setClosing(false)}>
+            {t("common.cancel")}
+          </Button>
+          <Button variant="outline" onClick={() => (setClosing(false), void save({ done: true }))}>
+            {t("projects.close_this")}
+          </Button>
+          <Button onClick={() => (setClosing(false), void save({ done: true, closeSubtasks: true }))}>{t("projects.close_all")}</Button>
+        </div>
+      </Modal>
       <ConfirmDialog
         isOpen={deleting}
         onClose={() => setDeleting(false)}

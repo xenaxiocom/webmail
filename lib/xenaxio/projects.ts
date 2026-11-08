@@ -168,7 +168,7 @@ export interface ChecklistItem {
 export interface TaskEvent {
   id: string;
   author: PersonRef | null;
-  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist";
+  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist" | "parent";
   from: string | null;
   to: string | null;
   createdAt: string;
@@ -195,6 +195,10 @@ export interface TaskSummary {
   /** Step 124 B: files and links of the task. */
   attachments: number;
   updatedAt: string;
+  /** Step 135: the task above it, the way down to it, and its subtasks (all levels). */
+  parentId?: string | null;
+  path?: { id: string; ref: string; title: string }[];
+  subtasks?: { done: number; total: number };
 }
 
 /** Step 127 A, 124 B: a file attached to a record or a task. */
@@ -221,6 +225,8 @@ export interface TaskDetail extends TaskSummary {
   /** Step 124 C. */
   watchers: PersonRef[];
   watching: boolean;
+  /** Step 135: all subtasks below it, each with its parentId, in board order. */
+  subtaskList?: TaskSummary[];
 }
 
 /** Step 124 H: a task of the parent or a sub-project on the parent's board. */
@@ -275,7 +281,58 @@ export interface TaskInput {
   labels?: string[];
   done?: boolean;
   checklist?: { id?: string; text: string; done?: boolean }[];
+  /** Step 135: a subtask of this task; null: a task of its own again. */
+  parentId?: string | null;
+  /** Step 135: with done, also its open subtasks. */
+  closeSubtasks?: boolean;
 }
+
+/** Step 125: what a chart groups by and measures. */
+export type GroupBy = "status" | "owner" | "created" | "due" | "field";
+export type Period = "day" | "week" | "month" | "quarter" | "year";
+export interface GroupSpec {
+  by: GroupBy;
+  field?: string;
+  period?: Period;
+}
+export interface Measure {
+  op: "count" | "sum" | "avg" | "min" | "max";
+  field?: string;
+}
+export interface AggregateGroup {
+  key: string | null;
+  label?: string;
+  value: number;
+  count: number;
+  split?: AggregateGroup[];
+}
+export interface AggregateResult {
+  type: string;
+  measure: Measure;
+  kind: "count" | "number" | "money";
+  currency: string | null;
+  groups: AggregateGroup[];
+  other: { value: number; count: number } | null;
+  total: { value: number; count: number };
+}
+export type ChartKind = "bar" | "barH" | "stacked" | "line" | "donut" | "number";
+export interface ChartConfig {
+  kind: "chart";
+  chart: ChartKind;
+  groupBy: GroupSpec;
+  splitBy?: GroupSpec;
+  measure: Measure;
+  filters?: FieldFilter[];
+}
+export interface ObjectView {
+  id: string;
+  type: string;
+  name: string;
+  shared: boolean;
+  config: ChartConfig;
+  can: { edit: boolean };
+}
+export type TaskGroupBy = "column" | "assignee" | "priority" | "label" | "done";
 
 async function call<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
   let res: Response;
@@ -319,6 +376,13 @@ export const projectsApi = {
   importRows: (type: string, rows: { title: string; status?: string; dueOn?: string | null; fields?: Record<string, unknown> }[]) =>
     call<{ added: number; skipped: { row: number; error: string; field?: string }[] }>("POST", `${OBJECTS}/import`, { type, rows }),
   menu: () => call<{ items: MenuItem[] }>("GET", `${OBJECTS}/menu`),
+  aggregate: (body: { type: string; status?: string; archived?: boolean; mine?: boolean; filters?: FieldFilter[]; groupBy: GroupSpec; splitBy?: GroupSpec; measure: Measure }) =>
+    call<AggregateResult>("POST", `${OBJECTS}/aggregate`, body),
+  views: (type: string) => call<{ views: ObjectView[] }>("GET", `${OBJECTS}/views${query({ type })}`),
+  saveView: (body: { id?: string; type: string; name: string; shared: boolean; config: ChartConfig }) =>
+    body.id ? call<ObjectView>("PUT", `${OBJECTS}/views/${seg(body.id)}`, { type: body.type, name: body.name, shared: body.shared, config: body.config }) : call<ObjectView>("POST", `${OBJECTS}/views`, body),
+  deleteView: (id: string) => call<Record<string, never>>("DELETE", `${OBJECTS}/views/${seg(id)}`),
+  taskSummary: (id: string, by: TaskGroupBy) => call<{ groups: AggregateGroup[]; total: number }>("GET", `${one(id)}/tasks/summary${query({ by })}`),
   setMenu: (prefs: { order?: string[]; hidden?: string[] }) => call<{ items: MenuItem[] }>("PUT", MY_MENU, prefs),
   list: (opts: { type?: string; status?: string; archived?: boolean; q?: string; mine?: boolean } = {}) =>
     call<{ objects: ObjectSummary[] }>("GET", `${OBJECTS}${query({ type: opts.type ?? "project", status: opts.status, archived: opts.archived ? "1" : undefined, q: opts.q, mine: opts.mine ? "1" : undefined })}`),
@@ -425,6 +489,8 @@ export interface TaskFilter {
   due?: "overdue" | "week" | null;
   label?: string | null;
   text?: string;
+  /** Step 135: only top tasks on the board. */
+  hideSubtasks?: boolean;
 }
 
 export function filterTasks<T extends TaskSummary>(tasks: T[], f: TaskFilter, today = localToday()): T[] {
@@ -440,6 +506,7 @@ export function filterTasks<T extends TaskSummary>(tasks: T[], f: TaskFilter, to
     if (f.due === "overdue" && !isOverdue(t.dueOn, t.done, today)) return false;
     if (f.due === "week" && (t.done || !t.dueOn || t.dueOn > weekEnd)) return false;
     if (f.label && !t.labels.includes(f.label)) return false;
+    if (f.hideSubtasks && t.parentId) return false;
     const text = `${t.title} ${t.labels.join(" ")} ${t.assignee?.name ?? ""}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
