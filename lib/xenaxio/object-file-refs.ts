@@ -1,4 +1,4 @@
-// Xenaxio step 133: pictures and files in comments and descriptions of tasks and
+// Xenaxio step 134: pictures and files in comments and descriptions of tasks and
 // records. A pasted, dropped or chosen file goes into the task's or record's files
 // (step 127 A) and the text keeps a reference to it, the way GitHub writes it:
 // "![name](file:<id>)" for a picture, "[name](file:<id>)" for any other file.

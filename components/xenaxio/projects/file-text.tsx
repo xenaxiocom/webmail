@@ -1,6 +1,6 @@
 "use client";
 
-// xenaxio step 133: pictures and files in comments and descriptions of tasks and
+// xenaxio step 134: pictures and files in comments and descriptions of tasks and
 // records. A picture pasted from the clipboard, a dropped file or one chosen with the
 // paper clip goes into the task's or record's files (step 127 A); the text gets a
 // reference to it where the caret is, as GitHub does ("![name](file:<id>)"), and the

@@ -5,7 +5,7 @@
 // labels, description (Markdown, as the notes of step 115) and comments.
 // Someone assigned by another person gets an email from the platform (B1).
 // Step 124: the task's number, a checklist, watchers, @mentions and the history.
-// Step 133: pictures and files pasted or dropped into the description and comments.
+// Step 134: pictures and files pasted or dropped into the description and comments.
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { Copy, Eye, EyeOff, Trash, X } from "@/components/icons";
@@ -39,7 +39,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
   const [showHistory, setShowHistory] = useState(false);
   const canEdit = project.can.edit;
   const ref = useFocusTrap({ isActive: true, onEscape: onClose, restoreFocus: true });
-  // Step 133: pictures and files in the description and comments become the task's files.
+  // Step 134: pictures and files in the description and comments become the task's files.
   const [filesVersion, setFilesVersion] = useState(0);
   const fileTarget = useMemo(() => (canEdit ? { objectId: project.id, taskId, onUploaded: () => (setFilesVersion((v) => v + 1), onChanged()) } : undefined), [canEdit, project.id, taskId, onChanged]);
   const fileUrl = useCallback((fileId: string, inline: boolean) => objectFileUrl(project.id, fileId, inline), [project.id]);
