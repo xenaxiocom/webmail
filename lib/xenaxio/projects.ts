@@ -24,6 +24,7 @@ export const FIELD_KINDS = ["text", "textarea", "number", "money", "date", "sele
 export type FieldKind = (typeof FIELD_KINDS)[number] | "external";
 export const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "PLN", "CZK", "SEK", "DKK", "NOK", "UAH"] as const;
 export const STATUS_COLORS = ["blue", "amber", "green", "red", "gray", "violet", "teal", "pink"] as const;
+export type StatusColor = (typeof STATUS_COLORS)[number];
 
 export interface TypeField {
   key: string;
@@ -140,6 +141,8 @@ export interface BoardColumn {
   id: string;
   name: string;
   done: boolean;
+  /** Step 132: one of STATUS_COLORS; null — none. */
+  color: StatusColor | null;
 }
 
 export interface ObjectDetail extends ObjectSummary {
@@ -346,8 +349,8 @@ export const projectsApi = {
   deleteFile: (id: string, fileId: string) => call<Record<string, never>>("DELETE", `${one(id)}/files/${seg(fileId)}`),
   addLink: (id: string, link: { kind: LinkKind; ref: string; account?: string | null; title?: string | null; taskId?: string | null }) => call<ObjectLink>("POST", `${one(id)}/links`, link),
   removeLink: (id: string, linkId: string) => call<Record<string, never>>("DELETE", `${one(id)}/links/${seg(linkId)}`),
-  addColumn: (id: string, body: { name: string; done?: boolean; index?: number }) => call<{ columns: BoardColumn[] }>("POST", `${one(id)}/columns`, body),
-  updateColumn: (id: string, columnId: string, body: { name?: string; done?: boolean; index?: number }) => call<{ columns: BoardColumn[] }>("PATCH", `${one(id)}/columns/${seg(columnId)}`, body),
+  addColumn: (id: string, body: { name: string; done?: boolean; color?: StatusColor | null; index?: number }) => call<{ columns: BoardColumn[] }>("POST", `${one(id)}/columns`, body),
+  updateColumn: (id: string, columnId: string, body: { name?: string; done?: boolean; color?: StatusColor | null; index?: number }) => call<{ columns: BoardColumn[] }>("PATCH", `${one(id)}/columns/${seg(columnId)}`, body),
   removeColumn: (id: string, columnId: string, moveTo?: string) => call<{ columns: BoardColumn[] }>("DELETE", `${one(id)}/columns/${seg(columnId)}${query({ moveTo })}`),
   tasks: (id: string) => call<{ columns: BoardColumn[]; tasks: TaskSummary[] }>("GET", `${one(id)}/tasks`),
   rollup: (id: string) => call<{ projects: RollupProject[]; tasks: RollupTask[] }>("GET", `${one(id)}/tasks${query({ subprojects: "1" })}`),

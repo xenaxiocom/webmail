@@ -35,6 +35,10 @@
   --color-warning-foreground: var(--color-warning-foreground);
   --color-info: var(--color-info);
   --color-info-foreground: var(--color-info-foreground);
+  /* xenaxio step 132: three more colours for board columns and stages (the other five are info, warning, success, destructive, muted). */
+  --color-tag-violet: var(--color-tag-violet);
+  --color-tag-teal: var(--color-tag-teal);
+  --color-tag-pink: var(--color-tag-pink);
   --color-selection: var(--color-selection);
   --color-selection-foreground: var(--color-selection-foreground);
   --color-unread: var(--color-unread);

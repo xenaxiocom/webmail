@@ -23,12 +23,15 @@ import {
 import { arrayMove, SortableContext, sortableKeyboardCoordinates, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { cn } from "@/lib/utils";
+import { tone } from "./bits";
 
 export interface BoardLane {
   id: string;
   title: string;
   /** Shown faded: the done column, a closed status. */
   done?: boolean;
+  /** Step 132: a stripe on top, a dot before the title and a light tint (STATUS_COLORS; theme colours). */
+  color?: string | null;
   /** Extra controls in the header (menu, count). */
   header?: ReactNode;
   /** Below the cards (a field to add one). */
@@ -76,20 +79,28 @@ function SortableCard({ id, disabled, children }: { id: string; disabled: boolea
   );
 }
 
+// Step 132: the board follows the density of Appearance (regular keeps the earlier 8 px between cards).
+const GAP = "gap-[calc(var(--density-item-gap)*2/3)]";
+
 function Lane({ lane, ids, disabled, render, emptyText }: { lane: BoardLane; ids: string[]; disabled: boolean; render: (id: string) => ReactNode; emptyText: string }) {
   const { setNodeRef, isOver } = useDroppable({ id: lane.id, disabled });
+  const color = tone(lane.color);
   return (
     <section
       aria-label={lane.title}
       data-board-lane={lane.id}
-      className={cn("flex w-[85vw] max-w-[300px] shrink-0 snap-start flex-col rounded-lg bg-muted/60 sm:w-72", lane.done && "bg-muted/40")}
+      data-color={lane.color ?? undefined}
+      className={cn("flex w-[85vw] max-w-[300px] shrink-0 snap-start flex-col rounded-lg bg-muted/60 sm:w-72", lane.done && "bg-muted/40", color?.tint)}
     >
-      <header className="flex items-center gap-2 px-3 pb-1 pt-2.5">
+      {/* A bar of its own: tailwind-merge does not know the theme's colour names and would drop a border colour. */}
+      {color && <div aria-hidden data-lane-stripe="" className={cn("h-[3px] shrink-0 rounded-t-lg", color.dot)} />}
+      <header className={cn("flex items-center gap-2 px-3 pb-1", color ? "pt-2" : "pt-2.5")}>
+        {color && <span aria-hidden className={cn("h-2 w-2 shrink-0 rounded-full", color.dot)} />}
         <h3 className={cn("min-w-0 flex-1 truncate text-sm font-semibold", lane.done && "text-muted-foreground")}>{lane.title}</h3>
         <span className="text-xs tabular-nums text-muted-foreground">{ids.length}</span>
         {lane.header}
       </header>
-      <div ref={setNodeRef} className={cn("flex min-h-12 flex-1 flex-col gap-2 overflow-y-auto px-2 pb-2 pt-1", isOver && "rounded-md bg-primary/5")}>
+      <div ref={setNodeRef} className={cn("flex min-h-12 flex-1 flex-col overflow-y-auto px-2 pb-2 pt-1", GAP, isOver && "rounded-md bg-primary/5")}>
         <SortableContext items={ids} strategy={verticalListSortingStrategy}>
           {ids.map((id) => (
             <SortableCard key={id} id={id} disabled={disabled}>
@@ -191,7 +202,7 @@ export function Board({
                   <span className="truncate">{row.title}</span>
                   <span className="text-xs font-normal tabular-nums text-muted-foreground">{count}</span>
                 </h3>
-                <div className="flex snap-x gap-3">
+                <div className="flex snap-x gap-[var(--density-item-gap)]">
                   {rowLanes.map((lane) => (
                     <Lane key={lane.id} lane={lane} ids={layout[lane.id] ?? []} disabled={disabled} render={render} emptyText={emptyText} />
                   ))}
@@ -201,7 +212,7 @@ export function Board({
           })}
         </div>
       ) : (
-        <div role="list" aria-label={label} className="flex min-h-0 flex-1 snap-x gap-3 overflow-x-auto overscroll-x-contain p-3 sm:p-4">
+        <div role="list" aria-label={label} className="flex min-h-0 flex-1 snap-x gap-[var(--density-item-gap)] overflow-x-auto overscroll-x-contain p-3 sm:p-4">
           {lanes.map((lane) => (
             <Lane key={lane.id} lane={lane} ids={layout[lane.id] ?? []} disabled={disabled} render={render} emptyText={emptyText} />
           ))}

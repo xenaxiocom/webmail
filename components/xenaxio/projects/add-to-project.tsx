@@ -111,7 +111,7 @@ export function AddToProjectDialog({ target, onClose }: { target: LinkTarget; on
             <span className="text-xs text-muted-foreground">{p.ref}</span>
             <span className="min-w-0 flex-1 truncate">{p.title}</span>
             {linked.has(p.id) ? (
-              <Link href={typeHref(typeKey, p.id)} className="flex items-center gap-1 text-xs text-green-700 hover:underline dark:text-green-400">
+              <Link href={typeHref(typeKey, p.id)} className="flex items-center gap-1 text-xs text-success hover:underline">
                 <Check className="h-3.5 w-3.5" />
                 {t("projects.added")}
               </Link>
