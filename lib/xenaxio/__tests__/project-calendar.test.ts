@@ -1,0 +1,57 @@
+import { describe, expect, it } from "vitest";
+import { taskDueDayKey } from "@/lib/calendar-tasks";
+import { noticeHref } from "@/lib/xenaxio/notifications";
+import { isProjectTask, projectTaskOf, toCalendarTask } from "@/lib/xenaxio/project-calendar";
+import type { MyTask } from "@/lib/xenaxio/projects";
+
+// Step 124 E: project tasks as a layer of the calendar; C: links of notices.
+const mine: MyTask = {
+  id: "t1",
+  objectId: "p1",
+  columnId: "c1",
+  number: 7,
+  ref: "P-12-7",
+  title: "Hotel buchen",
+  assignee: null,
+  dueOn: "2026-11-20",
+  priority: "high",
+  labels: [],
+  done: false,
+  doneAt: null,
+  hasDescription: false,
+  comments: 0,
+  checklist: { done: 0, total: 0 },
+  attachments: 0,
+  updatedAt: "2026-11-07T10:00:00Z",
+  object: { id: "p1", ref: "P-12", title: "Messe" },
+  column: "Offen",
+};
+
+describe("project tasks in the calendar", () => {
+  it("become all-day tasks on their due day, with the reference in the title", () => {
+    const c = toCalendarTask(mine);
+    expect(taskDueDayKey(c)).toBe("2026-11-20");
+    expect(c).toMatchObject({ title: "P-12-7 · Hotel buchen", showWithoutTime: true, progress: "needs-action", priority: 1 });
+    expect(isProjectTask(c)).toBe(true);
+    expect(projectTaskOf(c)).toEqual({ objectId: "p1", taskId: "t1" });
+    expect(isProjectTask({ id: "jmap-1" })).toBe(false);
+  });
+
+  it("notice links open as client paths", () => {
+    expect(noticeHref("/projects/?id=p1&task=t1")).toBe("/projects?id=p1&task=t1");
+    expect(noticeHref("/objects/?type=vehicle&id=o1&task=t1")).toBe("/objects?type=vehicle&id=o1&task=t1");
+  });
+});
+
+import { mapApps, mapHref } from "@/lib/xenaxio/projects";
+
+describe("places open in the person's map (owner 08.11.2026)", () => {
+  it("offers Apple Maps only on Apple devices and builds links by coordinates or address", () => {
+    expect(mapApps("Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X)")).toEqual(["apple", "google", "osm"]);
+    expect(mapApps("Mozilla/5.0 (Windows NT 10.0; Win64; x64)")).toEqual(["google", "osm"]);
+    expect(mapHref({ lat: 52.52, lng: 13.405 }, "google")).toBe("https://www.google.com/maps/search/?api=1&query=52.52%2C13.405");
+    expect(mapHref({ address: "Hauptstr. 1, Berlin", lat: 52.52, lng: 13.405 }, "apple")).toBe("https://maps.apple.com/?ll=52.52,13.405&q=Hauptstr.%201%2C%20Berlin");
+    expect(mapHref({ address: "Hauptstr. 1" }, "osm")).toBe("https://www.openstreetmap.org/search?query=Hauptstr.%201");
+    expect(mapHref({}, "google")).toBeNull();
+  });
+});
