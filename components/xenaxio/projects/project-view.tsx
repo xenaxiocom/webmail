@@ -41,6 +41,7 @@ import {
 } from "@/lib/xenaxio/projects";
 import { toast } from "@/stores/toast-store";
 import { Board } from "./board";
+import { TaskChart } from "./task-chart";
 import { Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
 import { NewProjectDialog } from "./project-list";
 import { FieldInput } from "./fields";
@@ -700,6 +701,7 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
             </ul>
           </div>
         ))}
+        {(type?.hasTasks ?? project.type === "project") && <TaskChart projectId={project.id} />}
         {(type?.attachments ?? false) && <Attachments objectId={project.id} canEdit={project.can.edit && !project.archivedAt} />}
         {type?.comments && <RecordComments objectId={project.id} archived={!!project.archivedAt} type={type} />}
         {nests && <div className="space-y-1.5 text-sm sm:col-span-2">

@@ -5,7 +5,7 @@
 // its owner and the columns "Offen / In Arbeit / Erledigt".
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import { Archive, LayoutGrid, LayoutList, CheckSquare, Plus, Trash } from "@/components/icons";
+import { Archive, ChartBar, LayoutGrid, LayoutList, CheckSquare, Plus, Share2, Trash } from "@/components/icons";
 import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,15 +15,16 @@ import { errorText } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { useViewPrefs } from "@/lib/xenaxio/view-prefs";
-import { dayText, type FieldFilter, isOverdue, local, type MyTask, type ObjectSummary, type ObjectType, type Place, type ProjectTemplate, projectsApi, type Visibility } from "@/lib/xenaxio/projects";
+import { type ChartConfig, dayText, type FieldFilter, type GroupSpec, isOverdue, local, type ObjectView, type MyTask, type ObjectSummary, type ObjectType, type Place, type ProjectTemplate, projectsApi, type Visibility } from "@/lib/xenaxio/projects";
 import { usePeopleStore } from "@/lib/xenaxio/people";
 import { FieldInput, fieldText, PlaceMenu } from "./fields";
 import { ImportDialog, exportCsv } from "./import-csv";
 import { toast } from "@/stores/toast-store";
 import { Board } from "./board";
+import { ChartView, defaultChart, validChart } from "./chart-view";
 import { Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
 
-type View = "board" | "list" | "tasks";
+type View = "board" | "list" | "tasks" | "chart";
 const VIEW_KEY = "xenaxio.projects.view";
 
 interface ListPrefs extends Record<string, unknown> {
@@ -31,6 +32,9 @@ interface ListPrefs extends Record<string, unknown> {
   groupBy: string;
   mine: boolean;
   filter: { field: string; value: string } | null;
+  /** Step 125: the chart set up last (without a saved view) and the saved view open. */
+  chart: unknown;
+  chartView: string | null;
 }
 
 /** Step 125: the person's view of a type's page, the same on every device. */
@@ -38,10 +42,12 @@ function parseListPrefs(v: Record<string, unknown>): ListPrefs {
   const view = v.view ?? v.value;
   const f = v.filter as { field?: unknown; value?: unknown } | null | undefined;
   return {
-    view: view === "list" || view === "tasks" ? view : "board",
+    view: view === "list" || view === "tasks" || view === "chart" ? view : "board",
     groupBy: typeof v.groupBy === "string" ? v.groupBy : "",
     mine: v.mine === true,
     filter: f && typeof f.field === "string" && typeof f.value === "string" ? { field: f.field, value: f.value } : null,
+    chart: v.chart ?? null,
+    chartView: typeof v.chartView === "string" ? v.chartView : null,
   };
 }
 
@@ -274,12 +280,36 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
   }, [t, typeKey, isProject]);
 
   const load = useCallback(() => {
-    const filters: FieldFilter[] = filter ? [{ field: filter.field, op: "eq", value: filter.value }] : [];
+    const filters: FieldFilter[] = filter && filter.field !== "status" ? [{ field: filter.field, op: "eq", value: filter.value }] : [];
+    const status = filter?.field === "status" ? filter.value : undefined;
     projectsApi
-      .query({ type: typeKey, archived, mine, ...(q.trim() ? { q: q.trim() } : {}), ...(filters.length ? { filters } : {}), limit: 1000 })
+      .query({ type: typeKey, archived, mine, ...(status ? { status } : {}), ...(q.trim() ? { q: q.trim() } : {}), ...(filters.length ? { filters } : {}), limit: 1000 })
       .then((r) => setProjects(r.objects))
       .catch((err: unknown) => setError(errorText(t, err)));
   }, [archived, mine, q, t, typeKey, filter]);
+  // Step 125: saved charts of the type (own and shared) and the chart being edited.
+  const me = useXenaxioMe();
+  const admin = me?.user.role === "admin";
+  const [views, setViews] = useState<ObjectView[]>([]);
+  useEffect(() => {
+    if (!type) return;
+    projectsApi
+      .views(type.key)
+      .then((r) => setViews(r.views))
+      .catch(() => setViews([]));
+  }, [type]);
+  const openView = views.find((v) => v.id === prefs.chartView) ?? null;
+  const [draft, setDraft] = useState<{ id: string; config: ChartConfig } | null>(null);
+  const chartConfig: ChartConfig | null = type ? (openView ? (draft?.id === openView.id ? draft.config : openView.config) : (validChart(type, prefs.chart) ?? defaultChart(type))) : null;
+  const setChartConfig = (c: ChartConfig) => (openView ? setDraft({ id: openView.id, config: c }) : setPrefs({ chart: c }));
+  const openChart = (id: string | null) => {
+    setDraft(null);
+    setPrefs({ view: "chart", chartView: id });
+  };
+  const pickGroup = (g: GroupSpec, key: string | null) => {
+    if (key === null) return;
+    setPrefs({ view: "list", filter: { field: g.by === "status" ? "status" : (g.field ?? ""), value: key } });
+  };
   const choiceFields = useMemo(() => (type?.fields ?? []).filter((f) => (f.type === "select" || f.type === "multiselect") && !f.sensitive), [type]);
   const columns = useMemo(() => (type?.fields ?? []).filter((f) => !f.sensitive && f.type !== "textarea" && f.type !== "external").slice(0, 5), [type]);
 
@@ -355,15 +385,28 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
               ["board", LayoutGrid, t("projects.view.board")],
               ["list", LayoutList, t("projects.view.list")],
               ["tasks", CheckSquare, t("projects.view.tasks")],
+              ["chart", ChartBar, t("objects.chart.tab")],
             ] as const
           )
             .filter(([v]) => (isProject || v !== "tasks") && (v !== "board" || boardable))
-            .map(([v, Icon, label]) => (
-            <button key={v} type="button" role="tab" aria-label={label} aria-selected={view === v} onClick={() => setView(v)} className={cn("flex items-center gap-1.5 rounded px-2 py-1 text-sm", view === v ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")}>
-              <Icon className="h-4 w-4" />
-              <span className="hidden sm:inline">{label}</span>
-            </button>
-          ))}
+            .map(([v, Icon, label]) => {
+              const on = view === v && (v !== "chart" || !openView);
+              return (
+                <button key={v} type="button" role="tab" aria-label={label} aria-selected={on} onClick={() => (v === "chart" ? openChart(null) : setView(v))} className={cn("flex items-center gap-1.5 rounded px-2 py-1 text-sm", on ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")}>
+                  <Icon className="h-4 w-4" />
+                  <span className="hidden sm:inline">{label}</span>
+                </button>
+              );
+            })}
+          {views.map((v) => {
+            const on = view === "chart" && openView?.id === v.id;
+            return (
+              <button key={v.id} type="button" role="tab" aria-selected={on} title={v.shared ? t("objects.chart.shared") : undefined} onClick={() => openChart(v.id)} className={cn("flex max-w-[160px] items-center gap-1.5 rounded px-2 py-1 text-sm", on ? "bg-muted font-medium" : "text-muted-foreground hover:text-foreground")}>
+                {v.shared ? <Share2 className="h-3.5 w-3.5 shrink-0" /> : <ChartBar className="h-3.5 w-3.5 shrink-0" />}
+                <span className="truncate">{v.name}</span>
+              </button>
+            );
+          })}
         </div>
         {view === "board" && groupOptions.length > 1 && (
           <select className="h-9 rounded-md border border-input bg-background px-2 text-sm" aria-label={t("objects.group_by")} value={groupBy} onChange={(e) => setGroupBy(e.target.value)}>
@@ -376,12 +419,12 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
         )}
         {view !== "tasks" && (
           <>
-            <Input className="h-9 w-full min-w-0 sm:w-56" value={q} onChange={(e) => setQ(e.target.value)} placeholder={isProject ? t("projects.search") : t("objects.search")} aria-label={isProject ? t("projects.search") : t("objects.search")} />
+            {view !== "chart" && <Input className="h-9 w-full min-w-0 sm:w-56" value={q} onChange={(e) => setQ(e.target.value)} placeholder={isProject ? t("projects.search") : t("objects.search")} aria-label={isProject ? t("projects.search") : t("objects.search")} />}
             <label className="flex items-center gap-1.5 text-sm">
               <input type="checkbox" checked={mine} onChange={(e) => setMine(e.target.checked)} />
               {t("projects.mine")}
             </label>
-            {choiceFields.length > 0 && (
+            {(choiceFields.length > 0 || (type?.statuses.length ?? 0) > 0) && (
               <select
                 className="h-9 rounded-md border border-input bg-background px-2 text-sm"
                 aria-label={t("objects.filter_field")}
@@ -392,6 +435,15 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
                 }}
               >
                 <option value="">{t("objects.filter_none")}</option>
+                {(type?.statuses.length ?? 0) > 0 && (
+                  <optgroup label={t("projects.field.status")}>
+                    {type!.statuses.map((st) => (
+                      <option key={st.key} value={`status:${st.key}`}>
+                        {local(st.name, locale)}
+                      </option>
+                    ))}
+                  </optgroup>
+                )}
                 {choiceFields.map((f) => (
                   <optgroup key={f.key} label={local(f.label, locale)}>
                     {(f.options ?? []).map((o) => (
@@ -432,6 +484,22 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
         <div className="p-3">
           <Notice kind="error">{error}</Notice>
         </div>
+      )}
+
+      {view === "chart" && type && chartConfig && (
+        <ChartView
+          type={type}
+          locale={locale}
+          admin={admin}
+          scope={{ mine, archived, ...(filter?.field === "status" ? { status: filter.value } : {}), filters: filter && filter.field !== "status" ? [{ field: filter.field, op: "eq", value: filter.value }] : [] }}
+          config={chartConfig}
+          onConfig={setChartConfig}
+          viewId={openView?.id ?? null}
+          onViewId={(id) => openChart(id)}
+          views={views}
+          onViews={setViews}
+          onPick={pickGroup}
+        />
       )}
 
       {view === "board" && projects && type && boardable && (

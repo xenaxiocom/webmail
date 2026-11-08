@@ -54,6 +54,7 @@ export {
   IconCalendarEvent as CalendarEvent,
   IconCalendarX as CalendarX,
   IconCamera as Camera,
+  IconChartBar as ChartBar,
   IconCheck as Check,
   IconChecks as CheckCheck,
   IconCircleCheck as CheckCircle,
