@@ -8,6 +8,7 @@
 // typed emoticons (":)") go out as emoji. Step 99: code blocks, numbered
 // lists, links and code snippets (a long paste offers one, as in Slack).
 import { IconBold, IconChartBar, IconClockHour4, IconCode, IconFile, IconFileCode, IconItalic, IconLink, IconList, IconListNumbers, IconLoader2, IconMoodSmile, IconPaperclip, IconQuote, IconSend, IconSourceCode, IconStrikethrough, IconX } from "@tabler/icons-react";
+import { pastesAsText } from "@/lib/xenaxio/paste";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { avoidAssistantButton } from "@/lib/xenaxio/assistant-lift";
 import { setThreadFollow, uploadFile } from "@/lib/xenaxio/chat/api";
@@ -105,13 +106,7 @@ export function addToComposer(key: string, files: File[], locale: string): void 
   if (overLimit) toast.error(translate(locale, "chat.too_many_files", { max: MAX_PENDING_FILES }));
 }
 
-/**
- * Office apps put a picture of the copied text next to the text itself; then
- * the text is what the person wants. A screenshot or a copied image has no plain text.
- */
-export function pastesAsText(types: readonly string[], files: File[]): boolean {
-  return types.includes("text/plain") && types.includes("text/html") && files.every((f) => f.type.startsWith("image/"));
-}
+export { pastesAsText };
 
 interface Suggestion {
   key: string;

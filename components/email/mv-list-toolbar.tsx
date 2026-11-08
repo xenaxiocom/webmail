@@ -155,6 +155,9 @@ export function MvListToolbar({
   })));
 
   const [isProcessing, setIsProcessing] = useState(false);
+  // The short "busy" pause after an action ends with the toolbar: no update after unmount.
+  const busyTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  useEffect(() => () => { if (busyTimer.current) clearTimeout(busyTimer.current); }, []);
   const [menuOpen, setMenuOpen] = useState(false);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const closeMenu = useCallback(() => setMenuOpen(false), []);
@@ -246,7 +249,7 @@ export function MvListToolbar({
         }
       }
     } finally {
-      setTimeout(() => setIsProcessing(false), 400);
+      busyTimer.current = setTimeout(() => setIsProcessing(false), 400);
     }
   };
 

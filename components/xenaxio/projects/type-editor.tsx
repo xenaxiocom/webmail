@@ -539,6 +539,8 @@ export function TypeEditorPage() {
   const [current, setCurrent] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("type")));
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState<{ name: Text; plural: Text }>({ name: { de: "", en: "" }, plural: { de: "", en: "" } });
+  // Step 134: whether records of the new type take files (on unless the creator turns it off).
+  const [newFiles, setNewFiles] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -618,6 +620,11 @@ export function TypeEditorPage() {
         <div className="space-y-3">
           <TextPair label={t("typeeditor.name")} value={newName.name} onChange={(name) => setNewName((n) => ({ ...n, name }))} />
           <TextPair label={t("typeeditor.plural")} value={newName.plural} onChange={(plural) => setNewName((n) => ({ ...n, plural }))} />
+          <label className="flex items-center gap-2 text-sm" title={t("typeeditor.attachments_hint")}>
+            <input type="checkbox" checked={newFiles} onChange={(e) => setNewFiles(e.target.checked)} />
+            {t("typeeditor.attachments")}
+            <span className="text-xs text-muted-foreground">{t("typeeditor.attachments_hint")}</span>
+          </label>
           <div className="flex justify-end gap-2">
             <Button variant="ghost" onClick={() => setCreating(false)}>
               {t("common.cancel")}
@@ -626,9 +633,10 @@ export function TypeEditorPage() {
               disabled={!(newName.name.en.trim() || newName.name.de.trim()) || !(newName.plural.en.trim() || newName.plural.de.trim())}
               onClick={async () => {
                 try {
-                  const created = await projectsApi.createType({ ...newName, menu: { show: true, icon: "folder" } });
+                  const created = await projectsApi.createType({ ...newName, attachments: newFiles, menu: { show: true, icon: "folder" } });
                   setCreating(false);
                   setNewName({ name: { de: "", en: "" }, plural: { de: "", en: "" } });
+                  setNewFiles(true);
                   await load();
                   refreshObjectMenu();
                   open(created.key);

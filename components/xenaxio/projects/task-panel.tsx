@@ -5,7 +5,8 @@
 // labels, description (Markdown, as the notes of step 115) and comments.
 // Someone assigned by another person gets an email from the platform (B1).
 // Step 124: the task's number, a checklist, watchers, @mentions and the history.
-import { useCallback, useEffect, useState } from "react";
+// Step 134: pictures and files pasted or dropped into the description and comments.
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { Copy, Eye, EyeOff, Trash, X } from "@/components/icons";
 import { Button } from "@/components/ui/button";
@@ -15,11 +16,12 @@ import { MarkdownView } from "@/components/xenaxio/markdown-view";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { errorText, XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { type ObjectDetail, type Priority, projectsApi, type TaskDetail, type TaskInput } from "@/lib/xenaxio/projects";
+import { type ObjectDetail, objectFileUrl, type Priority, projectsApi, type TaskDetail, type TaskInput } from "@/lib/xenaxio/projects";
 import { cn } from "@/lib/utils";
 import { toast } from "@/stores/toast-store";
 import { PersonBadge, selectClass } from "./bits";
 import { Checklist, CommentBody, History, MentionInput } from "./task-extras";
+import { FileText, useFileText } from "./file-text";
 import { Attachments } from "./attachments";
 import { linkHref } from "./project-view";
 import { Link } from "@/i18n/navigation";
@@ -37,6 +39,12 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
   const [showHistory, setShowHistory] = useState(false);
   const canEdit = project.can.edit;
   const ref = useFocusTrap({ isActive: true, onEscape: onClose, restoreFocus: true });
+  // Step 134: pictures and files in the description and comments become the task's files.
+  const [filesVersion, setFilesVersion] = useState(0);
+  const fileTarget = useMemo(() => (canEdit ? { objectId: project.id, taskId, onUploaded: () => (setFilesVersion((v) => v + 1), onChanged()) } : undefined), [canEdit, project.id, taskId, onChanged]);
+  const fileUrl = useCallback((fileId: string, inline: boolean) => objectFileUrl(project.id, fileId, inline), [project.id]);
+  const descriptionField = useRef<HTMLTextAreaElement>(null);
+  const descriptionFiles = useFileText({ field: descriptionField, files: fileTarget, value: description, onChange: setDescription });
 
   const show = useCallback((d: TaskDetail) => {
     setTask(d);
@@ -226,18 +234,28 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
               </div>
               {editing ? (
                 <div className="space-y-2">
-                  <textarea className="min-h-32 w-full rounded-md border border-input bg-background p-2 font-mono text-sm" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={20000} aria-label={t("projects.field.description")} autoFocus />
-                  <div className="flex gap-2">
+                  <textarea
+                    ref={descriptionField}
+                    className="min-h-32 w-full rounded-md border border-input bg-background p-2 font-mono text-sm"
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    maxLength={20000}
+                    aria-label={t("projects.field.description")}
+                    autoFocus
+                    {...descriptionFiles.fieldProps}
+                  />
+                  <div className="flex items-center gap-2">
                     <Button size="sm" onClick={() => (setEditing(false), void save({ description }))}>
                       {t("common.save")}
                     </Button>
                     <Button size="sm" variant="ghost" onClick={() => (setEditing(false), setDescription(task.description))}>
                       {t("common.cancel")}
                     </Button>
+                    {descriptionFiles.attach && <span className="ml-auto">{descriptionFiles.attach}</span>}
                   </div>
                 </div>
               ) : task.description ? (
-                <MarkdownView source={task.description} className="rounded-md border border-border p-3" />
+                <MarkdownView source={task.description} className="rounded-md border border-border p-3" files={fileUrl} />
               ) : (
                 <p className="text-muted-foreground">{t("projects.description_none")}</p>
               )}
@@ -245,7 +263,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
 
             <Checklist items={task.checklistItems} canEdit={canEdit} onSave={(next) => void save({ checklist: next })} onToTask={(id) => void toTask(id)} />
 
-            <Attachments objectId={project.id} taskId={taskId} canEdit={canEdit} onChanged={onChanged} compact />
+            <Attachments objectId={project.id} taskId={taskId} canEdit={canEdit} onChanged={onChanged} compact reloadKey={filesVersion} />
             {task.links.length > 0 && (
               <div className="space-y-1 text-sm">
                 <span className="text-xs text-muted-foreground">{t("projects.task_links")}</span>
@@ -293,14 +311,14 @@ export function TaskPanel({ project, taskId, onClose, onChanged }: { project: Ob
                       <p className="text-xs text-muted-foreground">
                         {c.author?.name ?? "—"} · {new Date(c.createdAt).toLocaleString(locale, { dateStyle: "short", timeStyle: "short" })}
                       </p>
-                      <p className="whitespace-pre-wrap break-words">
-                        <CommentBody body={c.body} people={project.people} />
-                      </p>
+                      <div className="whitespace-pre-wrap break-words">
+                        <FileText body={c.body} objectId={project.id} text={(part) => <CommentBody body={part} people={project.people} />} />
+                      </div>
                     </div>
                   </li>
                 ))}
               </ul>
-              {canEdit && <MentionInput people={project.people} onSend={addComment} />}
+              {canEdit && <MentionInput people={project.people} onSend={addComment} files={fileTarget} />}
             </div>
             {task.watchers.length > 0 && (
               <p className="text-xs text-muted-foreground">

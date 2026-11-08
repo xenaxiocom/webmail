@@ -3,7 +3,9 @@
 // xenaxio step 119: comments on a record, where its type has them (the admin
 // turns them on per type). Everyone who sees the record writes; the author
 // edits and deletes their own, the record's owners and admins delete any.
-import { type FormEvent, useCallback, useEffect, useState } from "react";
+// Step 134: pictures pasted and files dropped or chosen become the record's files
+// (where its type has files) and the comment shows them.
+import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,8 +15,10 @@ import { type ObjectComment, type ObjectType, projectsApi } from "@/lib/xenaxio/
 import { useEventText, useRecordHistory } from "./record-history";
 import { toast } from "@/stores/toast-store";
 import { PersonBadge } from "./bits";
+import { type FileTarget, FileText, useFileText } from "./file-text";
 
-export function RecordComments({ objectId, archived, type }: { objectId: string; archived: boolean; type?: ObjectType }) {
+/** `files`: where pictures and files of a new comment go (none: the type has no files or the person may not add). */
+export function RecordComments({ objectId, archived, type, files }: { objectId: string; archived: boolean; type?: ObjectType; files?: FileTarget }) {
   const t = useXT();
   const locale = useLocale();
   const [list, setList] = useState<ObjectComment[] | null>(null);
@@ -24,6 +28,8 @@ export function RecordComments({ objectId, archived, type }: { objectId: string;
   const [withChanges, setWithChanges] = useState(false);
   const events = useRecordHistory(objectId, withChanges, list?.length ?? 0);
   const eventText = useEventText(type);
+  const field = useRef<HTMLInputElement>(null);
+  const attachments = useFileText({ field, files: archived ? undefined : files, value: text, onChange: setText });
 
   const run = useCallback(
     async (fn: () => Promise<{ comments: ObjectComment[] }>) => {
@@ -102,7 +108,9 @@ export function RecordComments({ objectId, archived, type }: { objectId: string;
                   </Button>
                 </form>
               ) : (
-                <p className="whitespace-pre-wrap break-words">{c.body}</p>
+                <div className="whitespace-pre-wrap break-words">
+                  <FileText body={c.body} objectId={objectId} />
+                </div>
               )}
             </div>
           </li>
@@ -110,9 +118,10 @@ export function RecordComments({ objectId, archived, type }: { objectId: string;
           )}
       </ul>
       {!archived && (
-        <form onSubmit={add} className="flex gap-2">
-          <Input value={text} onChange={(e) => setText(e.target.value)} placeholder={t("projects.comment_add")} aria-label={t("projects.comment_add")} maxLength={4000} />
-          <Button type="submit" size="sm" disabled={!text.trim()}>
+        <form onSubmit={add} className="flex items-center gap-2">
+          <Input ref={field} value={text} onChange={(e) => setText(e.target.value)} placeholder={t("projects.comment_add")} aria-label={t("projects.comment_add")} maxLength={4000} {...attachments.fieldProps} />
+          {attachments.attach}
+          <Button type="submit" size="sm" disabled={!text.trim() || attachments.busy !== null}>
             {t("projects.comment_send")}
           </Button>
         </form>
