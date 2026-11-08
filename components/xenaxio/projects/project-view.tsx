@@ -48,7 +48,7 @@ import { RecordComments } from "./record-comments";
 import { Attachments } from "./attachments";
 import { useFileText } from "./file-text";
 import { RecordHistory } from "./record-history";
-import { Lock } from "@/components/icons";
+import { Lock, Search } from "@/components/icons";
 import { objectFileUrl, typeHref } from "@/lib/xenaxio/projects";
 import { TaskPanel } from "./task-panel";
 
@@ -825,11 +825,86 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
   );
 }
 
+/** A channel of Rooms the person is in, to link to the project instead of creating a new one. */
+export function ChannelPickDialog({ open, linked, onClose, onPick }: { open: boolean; linked: Set<string>; onClose: () => void; onPick: (roomId: string, name: string) => Promise<void> }) {
+  const t = useXT();
+  const client = useChatStore((s) => s.client);
+  const unavailable = useChatStore((s) => s.statusError || s.status?.enabled === false);
+  useChatStore((s) => s.version);
+  const [query, setQuery] = useState("");
+  const [busy, setBusy] = useState<string | null>(null);
+
+  useEffect(() => {
+    if (!open) return;
+    setQuery("");
+    void useChatStore.getState().connect();
+  }, [open]);
+
+  const q = query.trim().toLowerCase().replace(/^#/, "");
+  const rooms =
+    client?.ready
+      ? [...client.rooms.values()]
+          .filter((r) => r.membership === "join" && r.kind === "channel" && !r.archived && !linked.has(r.id))
+          .filter((r) => !q || client.roomName(r).toLowerCase().includes(q))
+          .sort((a, b) => b.lastTs - a.lastTs)
+          .slice(0, 100)
+      : [];
+
+  const pick = async (roomId: string, name: string) => {
+    setBusy(roomId);
+    try {
+      await onPick(roomId, name);
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  return (
+    <Modal open={open} title={t("projects.channel_link_title")} onClose={onClose}>
+      {!client?.ready ? (
+        <p className="text-sm text-muted-foreground">{unavailable && !client ? t("errors.chat_unavailable") : t("projects.channel_link_loading")}</p>
+      ) : (
+        <>
+          <label className="flex h-9 items-center gap-1.5 rounded-md border border-input px-2 focus-within:ring-2 focus-within:ring-ring">
+            <Search className="h-4 w-4 text-muted-foreground" />
+            <input autoFocus value={query} onChange={(e) => setQuery(e.target.value)} placeholder={t("projects.channel_link_search")} aria-label={t("projects.channel_link_search")} className="min-w-0 flex-1 bg-transparent text-sm focus:outline-none" />
+          </label>
+          {rooms.length === 0 ? (
+            <p className="mt-3 text-sm text-muted-foreground">{t("projects.channel_link_none")}</p>
+          ) : (
+            <ul className="mt-2 max-h-72 overflow-y-auto">
+              {rooms.map((r) => {
+                const name = client.roomName(r);
+                return (
+                  <li key={r.id}>
+                    <button
+                      type="button"
+                      disabled={busy !== null}
+                      onClick={() => void pick(r.id, name)}
+                      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm hover:bg-accent disabled:opacity-50"
+                    >
+                      {r.joinRule === "public" ? <MessagesSquare className="h-4 w-4 shrink-0 text-muted-foreground" /> : <Lock className="h-4 w-4 shrink-0 text-muted-foreground" />}
+                      <span className="min-w-0 flex-1 truncate">{name}</span>
+                      {busy === r.id && <span className="text-xs text-muted-foreground">…</span>}
+                    </button>
+                  </li>
+                );
+              })}
+            </ul>
+          )}
+        </>
+      )}
+    </Modal>
+  );
+}
+
 function Linked({ project, onChanged }: { project: ObjectDetail; onChanged: (p: ObjectDetail) => void }) {
   const t = useXT();
   const canEdit = project.can.edit;
   const [creating, setCreating] = useState(false);
+  const [picking, setPicking] = useState(false);
   const channel = project.links.find((l) => l.kind === "channel");
+  const linkedChannels = useMemo(() => new Set(project.links.filter((l) => l.kind === "channel" && !l.taskId).map((l) => l.ref)), [project.links]);
   // Step 124 B: links of tasks show in their task.
   const recordLinks = project.links.filter((l) => !l.taskId);
 
@@ -863,16 +938,36 @@ function Linked({ project, onChanged }: { project: ObjectDetail; onChanged: (p: 
     }
   };
 
+  // An existing channel the person is in; its members stay as they are.
+  const linkChannel = async (roomId: string, name: string) => {
+    try {
+      await projectsApi.addLink(project.id, { kind: "channel", ref: roomId, title: name.slice(0, 500) });
+      onChanged(await projectsApi.get(project.id));
+      setPicking(false);
+    } catch (err) {
+      toast.error(errorText(t, err));
+    }
+  };
+
   return (
     <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
       <div className="max-w-3xl space-y-3">
         <p className="text-sm text-muted-foreground">{t("projects.linked_intro")}</p>
-        {canEdit && !channel && (
-          <Button size="sm" variant="outline" onClick={() => void createChannel()} disabled={creating}>
-            <MessagesSquare className="mr-1 h-4 w-4" />
-            {t("projects.channel_create")}
-          </Button>
+        {canEdit && (
+          <div className="flex flex-wrap gap-2">
+            {!channel && (
+              <Button size="sm" variant="outline" onClick={() => void createChannel()} disabled={creating}>
+                <MessagesSquare className="mr-1 h-4 w-4" />
+                {t("projects.channel_create")}
+              </Button>
+            )}
+            <Button size="sm" variant="outline" onClick={() => setPicking(true)} disabled={creating}>
+              <LinkIcon className="mr-1 h-4 w-4" />
+              {t("projects.channel_link")}
+            </Button>
+          </div>
         )}
+        <ChannelPickDialog open={picking} linked={linkedChannels} onClose={() => setPicking(false)} onPick={linkChannel} />
         {recordLinks.length === 0 ? (
           <p className="text-sm text-muted-foreground">{t("projects.linked_none")}</p>
         ) : (

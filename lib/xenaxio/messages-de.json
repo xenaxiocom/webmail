@@ -3802,6 +3802,11 @@
     "linked_none": "Noch nichts verknüpft.",
     "link_remove": "Verknüpfung entfernen",
     "channel_create": "Rooms-Kanal anlegen",
+    "channel_link": "Vorhandenen Kanal verknüpfen",
+    "channel_link_title": "Rooms-Kanal verknüpfen",
+    "channel_link_search": "Kanal suchen",
+    "channel_link_none": "Keiner Ihrer Kanäle passt.",
+    "channel_link_loading": "Kanäle werden geladen…",
     "link_kind": {
       "email": "E-Mail",
       "file": "Datei",
