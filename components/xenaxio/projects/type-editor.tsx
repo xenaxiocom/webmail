@@ -18,8 +18,8 @@ import { cn } from "@/lib/utils";
 import { errorText } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { refreshObjectMenu } from "@/lib/xenaxio/projects-nav";
-import { FIELD_KINDS, type FieldKind, local, type ObjectType, projectsApi, STATUS_COLORS, type Text, type TypeAccess, type TypeField, type TypeStatus, typeHref } from "@/lib/xenaxio/projects";
-import { Modal, selectClass, StatusChip } from "./bits";
+import { FIELD_KINDS, type FieldKind, local, type ObjectType, projectsApi, STATUS_COLORS, type Text, type TypeAccess, type TypeColumn, type TypeField, type TypeStatus, typeHref } from "@/lib/xenaxio/projects";
+import { ColorPicker, Modal, selectClass, StatusChip } from "./bits";
 
 type Group = { id: string; name: string };
 type Msg = { kind: "error" | "success"; text: string } | null;
@@ -28,6 +28,20 @@ const DEFAULT_STAGES: TypeStatus[] = [
   { key: "open", name: { de: "Offen", en: "Open" }, color: "blue", closed: false },
   { key: "done", name: { de: "Erledigt", en: "Done" }, color: "green", closed: true },
 ];
+
+/** Step 133: the columns a new board gets when the admin set none (the platform's built-in set). */
+const DEFAULT_COLUMNS: Record<"de" | "en", TypeColumn[]> = {
+  de: [
+    { name: "Offen", done: false, color: null },
+    { name: "In Arbeit", done: false, color: "blue" },
+    { name: "Erledigt", done: true, color: "green" },
+  ],
+  en: [
+    { name: "To do", done: false, color: null },
+    { name: "In progress", done: false, color: "blue" },
+    { name: "Done", done: true, color: "green" },
+  ],
+};
 
 const slug = (s: string) =>
   s
@@ -285,6 +299,79 @@ function StagesEditor({ type, onSaved }: { type: ObjectType; onSaved: (t: Object
   );
 }
 
+/** Step 133: the board columns a new project of the type starts with — only the admin sets them. */
+export function ColumnsEditor({ type, onSaved }: { type: ObjectType; onSaved: (t: ObjectType) => void }) {
+  const t = useXT();
+  const locale = useLocale();
+  const own = useMemo(() => type.columns ?? [], [type.columns]);
+  const lang = locale === "de" ? "de" : "en";
+  const [list, setList] = useState<TypeColumn[]>(own.length ? own : DEFAULT_COLUMNS[lang]);
+  const [error, setError] = useState<string | null>(null);
+  useEffect(() => setList(own.length ? own : DEFAULT_COLUMNS[lang]), [own, lang]);
+  const update = (i: number, c: Partial<TypeColumn>) => setList((cur) => cur.map((x, j) => (j === i ? { ...x, ...c } : x)));
+  const move = (i: number, d: -1 | 1) =>
+    setList((cur) => {
+      const next = [...cur];
+      const [x] = next.splice(i, 1);
+      next.splice(i + d, 0, x!);
+      return next;
+    });
+  const save = async (columns: TypeColumn[]) => {
+    setError(null);
+    try {
+      onSaved(await projectsApi.setColumns(type.key, columns.map((c) => ({ ...c, name: c.name.trim() }))));
+    } catch (err) {
+      setError(errorText(t, err));
+    }
+  };
+  return (
+    <div className="space-y-2">
+      <p className="text-xs text-muted-foreground">
+        {t("typeeditor.columns_hint")}
+        {own.length === 0 && <span className="ml-1 rounded bg-muted px-1.5 py-0.5 text-foreground">{t("typeeditor.columns_default")}</span>}
+      </p>
+      {error && <Notice kind="error">{error}</Notice>}
+      <ul className="space-y-2">
+        {list.map((c, i) => (
+          <li key={i} className="flex flex-wrap items-center gap-x-3 gap-y-2 rounded-md border border-border p-2">
+            <Input className="min-w-0 flex-1 basis-40" value={c.name} maxLength={60} onChange={(e) => update(i, { name: e.target.value })} aria-label={`${t("typeeditor.column")} ${i + 1}`} />
+            <ColorPicker value={c.color} onChange={(color) => update(i, { color })} />
+            <label className="flex items-center gap-1 text-xs">
+              <input type="checkbox" checked={c.done} onChange={(e) => update(i, { done: e.target.checked })} />
+              {t("typeeditor.column_done")}
+            </label>
+            <span className="ml-auto flex">
+              <button type="button" disabled={i === 0} onClick={() => move(i, -1)} className="rounded p-1 disabled:opacity-30" aria-label={t("typeeditor.up")}>
+                <ArrowUp className="h-4 w-4" />
+              </button>
+              <button type="button" disabled={i === list.length - 1} onClick={() => move(i, 1)} className="rounded p-1 disabled:opacity-30" aria-label={t("typeeditor.down")}>
+                <ArrowDown className="h-4 w-4" />
+              </button>
+              <button type="button" disabled={list.length <= 1} onClick={() => setList((cur) => cur.filter((_, j) => j !== i))} className="rounded p-1 text-destructive disabled:opacity-30" aria-label={t("typeeditor.remove")}>
+                <Trash className="h-4 w-4" />
+              </button>
+            </span>
+          </li>
+        ))}
+      </ul>
+      <div className="flex flex-wrap gap-2">
+        <Button size="sm" variant="outline" disabled={list.length >= 20} onClick={() => setList((cur) => [...cur, { name: "", done: false, color: null }])}>
+          <Plus className="mr-1 h-4 w-4" />
+          {t("typeeditor.column_add")}
+        </Button>
+        <Button size="sm" disabled={list.some((c) => !c.name.trim())} onClick={() => void save(list)}>
+          {t("common.save")}
+        </Button>
+        {own.length > 0 && (
+          <Button size="sm" variant="ghost" onClick={() => void save([])}>
+            {t("typeeditor.columns_reset")}
+          </Button>
+        )}
+      </div>
+    </div>
+  );
+}
+
 function TypeForm({ type, types, groups, onChanged, onGone }: { type: ObjectType; types: ObjectType[]; groups: Group[]; onChanged: (t: ObjectType) => void; onGone: () => void }) {
   const t = useXT();
   const locale = useLocale();
@@ -427,6 +514,13 @@ function TypeForm({ type, types, groups, onChanged, onGone }: { type: ObjectType
         </>
         )}
       </section>
+
+      {type.hasTasks && (
+        <section className="space-y-3">
+          <h2 className="text-lg font-semibold">{t("typeeditor.columns")}</h2>
+          <ColumnsEditor type={type} onSaved={(next) => (onChanged(next), setMsg({ kind: "success", text: t("typeeditor.saved") }))} />
+        </section>
+      )}
 
       <section className="space-y-3">
         <h2 className="text-lg font-semibold">{t("typeeditor.access")}</h2>

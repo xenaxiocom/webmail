@@ -74,6 +74,13 @@ export interface TypeStatus {
   closed: boolean;
 }
 
+/** Step 133: a board column a new project of the type starts with. */
+export interface TypeColumn {
+  name: string;
+  done: boolean;
+  color: StatusColor | null;
+}
+
 export interface ObjectType {
   id: string;
   key: string;
@@ -92,6 +99,8 @@ export interface ObjectType {
   attachments: boolean;
   access: TypeAccess;
   menu: TypeMenu;
+  /** Step 133: the board columns a new project starts with (set by the admin); empty: the built-in set. */
+  columns?: TypeColumn[];
   archivedAt: string | null;
   /** Admin list only: how many records the type has. */
   records?: number;
@@ -155,7 +164,8 @@ export interface ObjectDetail extends ObjectSummary {
   children: { id: string; ref: string; title: string; type: string; status: string }[];
   backrefs: { type: string; field: string; records: { id: string; ref: string; title: string; status: string }[] }[];
   createdAt: string;
-  can: { edit: boolean; manage: boolean; join: boolean };
+  /** columns (step 133): may add, change, move and delete board columns — the company's admin only. */
+  can: { edit: boolean; manage: boolean; join: boolean; columns?: boolean };
 }
 
 export interface ChecklistItem {
@@ -380,6 +390,7 @@ export const projectsApi = {
   removeField: (key: string, field: string) => call<{ type: ObjectType; affected: number }>("DELETE", `${OBJECT_TYPES}/${seg(key)}/fields/${seg(field)}`),
   fieldUsage: (key: string, field: string, option?: string) => call<{ records: number }>("GET", `${OBJECT_TYPES}/${seg(key)}/fields/${seg(field)}/usage${query({ option })}`),
   reorderFields: (key: string, order: string[]) => call<ObjectType>("PUT", `${OBJECT_TYPES}/${seg(key)}/fields-order`, { order }),
+  setColumns: (key: string, columns: TypeColumn[]) => call<ObjectType>("PUT", `${OBJECT_TYPES}/${seg(key)}/columns`, { columns }),
   setStatuses: (key: string, statuses: TypeStatus[], moveTo?: Record<string, string>) => call<ObjectType>("PUT", `${OBJECT_TYPES}/${seg(key)}/statuses`, { statuses, ...(moveTo ? { moveTo } : {}) }),
   setCreators: (creators: "all" | "admins") => call<{ creators: "all" | "admins" }>("PUT", ADMIN_PROJECTS, { creators }),
 };

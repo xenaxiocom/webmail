@@ -297,6 +297,8 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
   const [foreign, setForeign] = useState<{ project: ObjectDetail; taskId: string } | null>(null);
   const [prefs, setPrefs] = useBoardPrefs(project.id);
   const canEdit = project.can.edit;
+  // Step 133: columns are agreed by one person — the company's admin.
+  const canColumns = !!project.can.columns;
   const hasChildren = project.children.length > 0;
   const subs = hasChildren && prefs.subs;
   const lanesBy: LanesBy = prefs.lanes === "project" && !subs ? "none" : prefs.lanes;
@@ -437,7 +439,7 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
       title: c.name,
       done: c.done,
       color: c.color ?? null,
-      ...(plain && c.column ? { header: <ColumnMenu column={c.column} columns={columns} canEdit={canEdit} onChanged={(next) => (setColumns(next), load())} /> } : {}),
+      ...(plain && c.column ? { header: <ColumnMenu column={c.column} columns={columns} canEdit={canColumns} onChanged={(next) => (setColumns(next), load())} /> } : {}),
       ...(canEdit && !subs && c.column && lanesBy === "none" ? { footer: <AddTask onAdd={(title) => add(c.column!.id, title)} /> } : {}),
     })),
   );
@@ -521,11 +523,13 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
             return task ? <TaskCard task={task} locale={locale} onOpen={() => open(task)} {...(p && p.id !== project.id ? { project: `${p.ref} · ${p.title}` } : {})} /> : null;
           }}
           after={
-            plain && canEdit && columns.length < 20 ? (
+            plain && canColumns && columns.length < 20 ? (
               <button type="button" onClick={() => setAddingColumn(true)} className="flex h-10 w-48 shrink-0 items-center gap-1 rounded-lg border border-dashed border-border px-3 text-sm text-muted-foreground hover:text-foreground">
                 <Plus className="h-4 w-4" />
                 {t("projects.column_add")}
               </button>
+            ) : plain && canEdit && !canColumns ? (
+              <p className="w-40 shrink-0 px-2 pt-2 text-xs text-muted-foreground">{t("projects.columns_by_admin")}</p>
             ) : null
           }
         />
