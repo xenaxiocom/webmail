@@ -3,7 +3,7 @@
 // xenaxio step 119: comments on a record, where its type has them (the admin
 // turns them on per type). Everyone who sees the record writes; the author
 // edits and deletes their own, the record's owners and admins delete any.
-// Step 132: pictures pasted and files dropped or chosen become the record's files
+// Step 134: pictures pasted and files dropped or chosen become the record's files
 // (where its type has files) and the comment shows them.
 import { type FormEvent, useCallback, useEffect, useRef, useState } from "react";
 import { useLocale } from "next-intl";

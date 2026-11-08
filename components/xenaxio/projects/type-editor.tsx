@@ -539,7 +539,7 @@ export function TypeEditorPage() {
   const [current, setCurrent] = useState<string | null>(() => (typeof window === "undefined" ? null : new URLSearchParams(window.location.search).get("type")));
   const [creating, setCreating] = useState(false);
   const [newName, setNewName] = useState<{ name: Text; plural: Text }>({ name: { de: "", en: "" }, plural: { de: "", en: "" } });
-  // Step 132: whether records of the new type take files (on unless the creator turns it off).
+  // Step 134: whether records of the new type take files (on unless the creator turns it off).
   const [newFiles, setNewFiles] = useState(true);
   const [error, setError] = useState<string | null>(null);
 

@@ -151,7 +151,7 @@ export function mentionsIn(text: string, picked: PersonRef[]): string[] {
   return [...new Set(picked.filter((p) => text.includes(`@${p.name}`)).map((p) => p.id))];
 }
 
-/** `files` (step 132): pictures pasted, files dropped or chosen go into the task's files and the comment points to them. */
+/** `files` (step 134): pictures pasted, files dropped or chosen go into the task's files and the comment points to them. */
 export function MentionInput({ people, onSend, disabled, files }: { people: PersonRef[]; onSend: (body: string, mentions: string[]) => Promise<boolean>; disabled?: boolean; files?: FileTarget }) {
   const t = useXT();
   const [text, setText] = useState("");

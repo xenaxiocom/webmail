@@ -1,7 +1,7 @@
 import { fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { describe, expect, it, vi } from "vitest";
 
-// Step 132: pictures pasted into a comment become the task's files; the comment shows them.
+// Step 134: pictures pasted into a comment become the task's files; the comment shows them.
 const upload = vi.hoisted(() => vi.fn());
 vi.mock("@/lib/xenaxio/projects", async (orig) => ({ ...(await orig<typeof import("@/lib/xenaxio/projects")>()), uploadObjectFile: upload }));
 vi.mock("next-intl", async (orig) => ({ ...(await orig<typeof import("next-intl")>()), useLocale: () => "en" }));
