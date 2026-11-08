@@ -1,4 +1,4 @@
-// Files pasted from the clipboard (chat, step 61; comments and descriptions, step 132).
+// Files pasted from the clipboard (chat, step 61; comments and descriptions, step 133).
 
 /**
  * Office apps put a picture of the copied text next to the text itself; then

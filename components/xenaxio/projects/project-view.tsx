@@ -537,7 +537,7 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
   const [creatingSub, setCreatingSub] = useState(false);
   const canEdit = project.can.edit;
   const canManage = project.can.manage;
-  // Step 132: pictures and files in the description and comments become the record's files.
+  // Step 133: pictures and files in the description and comments become the record's files.
   const [filesVersion, setFilesVersion] = useState(0);
   const canAttach = canEdit && !project.archivedAt && (type?.attachments ?? false);
   const fileTarget = useMemo(() => (canAttach ? { objectId: project.id, onUploaded: () => setFilesVersion((v) => v + 1) } : undefined), [canAttach, project.id]);

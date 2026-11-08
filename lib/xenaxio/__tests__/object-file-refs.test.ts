@@ -3,7 +3,7 @@ import { renderMarkdown } from "../markdown";
 import { fileRef, insertSnippet, splitFileRefs } from "../object-file-refs";
 import { pastedFiles, pastedName } from "../paste";
 
-// Step 132: pictures and files in comments and descriptions of tasks and records.
+// Step 133: pictures and files in comments and descriptions of tasks and records.
 const ID = "0f8a3c2e-1b2c-4d5e-8f90-123456789abc";
 
 describe("file references in texts", () => {

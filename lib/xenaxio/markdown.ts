@@ -2,7 +2,7 @@
 // lists, task boxes, tables, links, code). A note may come from anyone who can
 // write the file, so the HTML is sanitized with an allow-list; links open in a
 // new tab, and pictures by address are not loaded (like remote images in
-// mail) - they become links. Step 132: descriptions of tasks and records show
+// mail) - they become links. Step 133: descriptions of tasks and records show
 // their own attached files ("![name](file:<id>)") as pictures, by the address
 // the caller gives; nothing else is ever loaded.
 import DOMPurify, { type DOMPurify as Purifier } from "dompurify";
@@ -65,7 +65,7 @@ function notePurifier(): Purifier {
         node.setAttribute("rel", "noopener noreferrer nofollow");
       }
     }
-    // Only pictures of the record's own files (step 132), never by address.
+    // Only pictures of the record's own files (step 133), never by address.
     if (node.tagName === "IMG" && !ours.has(node.getAttribute("src") ?? "")) node.remove();
     // Only task boxes, and they cannot be ticked in the preview.
     if (node.tagName === "INPUT") {

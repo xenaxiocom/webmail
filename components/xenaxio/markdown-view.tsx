@@ -25,7 +25,7 @@ const STYLES = [
   "[&_kbd]:rounded [&_kbd]:border [&_kbd]:border-border [&_kbd]:px-1 [&_kbd]:font-mono [&_kbd]:text-xs",
 ].join(" ");
 
-/** `files`: where "file:<id>" of a task's or record's attached files points (step 132). */
+/** `files`: where "file:<id>" of a task's or record's attached files points (step 133). */
 export function MarkdownView({ source, className, files }: { source: string; className?: string; files?: FileUrl }) {
   const html = useMemo(() => renderMarkdown(source, files), [source, files]);
   return <div className={cn(STYLES, className)} dangerouslySetInnerHTML={{ __html: html }} />;
