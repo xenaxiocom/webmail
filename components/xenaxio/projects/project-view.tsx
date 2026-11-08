@@ -80,6 +80,11 @@ function TaskCard({ task, locale, onOpen, project }: { task: TaskSummary; locale
         </div>
       )}
       {project && <p className="mb-0.5 truncate text-[11px] text-muted-foreground">{project}</p>}
+      {task.path && task.path.length > 0 && (
+        <p className="mb-0.5 truncate text-[11px] text-muted-foreground" title={task.path.map((x) => `${x.ref} ${x.title}`).join(" › ")}>
+          ↳ {task.path.map((x) => x.ref).join(" › ")}
+        </p>
+      )}
       <p className={cn("text-sm", task.done && "line-through")}>{task.title}</p>
       <div className="mt-1.5 flex items-center gap-2 text-xs text-muted-foreground">
         <span className="tabular-nums">{task.ref}</span>
@@ -88,6 +93,11 @@ function TaskCard({ task, locale, onOpen, project }: { task: TaskSummary; locale
         {task.checklist.total > 0 && (
           <span className={cn("tabular-nums", task.checklist.done === task.checklist.total && "text-success")} title={t("projects.checklist_count", { done: task.checklist.done, total: task.checklist.total })}>
             ☑ {task.checklist.done}/{task.checklist.total}
+          </span>
+        )}
+        {task.subtasks && task.subtasks.total > 0 && (
+          <span className={cn("tabular-nums", task.subtasks.done === task.subtasks.total && "text-success")} title={t("projects.subtasks_count", { done: task.subtasks.done, total: task.subtasks.total })}>
+            ⑂ {task.subtasks.done}/{task.subtasks.total}
           </span>
         )}
         {task.attachments > 0 && <span title={t("projects.attachments_count", { count: task.attachments })}>📎 {task.attachments}</span>}
@@ -232,7 +242,7 @@ function parseBoardPrefs(v: Record<string, unknown>): BoardPrefs {
     subs: v.subs === true,
     merge: v.merge === "names" ? "names" : "done",
     lanes: (["assignee", "project", "priority", "label"] as const).includes(v.lanes as never) ? (v.lanes as LanesBy) : "none",
-    filter: { assignee: str(f.assignee), due: f.due === "overdue" || f.due === "week" ? f.due : null, label: str(f.label) },
+    filter: { assignee: str(f.assignee), due: f.due === "overdue" || f.due === "week" ? f.due : null, label: str(f.label), hideSubtasks: f.hideSubtasks === true },
   };
 }
 
@@ -254,7 +264,7 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
   const setFilter = (u: TaskFilter | ((f: TaskFilter) => TaskFilter)) => {
     const next = typeof u === "function" ? u(filter) : u;
     setText(next.text ?? "");
-    const rest = { assignee: next.assignee ?? null, due: next.due ?? null, label: next.label ?? null };
+    const rest = { assignee: next.assignee ?? null, due: next.due ?? null, label: next.label ?? null, hideSubtasks: next.hideSubtasks === true };
     if (JSON.stringify(rest) !== JSON.stringify(prefs.filter)) setPrefs({ filter: rest });
   };
   const canEdit = project.can.edit;
@@ -459,8 +469,12 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
             ))}
           </select>
         )}
+        <label className="flex items-center gap-1.5 text-sm">
+          <input type="checkbox" className="h-4 w-4" checked={!!filter.hideSubtasks} onChange={(e) => setFilter((f) => ({ ...f, hideSubtasks: e.target.checked }))} />
+          {t("projects.hide_subtasks")}
+        </label>
         {filtering && (
-          <button type="button" className="text-sm text-primary hover:underline" onClick={() => setFilter({})}>
+          <button type="button" className="text-sm text-primary hover:underline" onClick={() => setFilter((f) => ({ hideSubtasks: f.hideSubtasks }))}>
             {t("projects.filter_clear")}
           </button>
         )}
@@ -535,7 +549,7 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
             .catch(fail);
         }}
       />
-      {foreign && <TaskPanel project={foreign.project} taskId={foreign.taskId} onClose={() => setForeign(null)} onChanged={load} />}
+      {foreign && <TaskPanel project={foreign.project} taskId={foreign.taskId} onClose={() => setForeign(null)} onChanged={load} onOpen={(id) => setForeign({ ...foreign, taskId: id })} />}
     </div>
   );
 }
@@ -990,6 +1004,7 @@ export function ProjectView({ id, taskId, onOpenTask, onOpenProject, onBack }: {
           project={project}
           taskId={taskId}
           onClose={() => onOpenTask(null)}
+          onOpen={(id) => onOpenTask(id)}
           onChanged={() => {
             setReloadKey((k) => k + 1);
             load();

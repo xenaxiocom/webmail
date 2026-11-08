@@ -168,7 +168,7 @@ export interface ChecklistItem {
 export interface TaskEvent {
   id: string;
   author: PersonRef | null;
-  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist";
+  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist" | "parent";
   from: string | null;
   to: string | null;
   createdAt: string;
@@ -195,6 +195,10 @@ export interface TaskSummary {
   /** Step 124 B: files and links of the task. */
   attachments: number;
   updatedAt: string;
+  /** Step 134: the task above it, the way down to it, and its subtasks (all levels). */
+  parentId?: string | null;
+  path?: { id: string; ref: string; title: string }[];
+  subtasks?: { done: number; total: number };
 }
 
 /** Step 127 A, 124 B: a file attached to a record or a task. */
@@ -221,6 +225,8 @@ export interface TaskDetail extends TaskSummary {
   /** Step 124 C. */
   watchers: PersonRef[];
   watching: boolean;
+  /** Step 134: all subtasks below it, each with its parentId, in board order. */
+  subtaskList?: TaskSummary[];
 }
 
 /** Step 124 H: a task of the parent or a sub-project on the parent's board. */
@@ -275,6 +281,10 @@ export interface TaskInput {
   labels?: string[];
   done?: boolean;
   checklist?: { id?: string; text: string; done?: boolean }[];
+  /** Step 134: a subtask of this task; null: a task of its own again. */
+  parentId?: string | null;
+  /** Step 134: with done, also its open subtasks. */
+  closeSubtasks?: boolean;
 }
 
 /** Step 125: what a chart groups by and measures. */
@@ -479,6 +489,8 @@ export interface TaskFilter {
   due?: "overdue" | "week" | null;
   label?: string | null;
   text?: string;
+  /** Step 134: only top tasks on the board. */
+  hideSubtasks?: boolean;
 }
 
 export function filterTasks<T extends TaskSummary>(tasks: T[], f: TaskFilter, today = localToday()): T[] {
@@ -494,6 +506,7 @@ export function filterTasks<T extends TaskSummary>(tasks: T[], f: TaskFilter, to
     if (f.due === "overdue" && !isOverdue(t.dueOn, t.done, today)) return false;
     if (f.due === "week" && (t.done || !t.dueOn || t.dueOn > weekEnd)) return false;
     if (f.label && !t.labels.includes(f.label)) return false;
+    if (f.hideSubtasks && t.parentId) return false;
     const text = `${t.title} ${t.labels.join(" ")} ${t.assignee?.name ?? ""}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
