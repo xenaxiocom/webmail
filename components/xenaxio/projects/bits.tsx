@@ -1,7 +1,7 @@
 "use client";
 
 // xenaxio step 118: small pieces the Projects section shares — initials of a
-// person, a status chip, a modal frame and a picker of colleagues.
+// person, a status chip, colours of columns, a modal frame and a picker of colleagues.
 import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { X } from "@/components/icons";
 import { Input } from "@/components/ui/input";
@@ -9,17 +9,70 @@ import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { cn } from "@/lib/utils";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { type CompanyPerson, usePeopleStore } from "@/lib/xenaxio/people";
+import { STATUS_COLORS, type StatusColor } from "@/lib/xenaxio/projects";
 
-const COLORS: Record<string, string> = {
-  blue: "bg-blue-500/15 text-blue-700 dark:text-blue-300",
-  amber: "bg-amber-500/15 text-amber-700 dark:text-amber-300",
-  green: "bg-green-600/15 text-green-700 dark:text-green-300",
-  red: "bg-red-500/15 text-red-700 dark:text-red-300",
-  gray: "bg-muted text-muted-foreground",
+/**
+ * Step 132 (rule 11): the colours of stages and columns are colours of the theme,
+ * so themes, company colours and the dark mode change them too. Whole class
+ * names, so Tailwind finds them: chip, dot (also the stripe on top of a column)
+ * and the column's light tint (a gradient over its own background).
+ */
+export interface Tone {
+  chip: string;
+  dot: string;
+  tint: string;
+}
+
+const TONES: Record<StatusColor, Tone> = {
+  blue: { chip: "bg-info/15 text-info", dot: "bg-info", tint: "bg-linear-to-b from-info/10 to-info/4" },
+  amber: { chip: "bg-warning/15 text-warning", dot: "bg-warning", tint: "bg-linear-to-b from-warning/10 to-warning/4" },
+  green: { chip: "bg-success/15 text-success", dot: "bg-success", tint: "bg-linear-to-b from-success/10 to-success/4" },
+  red: { chip: "bg-destructive/15 text-destructive", dot: "bg-destructive", tint: "bg-linear-to-b from-destructive/10 to-destructive/4" },
+  gray: { chip: "bg-muted text-muted-foreground", dot: "bg-muted-foreground", tint: "bg-linear-to-b from-muted-foreground/10 to-muted-foreground/4" },
+  violet: { chip: "bg-tag-violet/15 text-tag-violet", dot: "bg-tag-violet", tint: "bg-linear-to-b from-tag-violet/10 to-tag-violet/4" },
+  teal: { chip: "bg-tag-teal/15 text-tag-teal", dot: "bg-tag-teal", tint: "bg-linear-to-b from-tag-teal/10 to-tag-teal/4" },
+  pink: { chip: "bg-tag-pink/15 text-tag-pink", dot: "bg-tag-pink", tint: "bg-linear-to-b from-tag-pink/10 to-tag-pink/4" },
 };
 
+/** The classes of a colour; null for none or an unknown one. */
+export function tone(color: string | null | undefined): Tone | null {
+  return (color && TONES[color as StatusColor]) || null;
+}
+
 export function StatusChip({ text, color }: { text: string; color?: string }) {
-  return <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium", COLORS[color ?? "gray"] ?? COLORS.gray)}>{text}</span>;
+  return <span className={cn("inline-flex shrink-0 items-center rounded-full px-2 py-0.5 text-xs font-medium", (tone(color) ?? TONES.gray).chip)}>{text}</span>;
+}
+
+/** Step 132: a row of colour swatches and "none" (column menu, stage editor). */
+export function ColorPicker({ value, onChange, allowNone = true }: { value: StatusColor | null; onChange: (color: StatusColor | null) => void; allowNone?: boolean }) {
+  const t = useXT();
+  return (
+    <div role="radiogroup" aria-label={t("projects.column_color")} className="flex flex-wrap items-center gap-1.5">
+      {allowNone && (
+        <button
+          type="button"
+          role="radio"
+          aria-checked={value === null}
+          title={t("projects.column_color_none")}
+          aria-label={t("projects.column_color_none")}
+          onClick={() => onChange(null)}
+          className={cn("relative h-5 w-5 rounded-full border border-border bg-background after:absolute after:left-1/2 after:top-1/2 after:h-px after:w-4 after:-translate-x-1/2 after:-rotate-45 after:bg-muted-foreground", value === null && "ring-2 ring-ring ring-offset-1 ring-offset-background")}
+        />
+      )}
+      {STATUS_COLORS.map((c) => (
+        <button
+          key={c}
+          type="button"
+          role="radio"
+          aria-checked={value === c}
+          title={t(`typeeditor.colors.${c}`)}
+          aria-label={t(`typeeditor.colors.${c}`)}
+          onClick={() => onChange(c)}
+          className={cn("h-5 w-5 rounded-full", TONES[c].dot, value === c && "ring-2 ring-ring ring-offset-1 ring-offset-background")}
+        />
+      ))}
+    </div>
+  );
 }
 
 export function initials(name: string): string {

@@ -40,7 +40,7 @@ import {
 } from "@/lib/xenaxio/projects";
 import { toast } from "@/stores/toast-store";
 import { Board } from "./board";
-import { Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
+import { ColorPicker, Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
 import { NewProjectDialog } from "./project-list";
 import { FieldInput } from "./fields";
 import { RecordComments } from "./record-comments";
@@ -67,7 +67,7 @@ const LINK_ICONS = { email: Mail, file: FileText, channel: MessagesSquare, event
 function TaskCard({ task, locale, onOpen, project }: { task: TaskSummary; locale: string; onOpen: () => void; project?: string }) {
   const t = useXT();
   return (
-    <button type="button" onClick={onOpen} className={cn("block w-full rounded-md border border-border bg-background p-2.5 text-left shadow-sm hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", task.done && "opacity-70")}>
+    <button type="button" onClick={onOpen} className={cn("block w-full rounded-md border border-border bg-background p-[calc(var(--density-card-p)*0.625)] text-left shadow-sm hover:border-primary/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring", task.done && "opacity-70")}>
       {task.labels.length > 0 && (
         <div className="mb-1 flex flex-wrap gap-1">
           {task.labels.map((l) => (
@@ -84,7 +84,7 @@ function TaskCard({ task, locale, onOpen, project }: { task: TaskSummary; locale
         {task.priority === "high" && <span className="font-medium text-destructive">{t("projects.priority.high")}</span>}
         {task.dueOn && <span className={cn(isOverdue(task.dueOn, task.done) && "font-medium text-destructive")}>{dayText(task.dueOn, locale)}</span>}
         {task.checklist.total > 0 && (
-          <span className={cn("tabular-nums", task.checklist.done === task.checklist.total && "text-green-600 dark:text-green-500")} title={t("projects.checklist_count", { done: task.checklist.done, total: task.checklist.total })}>
+          <span className={cn("tabular-nums", task.checklist.done === task.checklist.total && "text-success")} title={t("projects.checklist_count", { done: task.checklist.done, total: task.checklist.total })}>
             ☑ {task.checklist.done}/{task.checklist.total}
           </span>
         )}
@@ -157,6 +157,10 @@ function ColumnMenu({ column, columns, onChanged, canEdit }: { column: BoardColu
           <button type="button" className="block w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => (setOpen(false), void run(() => projectsApi.updateColumn(objectId, column.id, { done: !column.done })))}>
             {column.done ? t("projects.column_not_done") : t("projects.column_done")}
           </button>
+          <div className="border-y border-border px-3 py-2">
+            <p className="mb-1.5 text-xs text-muted-foreground">{t("projects.column_color")}</p>
+            <ColorPicker value={column.color} onChange={(color) => (setOpen(false), void run(() => projectsApi.updateColumn(objectId, column.id, { color })))} />
+          </div>
           {index > 0 && (
             <button type="button" className="block w-full px-3 py-1.5 text-left hover:bg-muted" onClick={() => (setOpen(false), void run(() => projectsApi.updateColumn(objectId, column.id, { index: index - 1 })))}>
               {t("projects.column_left")}
@@ -279,14 +283,15 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
   const projectOf = (x: TaskSummary | RollupTask) => ("project" in x ? x.project : null);
 
   // The columns shown: the project's own, or with sub-projects merged by "done" or by name.
-  const shownColumns = useMemo((): { key: string; name: string; done: boolean; column?: BoardColumn }[] => {
-    if (!subs) return columns.map((c) => ({ key: c.id, name: c.name, done: c.done, column: c }));
+  const shownColumns = useMemo((): { key: string; name: string; done: boolean; color?: string | null; column?: BoardColumn }[] => {
+    if (!subs) return columns.map((c) => ({ key: c.id, name: c.name, done: c.done, color: c.color, column: c }));
     if (prefs.merge === "done") return [{ key: "open", name: t("projects.subprojects_open"), done: false }, { key: "done", name: t("projects.subprojects_done"), done: true }];
-    const out = new Map<string, { key: string; name: string; done: boolean }>();
+    const out = new Map<string, { key: string; name: string; done: boolean; color: string | null }>();
     for (const p of subProjects) for (const c of p.columns) {
       const key = `name:${c.name.trim().toLowerCase()}`;
       const had = out.get(key);
-      out.set(key, { key, name: had?.name ?? c.name, done: (had?.done ?? false) || c.done });
+      // Step 132: the colour of the first project that has one (the parent comes first).
+      out.set(key, { key, name: had?.name ?? c.name, done: (had?.done ?? false) || c.done, color: had?.color ?? c.color ?? null });
     }
     return [...out.values()];
   }, [subs, prefs.merge, columns, subProjects, t]);
@@ -384,6 +389,7 @@ function TaskBoard({ project, onOpenTask, reloadKey }: { project: ObjectDetail; 
       id: laneId(r.key, c.key),
       title: c.name,
       done: c.done,
+      color: c.color ?? null,
       ...(plain && c.column ? { header: <ColumnMenu column={c.column} columns={columns} canEdit={canEdit} onChanged={(next) => (setColumns(next), load())} /> } : {}),
       ...(canEdit && !subs && c.column && lanesBy === "none" ? { footer: <AddTask onAdd={(title) => add(c.column!.id, title)} /> } : {}),
     })),
