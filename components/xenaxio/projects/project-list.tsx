@@ -5,7 +5,8 @@
 // its owner and the columns "Offen / In Arbeit / Erledigt".
 import { type FormEvent, useCallback, useEffect, useMemo, useState } from "react";
 import { useLocale } from "next-intl";
-import { Archive, LayoutGrid, LayoutList, CheckSquare, Plus } from "@/components/icons";
+import { Archive, LayoutGrid, LayoutList, CheckSquare, Plus, Trash } from "@/components/icons";
+import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Notice, TextField } from "@/components/xenaxio/ui";
@@ -13,9 +14,9 @@ import { cn } from "@/lib/utils";
 import { errorText } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
-import { dayText, type FieldFilter, isOverdue, local, type MyTask, type ObjectSummary, type ObjectType, projectsApi, type Visibility } from "@/lib/xenaxio/projects";
+import { dayText, type FieldFilter, isOverdue, local, type MyTask, type ObjectSummary, type ObjectType, type Place, type ProjectTemplate, projectsApi, type Visibility } from "@/lib/xenaxio/projects";
 import { usePeopleStore } from "@/lib/xenaxio/people";
-import { FieldInput, fieldText } from "./fields";
+import { FieldInput, fieldText, PlaceMenu } from "./fields";
 import { ImportDialog, exportCsv } from "./import-csv";
 import { toast } from "@/stores/toast-store";
 import { Board } from "./board";
@@ -47,6 +48,19 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
   const me = useXenaxioMe();
   const locale = useLocale();
   const typeKey = type?.key ?? "project";
+  // Step 124 G: start from a template (only types with a board).
+  const withBoard = typeKey === "project" || !!type?.hasTasks;
+  const [templates, setTemplates] = useState<ProjectTemplate[]>([]);
+  const [template, setTemplate] = useState("");
+  const [removing, setRemoving] = useState<ProjectTemplate | null>(null);
+  useEffect(() => {
+    if (!open || !withBoard) return;
+    projectsApi
+      .templates(typeKey)
+      .then((r) => setTemplates(r.templates))
+      .catch(() => setTemplates([]));
+  }, [open, withBoard, typeKey]);
+  const picked = templates.find((x) => x.id === template);
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -55,8 +69,9 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
     setError(null);
     try {
       const fields = Object.fromEntries(Object.entries(values).filter(([, v]) => v !== null && v !== undefined));
-      const created = await projectsApi.create({ type: typeKey, title: title.trim(), ...(description.trim() ? { description } : {}), ...(dueOn ? { dueOn } : {}), visibility, members, ...(parentId ? { parentId } : {}), ...(Object.keys(fields).length ? { fields } : {}) });
+      const created = await projectsApi.create({ type: typeKey, title: title.trim(), ...(description.trim() ? { description } : {}), ...(dueOn ? { dueOn } : {}), visibility, members, ...(parentId ? { parentId } : {}), ...(Object.keys(fields).length ? { fields } : {}), ...(template ? { template } : {}) });
       setTitle("");
+      setTemplate("");
       setDescription("");
       setDueOn("");
       setMembers([]);
@@ -74,6 +89,44 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
       <form onSubmit={submit} className="space-y-3">
         {error && <Notice kind="error">{error}</Notice>}
         <TextField label={t("projects.field.title")} value={title} onChange={(e) => setTitle(e.target.value)} maxLength={200} required autoFocus />
+        {withBoard && templates.length > 0 && (
+          <div className="space-y-1.5 text-sm">
+            <label htmlFor="new-template" className="font-medium">
+              {t("projects.template")}
+            </label>
+            <div className="flex gap-2">
+              <select id="new-template" className={selectClass} value={template} onChange={(e) => setTemplate(e.target.value)}>
+                <option value="">{t("projects.template_none")}</option>
+                {templates.some((x) => !x.builtIn) && (
+                  <optgroup label={t("projects.template_own")}>
+                    {templates
+                      .filter((x) => !x.builtIn)
+                      .map((x) => (
+                        <option key={x.id} value={x.id}>
+                          {x.name} · {t("projects.template_tasks", { count: x.tasks })}
+                        </option>
+                      ))}
+                  </optgroup>
+                )}
+                <optgroup label={t("projects.template_ready")}>
+                  {templates
+                    .filter((x) => x.builtIn)
+                    .map((x) => (
+                      <option key={x.id} value={x.id}>
+                        {x.name} · {t("projects.template_tasks", { count: x.tasks })}
+                      </option>
+                    ))}
+                </optgroup>
+              </select>
+              {picked?.canDelete && (
+                <Button type="button" variant="ghost" size="sm" onClick={() => setRemoving(picked)} aria-label={t("projects.template_delete")}>
+                  <Trash className="h-4 w-4" />
+                </Button>
+              )}
+            </div>
+            {picked?.description && <p className="text-xs text-muted-foreground">{picked.description}</p>}
+          </div>
+        )}
         <label className="block space-y-1.5 text-sm font-medium">
           <span>{t("projects.field.description")}</span>
           <textarea className="min-h-20 w-full rounded-md border border-input bg-background p-2 text-sm font-normal" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={20000} />
@@ -116,6 +169,26 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
           </Button>
         </div>
       </form>
+      <ConfirmDialog
+        isOpen={!!removing}
+        onClose={() => setRemoving(null)}
+        title={t("projects.template_delete")}
+        message={t("projects.template_delete_text", { name: removing?.name ?? "" })}
+        variant="destructive"
+        confirmText={t("projects.template_delete")}
+        onConfirm={() => {
+          const gone = removing;
+          setRemoving(null);
+          if (!gone) return;
+          projectsApi
+            .deleteTemplate(gone.id)
+            .then(() => {
+              setTemplates((cur) => cur.filter((x) => x.id !== gone.id));
+              setTemplate("");
+            })
+            .catch((err: unknown) => setError(errorText(t, err)));
+        }}
+      />
     </Modal>
   );
 }
@@ -137,7 +210,8 @@ function ProjectCard({ p, type, locale, onOpen, showStatus = true }: { p: Object
         .slice(0, 2)
         .map((f) => (
           <p key={f.key} className="mt-0.5 truncate text-xs text-muted-foreground">
-            {local(f.label, locale)}: {fieldText(f, p.fields[f.key], locale)}
+            {f.type === "location" ? "📍 " : `${local(f.label, locale)}: `}
+            {fieldText(f, p.fields[f.key], locale)}
           </p>
         ))}
       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
@@ -419,7 +493,7 @@ export function ProjectList({ onOpen, typeKey = "project" }: { onOpen: (id: stri
                     {(type?.statuses.length ?? 1) > 0 && <td className="px-2 py-2">{status && <StatusChip text={local(status.name, locale)} color={status.color} />}</td>}
                     {columns.map((f) => (
                       <td key={f.key} className="px-2 py-2">
-                        {fieldText(f, p.fields?.[f.key], locale, people) || "—"}
+                        {f.type === "location" && p.fields?.[f.key] ? <PlaceMenu place={p.fields[f.key] as Place} /> : fieldText(f, p.fields?.[f.key], locale, people) || "—"}
                       </td>
                     ))}
                     <td className={cn("px-2 py-2", isOverdue(p.dueOn, p.closed) && "font-medium text-destructive")}>{p.dueOn ? dayText(p.dueOn, locale) : "—"}</td>

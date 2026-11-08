@@ -2,7 +2,7 @@
 // The platform keeps the cases, people, links, columns and tasks; the client
 // draws the card from the type's fields, so later case types (industry packs)
 // need no code here.
-import { apiFetch } from "@/lib/browser-navigation";
+import { apiFetch, withBasePath } from "@/lib/browser-navigation";
 import { XenaxioApiError } from "@/lib/xenaxio/api";
 
 // Whole paths, so the Lite build check (scripts/lite/lib.mjs) sees each one.
@@ -11,6 +11,8 @@ const ADMIN_PROJECTS = "/api/admin/projects";
 // Step 119: the admin's editor of object types and the person's own menu.
 const OBJECT_TYPES = "/api/object-types";
 const MY_MENU = "/api/me/menu";
+// Step 127 D: how long the history of records is kept.
+const ADMIN_OBJECT_HISTORY = "/api/admin/object-history";
 
 export type Visibility = "members" | "company";
 export type Priority = "high" | "medium" | "low";
@@ -18,7 +20,7 @@ export type LinkKind = "email" | "file" | "channel" | "event" | "flow_run" | "ob
 export type Text = { de: string; en: string };
 
 /** Step 119: kinds of fields a company's admin can add to a type. */
-export const FIELD_KINDS = ["text", "textarea", "number", "money", "date", "select", "multiselect", "user", "checkbox", "url", "email", "phone", "ref", "refs"] as const;
+export const FIELD_KINDS = ["text", "textarea", "number", "money", "date", "select", "multiselect", "user", "checkbox", "url", "email", "phone", "ref", "refs", "file", "image", "location"] as const;
 export type FieldKind = (typeof FIELD_KINDS)[number] | "external";
 export const CURRENCIES = ["EUR", "USD", "GBP", "CHF", "PLN", "CZK", "SEK", "DKK", "NOK", "UAH"] as const;
 export const STATUS_COLORS = ["blue", "amber", "green", "red", "gray", "violet", "teal", "pink"] as const;
@@ -85,6 +87,8 @@ export interface ObjectType {
   hasTasks: boolean;
   /** Step 119: comments on records of this type. */
   comments: boolean;
+  /** Step 127: files attached to records of this type. */
+  attachments: boolean;
   access: TypeAccess;
   menu: TypeMenu;
   archivedAt: string | null;
@@ -122,6 +126,8 @@ export interface ObjectSummary {
 
 export interface ObjectLink {
   id: string;
+  /** Step 124 B: set when the link belongs to a task. */
+  taskId?: string | null;
   kind: LinkKind;
   ref: string;
   account: string | null;
@@ -149,10 +155,29 @@ export interface ObjectDetail extends ObjectSummary {
   can: { edit: boolean; manage: boolean; join: boolean };
 }
 
+export interface ChecklistItem {
+  id: string;
+  text: string;
+  done: boolean;
+}
+
+/** Step 124 F: one line of a task's history (never texts of descriptions or comments). */
+export interface TaskEvent {
+  id: string;
+  author: PersonRef | null;
+  field: "created" | "title" | "column" | "assignee" | "due" | "priority" | "labels" | "done" | "checklist";
+  from: string | null;
+  to: string | null;
+  createdAt: string;
+}
+
 export interface TaskSummary {
   id: string;
   objectId: string;
   columnId: string;
+  /** Step 124 D: number in the project and the reference "P-12-7". */
+  number: number;
+  ref: string;
   title: string;
   assignee: PersonRef | null;
   dueOn: string | null;
@@ -162,7 +187,23 @@ export interface TaskSummary {
   doneAt: string | null;
   hasDescription: boolean;
   comments: number;
+  /** Step 124 A: ticked and all checklist items. */
+  checklist: { done: number; total: number };
+  /** Step 124 B: files and links of the task. */
+  attachments: number;
   updatedAt: string;
+}
+
+/** Step 127 A, 124 B: a file attached to a record or a task. */
+export interface ObjectFile {
+  id: string;
+  taskId: string | null;
+  name: string;
+  type: string;
+  size: number;
+  createdBy: { id: string; name: string } | null;
+  createdAt: string;
+  can: { delete: boolean };
 }
 
 export interface TaskDetail extends TaskSummary {
@@ -170,6 +211,41 @@ export interface TaskDetail extends TaskSummary {
   createdBy: PersonRef | null;
   createdAt: string;
   commentList: { id: string; author: PersonRef | null; body: string; createdAt: string }[];
+  checklistItems: ChecklistItem[];
+  history: TaskEvent[];
+  /** Step 124 B: emails and files from Files linked to the task. */
+  links: ObjectLink[];
+  /** Step 124 C. */
+  watchers: PersonRef[];
+  watching: boolean;
+}
+
+/** Step 124 H: a task of the parent or a sub-project on the parent's board. */
+export interface RollupTask extends TaskSummary {
+  project: { id: string; ref: string; title: string };
+  column: string;
+  columnDone: boolean;
+}
+
+export interface RollupProject {
+  id: string;
+  ref: string;
+  title: string;
+  depth: number;
+  columns: BoardColumn[];
+}
+
+/** Step 124 G: a ready-made or company template. */
+export interface ProjectTemplate {
+  id: string;
+  name: string;
+  description: string | null;
+  builtIn: boolean;
+  type: string;
+  columns: number;
+  tasks: number;
+  createdBy: string | null;
+  canDelete: boolean;
 }
 
 export interface ObjectComment {
@@ -195,6 +271,7 @@ export interface TaskInput {
   priority?: Priority | null;
   labels?: string[];
   done?: boolean;
+  checklist?: { id?: string; text: string; done?: boolean }[];
 }
 
 async function call<T>(method: "GET" | "POST" | "PUT" | "PATCH" | "DELETE", path: string, body?: unknown): Promise<T> {
@@ -244,7 +321,13 @@ export const projectsApi = {
     call<{ objects: ObjectSummary[] }>("GET", `${OBJECTS}${query({ type: opts.type ?? "project", status: opts.status, archived: opts.archived ? "1" : undefined, q: opts.q, mine: opts.mine ? "1" : undefined })}`),
   linked: (kind: LinkKind, ref: string, account?: string | null) => call<{ objects: ObjectSummary[] }>("GET", `${OBJECTS}/linked${query({ kind, ref, account: account ?? undefined })}`),
   myTasks: (status: "open" | "done" | "all" = "open") => call<{ tasks: MyTask[] }>("GET", `${OBJECTS}/tasks/mine${query({ status })}`),
-  create: (body: { type?: string; title: string; description?: string; visibility?: Visibility; dueOn?: string | null; members?: string[]; parentId?: string | null; status?: string; fields?: Record<string, unknown> }) =>
+  // Step 124: a task by its reference, the person's tasks with a due date (calendar), templates.
+  taskByRef: (ref: string) => call<{ objectId: string; taskId: string }>("GET", `${OBJECTS}/tasks/ref/${seg(ref)}`),
+  calendarTasks: (from: string, to: string) => call<{ tasks: MyTask[] }>("GET", `${OBJECTS}/tasks/calendar${query({ from, to })}`),
+  templates: (type = "project") => call<{ templates: ProjectTemplate[] }>("GET", `${OBJECTS}/templates${query({ type })}`),
+  saveTemplate: (id: string, name: string) => call<ProjectTemplate>("POST", `${one(id)}/template`, { name }),
+  deleteTemplate: (templateId: string) => call<Record<string, never>>("DELETE", `${OBJECTS}/templates/${seg(templateId)}`),
+  create: (body: { type?: string; title: string; description?: string; visibility?: Visibility; dueOn?: string | null; members?: string[]; parentId?: string | null; status?: string; fields?: Record<string, unknown>; template?: string }) =>
     call<ObjectDetail>("POST", OBJECTS, { type: "project", ...body }),
   get: (id: string) => call<ObjectDetail>("GET", one(id)),
   update: (id: string, body: { title?: string; description?: string; visibility?: Visibility; dueOn?: string | null; status?: string; ownerId?: string | null; fields?: Record<string, unknown> }) =>
@@ -254,18 +337,28 @@ export const projectsApi = {
   setPerson: (id: string, userId: string, role: "owner" | "member" = "member") => call<ObjectDetail>("PUT", `${one(id)}/people/${seg(userId)}`, { role }),
   removePerson: (id: string, userId: string) => call<ObjectDetail | Record<string, never>>("DELETE", `${one(id)}/people/${seg(userId)}`),
   join: (id: string) => call<ObjectDetail>("POST", `${one(id)}/join`, {}),
-  addLink: (id: string, link: { kind: LinkKind; ref: string; account?: string | null; title?: string | null }) => call<ObjectLink>("POST", `${one(id)}/links`, link),
+  // Step 127 A, 124 B: files of a record or a task.
+  // Step 127 D: the history of a record; the admin's retention.
+  history: (id: string) => call<{ events: import("@/components/xenaxio/projects/record-history").ObjectEvent[] }>("GET", `${one(id)}/history`),
+  historyDays: () => call<{ days: number | null }>("GET", ADMIN_OBJECT_HISTORY),
+  setHistoryDays: (days: number | null) => call<{ days: number | null }>("PUT", ADMIN_OBJECT_HISTORY, { days }),
+  files: (id: string, taskId?: string | null) => call<{ files: ObjectFile[] }>("GET", `${one(id)}/files${query({ taskId: taskId ?? undefined })}`),
+  deleteFile: (id: string, fileId: string) => call<Record<string, never>>("DELETE", `${one(id)}/files/${seg(fileId)}`),
+  addLink: (id: string, link: { kind: LinkKind; ref: string; account?: string | null; title?: string | null; taskId?: string | null }) => call<ObjectLink>("POST", `${one(id)}/links`, link),
   removeLink: (id: string, linkId: string) => call<Record<string, never>>("DELETE", `${one(id)}/links/${seg(linkId)}`),
   addColumn: (id: string, body: { name: string; done?: boolean; index?: number }) => call<{ columns: BoardColumn[] }>("POST", `${one(id)}/columns`, body),
   updateColumn: (id: string, columnId: string, body: { name?: string; done?: boolean; index?: number }) => call<{ columns: BoardColumn[] }>("PATCH", `${one(id)}/columns/${seg(columnId)}`, body),
   removeColumn: (id: string, columnId: string, moveTo?: string) => call<{ columns: BoardColumn[] }>("DELETE", `${one(id)}/columns/${seg(columnId)}${query({ moveTo })}`),
   tasks: (id: string) => call<{ columns: BoardColumn[]; tasks: TaskSummary[] }>("GET", `${one(id)}/tasks`),
+  rollup: (id: string) => call<{ projects: RollupProject[]; tasks: RollupTask[] }>("GET", `${one(id)}/tasks${query({ subprojects: "1" })}`),
   task: (id: string, taskId: string) => call<TaskDetail>("GET", `${one(id)}/tasks/${seg(taskId)}`),
   createTask: (id: string, body: TaskInput & { title: string; index?: number }) => call<TaskSummary>("POST", `${one(id)}/tasks`, body),
   updateTask: (id: string, taskId: string, body: TaskInput) => call<TaskSummary>("PATCH", `${one(id)}/tasks/${seg(taskId)}`, body),
   moveTask: (id: string, taskId: string, columnId: string, index: number) => call<TaskSummary>("POST", `${one(id)}/tasks/${seg(taskId)}/move`, { columnId, index }),
   deleteTask: (id: string, taskId: string) => call<Record<string, never>>("DELETE", `${one(id)}/tasks/${seg(taskId)}`),
-  comment: (id: string, taskId: string, body: string) => call<TaskDetail>("POST", `${one(id)}/tasks/${seg(taskId)}/comments`, { body }),
+  comment: (id: string, taskId: string, body: string, mentions: string[] = []) => call<TaskDetail>("POST", `${one(id)}/tasks/${seg(taskId)}/comments`, { body, ...(mentions.length ? { mentions } : {}) }),
+  watch: (id: string, taskId: string, watching: boolean) => call<TaskDetail>("PUT", `${one(id)}/tasks/${seg(taskId)}/watch`, { watching }),
+  checklistToTask: (id: string, taskId: string, itemId: string) => call<TaskSummary>("POST", `${one(id)}/tasks/${seg(taskId)}/checklist/${seg(itemId)}/task`, {}),
   // Step 119: comments on the record itself.
   comments: (id: string) => call<{ comments: ObjectComment[] }>("GET", `${one(id)}/comments`),
   addComment: (id: string, body: string) => call<{ comments: ObjectComment[] }>("POST", `${one(id)}/comments`, { body }),
@@ -275,7 +368,7 @@ export const projectsApi = {
   // Step 119: the admin's editor of object types.
   adminTypes: () => call<{ types: ObjectType[] }>("GET", OBJECT_TYPES),
   createType: (body: { name: Text; plural: Text; prefix?: string; hasTasks?: boolean; menu?: TypeMenu; access?: TypeAccess }) => call<ObjectType>("POST", OBJECT_TYPES, body),
-  updateType: (key: string, body: { name?: Text; plural?: Text; prefix?: string; hasTasks?: boolean; comments?: boolean; parentTypes?: string[]; card?: string[]; menu?: TypeMenu; access?: TypeAccess }) =>
+  updateType: (key: string, body: { name?: Text; plural?: Text; prefix?: string; hasTasks?: boolean; comments?: boolean; attachments?: boolean; parentTypes?: string[]; card?: string[]; menu?: TypeMenu; access?: TypeAccess }) =>
     call<ObjectType>("PATCH", `${OBJECT_TYPES}/${seg(key)}`, body),
   archiveType: (key: string, archived: boolean) => call<ObjectType>("POST", `${OBJECT_TYPES}/${seg(key)}/archive`, { archived }),
   removeType: (key: string) => call<Record<string, never>>("DELETE", `${OBJECT_TYPES}/${seg(key)}`),
@@ -347,4 +440,64 @@ export function filterTasks<T extends TaskSummary>(tasks: T[], f: TaskFilter, to
     const text = `${t.title} ${t.labels.join(" ")} ${t.assignee?.name ?? ""}`.toLowerCase();
     return words.every((w) => text.includes(w));
   });
+}
+
+/** Step 127 A: where a file of a record is downloaded (inline: pictures and PDFs open in the browser). */
+export function objectFileUrl(objectId: string, fileId: string, inline = false): string {
+  return withBasePath(`${OBJECTS}/${encodeURIComponent(objectId)}/files/${encodeURIComponent(fileId)}${inline ? "?inline=1" : ""}`);
+}
+
+/** Uploads one file (raw body; its name and task in the query). */
+export async function uploadObjectFile(objectId: string, file: File, taskId?: string | null): Promise<ObjectFile> {
+  const q = new URLSearchParams({ name: file.name || "file" });
+  if (taskId) q.set("taskId", taskId);
+  let res: Response;
+  try {
+    res = await apiFetch(`${OBJECTS}/${encodeURIComponent(objectId)}/files?${q}`, {
+      method: "POST",
+      credentials: "same-origin",
+      headers: { Accept: "application/json", "x-xenaxio-csrf": "1", "Content-Type": file.type || "application/octet-stream" },
+      body: file,
+    });
+  } catch {
+    throw new XenaxioApiError(0, "network");
+  }
+  const data = (await res.json().catch(() => ({}))) as Record<string, unknown>;
+  if (!res.ok) throw new XenaxioApiError(res.status, typeof data.error === "string" ? data.error : res.status === 413 ? "object_file_too_large" : "internal");
+  return data as unknown as ObjectFile;
+}
+
+/** Step 127 C: a place — an address, coordinates, or both. */
+export interface Place {
+  address?: string;
+  lat?: number;
+  lng?: number;
+}
+
+/** The place on OpenStreetMap (a link; no map is loaded from another server here). */
+export function osmHref(p: Place): string | null {
+  if (typeof p.lat === "number" && typeof p.lng === "number") return `https://www.openstreetmap.org/?mlat=${p.lat}&mlon=${p.lng}#map=16/${p.lat}/${p.lng}`;
+  if (p.address) return `https://www.openstreetmap.org/search?query=${encodeURIComponent(p.address)}`;
+  return null;
+}
+
+export type MapApp = "google" | "apple" | "osm";
+
+/**
+ * Owner 08.11.2026: a place opens in the map the person chooses — Google Maps everywhere
+ * (the app on phones), Apple Maps on Apple devices, OpenStreetMap. Only links: nothing is
+ * loaded from those services until the person clicks.
+ */
+export function mapHref(p: Place, app: MapApp): string | null {
+  const hasCoords = typeof p.lat === "number" && typeof p.lng === "number";
+  if (!hasCoords && !p.address) return null;
+  const q = hasCoords ? `${p.lat},${p.lng}` : p.address!;
+  if (app === "google") return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(q)}`;
+  if (app === "apple") return hasCoords ? `https://maps.apple.com/?ll=${p.lat},${p.lng}&q=${encodeURIComponent(p.address ?? q)}` : `https://maps.apple.com/?q=${encodeURIComponent(q)}`;
+  return osmHref(p);
+}
+
+/** The maps to offer on this device: Apple Maps only on iPhone, iPad and Mac. */
+export function mapApps(userAgent: string): MapApp[] {
+  return /iPhone|iPad|iPod|Macintosh/.test(userAgent) ? ["apple", "google", "osm"] : ["google", "osm"];
 }
