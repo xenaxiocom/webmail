@@ -181,7 +181,7 @@ function Body({ message, me, onMention, onEditSnippet, onHistory }: { message: M
       </div>
     );
   }
-  // Step 138: a voice message plays inline and shows its transcript.
+  // Step 139: a voice message plays inline and shows its transcript.
   if (voiceOf(c)) return <VoiceMessage content={c} roomId={message.roomId} eventId={message.id} ts={message.ts} />;
   if (c.msgtype === "m.image" || c.msgtype === "m.file" || c.msgtype === "m.video" || c.msgtype === "m.audio") return <Attachment content={c} />;
   // Step 78, part D: a call in the room: its card, live.

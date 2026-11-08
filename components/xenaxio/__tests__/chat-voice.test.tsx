@@ -1,4 +1,4 @@
-// Step 138: a voice message in Rooms — player, waveform and its transcript.
+// Step 139: a voice message in Rooms — player, waveform and its transcript.
 import { fireEvent, render, screen } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { useVoiceTexts } from "@/lib/xenaxio/chat/voice-texts";
@@ -16,7 +16,7 @@ const content = {
   "org.matrix.msc3245.voice": {},
 };
 
-describe("voice message in Rooms (step 138)", () => {
+describe("voice message in Rooms (step 139)", () => {
   const transcribe = vi.fn(async () => {});
   const want = vi.fn();
   beforeEach(() => {

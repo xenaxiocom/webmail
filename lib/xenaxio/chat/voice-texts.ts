@@ -1,4 +1,4 @@
-// Step 138: texts of the voice messages on screen. Asked for in batches; one
+// Step 139: texts of the voice messages on screen. Asked for in batches; one
 // still being transcribed is asked for again a little later. A voice message
 // without a text (from Element, another company, or a sender without AI) is
 // transcribed by the first reader who opens it, if it is recent; older ones by

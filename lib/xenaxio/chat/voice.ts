@@ -1,4 +1,4 @@
-// Step 138: voice messages in Rooms. A voice message is an m.audio message
+// Step 139: voice messages in Rooms. A voice message is an m.audio message
 // marked as voice (Matrix MSC3245), with its length and waveform (MSC1767), so
 // Element shows it as a voice message too. Recording uses what the browser
 // can: Ogg/Opus (Firefox), WebM/Opus (Chrome, Edge), MP4/AAC (Safari).

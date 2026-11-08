@@ -1,4 +1,4 @@
-// Step 138: texts of the voice messages on screen — asked for in one batch;
+// Step 139: texts of the voice messages on screen — asked for in one batch;
 // a recent message without text is transcribed by the reader, an old one not.
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -10,7 +10,7 @@ vi.mock("@/lib/xenaxio/api", () => ({ xenaxio: api }));
 
 import { useVoiceTexts } from "../voice-texts";
 
-describe("voice texts (step 138)", () => {
+describe("voice texts (step 139)", () => {
   beforeEach(() => {
     vi.useFakeTimers();
     api.lookupVoice.mockReset();

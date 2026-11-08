@@ -1,6 +1,6 @@
 "use client";
 
-// Step 138: a voice message in Rooms — ▶/⏸, the waveform (click to jump),
+// Step 139: a voice message in Rooms — ▶/⏸, the waveform (click to jump),
 // the time and, below, its transcript: being made, the text (long ones folded),
 // copy, another language and "transcribe again", or why there is none.
 import { IconCopy, IconDownload, IconLoader2, IconPlayerPauseFilled, IconPlayerPlayFilled, IconRefresh } from "@tabler/icons-react";

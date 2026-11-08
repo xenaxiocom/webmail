@@ -1161,7 +1161,7 @@ export interface FileTranscript {
 /** Why this person cannot transcribe now. */
 export type TranscriptionUnavailable = "ai_disabled" | "transcription_off" | "ai_not_configured" | "transcription_model_missing" | "speech_server_missing" | "ai_limit_reached" | "free_limit_reached";
 
-/** Step 138: the text of a voice message in Rooms (by its chat file). */
+/** Step 139: the text of a voice message in Rooms (by its chat file). */
 export interface VoiceTranscript {
   state: "done" | "failed" | "pending";
   text?: string;
@@ -1235,7 +1235,7 @@ export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
   lookupTranscripts: (files: { id: string; accountId?: string }[]) => request<TranscriptLookup>("POST", "/api/files/transcripts/lookup", { files }),
   transcribe: (file: { id: string; accountId?: string; language?: string }) => request<{ id: string; transcript: FileTranscript }>("POST", "/api/files/transcripts", file),
-  /** Step 138: texts of the voice messages on screen; transcribing one (again, or when a reader opens it: `auto`). */
+  /** Step 139: texts of the voice messages on screen; transcribing one (again, or when a reader opens it: `auto`). */
   lookupVoice: (mxcs: string[]) => request<VoiceLookup>("POST", "/api/chat/voice/lookup", { mxcs }),
   transcribeVoice: (body: { roomId: string; eventId: string; language?: string; again?: boolean; auto?: boolean }) =>
     request<{ mxc: string; transcript: VoiceTranscript | null }>("POST", "/api/chat/voice/transcribe", body),

@@ -1,9 +1,9 @@
-// Step 138: voice messages — recording format, waveform, the message fields.
+// Step 139: voice messages — recording format, waveform, the message fields.
 import { describe, expect, it } from "vitest";
 import { plainPreview } from "../format";
 import { AUDIO_FIELD, recordingFormat, VOICE_FIELD, voiceContent, voiceOf, waveform } from "../voice";
 
-describe("voice messages (step 138)", () => {
+describe("voice messages (step 139)", () => {
   it("records in the first format the browser knows", () => {
     expect(recordingFormat((m) => m.startsWith("audio/ogg"))?.ext).toBe("ogg");
     expect(recordingFormat((m) => m.startsWith("audio/webm"))?.ext).toBe("webm");

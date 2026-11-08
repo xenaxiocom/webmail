@@ -74,7 +74,7 @@ export async function sendFiles(client: ChatClient, roomId: string, files: File[
   return failed;
 }
 
-/** Step 138: uploads a recorded voice message and sends it (in the thread, if any). */
+/** Step 139: uploads a recorded voice message and sends it (in the thread, if any). */
 export async function sendVoice(client: ChatClient, roomId: string, recording: Recording, label: string, threadRoot?: string): Promise<void> {
   const url = await uploadFile(recording.blob, `voice.${recording.format.ext}`);
   await client.send(
@@ -179,7 +179,7 @@ export function Composer({
   const schedule = useChatLater((s) => s.schedule);
   const area = useRef<HTMLTextAreaElement>(null);
   const files = useRef<HTMLInputElement>(null);
-  // Step 138: a voice message — recording, how long and how loud, and sending it.
+  // Step 139: a voice message — recording, how long and how loud, and sending it.
   const [voiceOk, setVoiceOk] = useState(false);
   useEffect(() => setVoiceOk(canRecordVoice()), []);
   const [recorder, setRecorder] = useState<VoiceRecorder | null>(null);
@@ -781,7 +781,7 @@ export function Composer({
             </label>
           )}
           <span className="flex-1" />
-          {/* Step 138: a voice message instead of typing. */}
+          {/* Step 139: a voice message instead of typing. */}
           {voiceOk && (
             <button type="button" className={cn(tool, "mr-1")} onClick={() => void startVoice()} disabled={busy} title={t("chat.voice_record")} aria-label={t("chat.voice_record")}>
               <IconMicrophone size={16} />
