@@ -159,6 +159,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/object-types",
   // Step 127 D: how long the history of records is kept (the admin, type editor).
   "/api/admin/object-history",
+  // Step 129 G: industry packages of the company (the admin, Verwaltung → Erweiterungen).
+  "/api/admin/packages",
   // Step 124 C: the bell and notification settings (lib/xenaxio/notifications.ts).
   "/api/notifications",
   "/api/me/notify-prefs",

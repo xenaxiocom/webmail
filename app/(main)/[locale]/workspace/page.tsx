@@ -3,7 +3,7 @@
 // Workspace home: company status and, for admins, the set-up pages.
 import type { ReactNode } from "react";
 import { Link } from "@/i18n/navigation";
-import { Brain, Building, ChevronRight, FileText, Folder, Globe, Inbox, KeyRound, LayoutGrid, Mail, MessagesSquare, Palette, Share2, ShieldCheck, Smartphone, Sparkles, Terminal, Users, Video } from "@/components/icons";
+import { Brain, Building, ChevronRight, FileText, Folder, Globe, Inbox, KeyRound, LayoutGrid, Mail, MessagesSquare, Palette, Puzzle, Share2, ShieldCheck, Smartphone, Sparkles, Terminal, Users, Video } from "@/components/icons";
 import { Notice } from "@/components/xenaxio/ui";
 import { useMe, WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -87,6 +87,7 @@ function Overview() {
         {isAdmin && <Tile href="/workspace/ai" icon={<Sparkles className="w-5 h-5" />} title={t("workspace.ai")} description={t("workspace.ai_desc")} />}
         {isAdmin && <Tile href="/workspace/projects" icon={<LayoutGrid className="w-5 h-5" />} title={t("workspace.projects")} description={t("workspace.projects_desc")} />}
         {isAdmin && <Tile href="/workspace/object-types" icon={<LayoutGrid className="w-5 h-5" />} title={t("workspace.object_types")} description={t("workspace.object_types_desc")} />}
+        {isAdmin && <Tile href="/workspace/extensions" icon={<Puzzle className="w-5 h-5" />} title={t("workspace.extensions")} description={t("workspace.extensions_desc")} />}
         {isAdmin && <Tile href="/workspace/groups" icon={<Users className="w-5 h-5" />} title={t("workspace.groups")} description={t("workspace.groups_desc")} />}
         {isAdmin && <Tile href="/workspace/flows" icon={<Share2 className="w-5 h-5" />} title={t("workspace.flows")} description={t("workspace.flows_desc")} />}
         {isAdmin && <Tile href="/workspace/audit" icon={<FileText className="w-5 h-5" />} title={t("workspace.audit")} description={t("workspace.audit_desc")} />}

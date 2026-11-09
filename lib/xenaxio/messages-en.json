@@ -349,7 +349,15 @@
     "helper_tool_not_allowed": "A helper may only use tools that read or prepare: {tools}",
     "helper_invalid": "Please fill in the name, what it is for, how it works and at least one tool.",
     "helper_limit": "Your company already has the most helpers possible (10).",
-    "helper_not_found": "This helper no longer exists."
+    "helper_not_found": "This helper no longer exists.",
+    "package_unknown": "This package does not exist.",
+    "package_not_installed": "The package is not installed.",
+    "package_disabled": "The package is not available right now.",
+    "package_type_taken": "An object type with the key “{type}” exists already – rename or archive it first.",
+    "package_right_unknown": "The package does not know this right.",
+    "package_group_unknown": "A group does not exist.",
+    "package_user_unknown": "A person is not in the company.",
+    "package_model_check_failed": "The model did not pass the check ({error}): it must read pictures and answer strict JSON."
   },
   "login": {
     "title": "Sign in",
@@ -447,7 +455,9 @@
     "my_menu": "My menu",
     "my_menu_desc": "Order and hide entries in your menu",
     "connections": "Connections",
-    "connections_desc": "The company's outside systems (CRM, accounting) for your assistant"
+    "connections_desc": "The company's outside systems (CRM, accounting) for your assistant",
+    "extensions": "Extensions",
+    "extensions_desc": "Industry packages like Xenaxio Maritime: install, rights, AI model"
   },
   "domain": {
     "title": "Domains and DNS",
@@ -4454,5 +4464,28 @@
     "company_title": "Anonymous numbers to improve the assistant",
     "company_intro": "Xenaxio counts, for the whole platform, how often each of the assistant's tools is used and goes wrong, without content, people or company names (privacy policy, section 7b).",
     "company_switch": "Count my company's use too"
+  },
+  "packages": {
+    "title": "Extensions",
+    "intro": "Industry packages add solutions for your industry to Xenaxio – for example Xenaxio Maritime for ship stability and loading. A package brings its own object types, skills of the assistant and its own app. Only the company's admin installs and removes packages.",
+    "none": "No industry packages are available for your company yet.",
+    "install": "Install",
+    "remove": "Remove",
+    "remove_text": "Remove “{name}”? The package's object types go to the archive; their records stay readable. The package's rights and model are reset.",
+    "brings": "Brings: {types}",
+    "open_app": "Open app",
+    "types_link": "See object types",
+    "rights": "Rights",
+    "rights_hint": "Who may do what in the package: everyone, groups or single people. Admins have every right.",
+    "everyone": "All employees",
+    "model": "AI model of the package",
+    "model_company": "As the company (the company's AI settings)",
+    "model_own": "Own model for this package",
+    "model_url": "Address (OpenAI-compatible)",
+    "model_name": "Model",
+    "model_key": "API key",
+    "model_key_kept": "API key (saved – leave empty to keep it)",
+    "model_hint": "When you save, Xenaxio checks that the model reads pictures and answers strict JSON. Its use does not count towards the Xenaxio allowance.",
+    "model_checking": "Checking …"
   }
 }
