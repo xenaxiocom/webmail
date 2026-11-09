@@ -1,17 +1,33 @@
-# Xenaxio webmail
+# Xenaxio web client
 
-This is the web client of **Xenaxio**, a sovereign AI workspace (mail, calendar, contacts and an AI assistant) for small companies in Germany. It is a fork of [Bulwark Mail](https://github.com/bulwarkmail/webmail) (AGPL-3.0-only); everything below the line is Bulwark's own README.
+This is the open-source web client of **[Xenaxio](https://xenaxio.com/)**, a sovereign AI workspace: email on your own domain, calendar and contacts, Rooms team chat, files, video meetings and webinars, online booking, projects and an AI assistant – in Xenaxio Cloud in Germany or on your own servers, down to the AI model. It is a fork of [Bulwark Mail](https://github.com/bulwarkmail/webmail) (AGPL-3.0-only); everything below the line is Bulwark's own README.
 
-## What Xenaxio changes
+- Website: [xenaxio.com](https://xenaxio.com/) (German: [xenaxio.com/de/](https://xenaxio.com/de/)) · all key facts on one page: [xenaxio.com/facts/](https://xenaxio.com/facts/)
+- Live demo without signing up: [app.xenaxio.com/en/demo/](https://app.xenaxio.com/en/demo/)
+- For AI assistants: [xenaxio.com/llms.txt](https://xenaxio.com/llms.txt)
+- MCP connector for Claude and other AI chats: [xenaxio.com/mcp/](https://xenaxio.com/mcp/)
+- Rooms as a product of its own: [XenRooms](https://xenrooms.com/)
+
+## What Xenaxio is
+
+- **Three ways to run it, one software:** Xenaxio Cloud (data centre in Germany, AI by Mistral through its EU endpoint), the cloud with your company's own AI model (for example Ollama or vLLM), or on-premise on your own servers, AI model included.
+- **Email, calendar, contacts, files** on open standards (IMAP, SMTP, JMAP, CalDAV, CardDAV); Outlook, Thunderbird and Apple Mail keep working.
+- **Rooms**, a team chat like Slack on Matrix: channels, threads, calls, shared channels with other companies.
+- **Video meetings and webinars** in the browser on LiveKit, guests without an account; **online booking** like Calendly, built into the calendar.
+- **Projects and your own object types**, boards and tasks next to email.
+- **An AI assistant with clear limits:** it reads only what the person may see, drafts instead of sending, asks before it creates meetings, and every action is in the audit log. Content is not used for training.
+- **Your portal and app:** company.xenaxio.com or your own domain, with your logo and colour; installed as an app on computer and phone.
+
+## What this fork changes
 
 - The client talks only to the Xenaxio platform API under `/api` (a backend-for-frontend with an httpOnly session cookie). It never connects to the mail server directly and holds no mail credentials.
-- Own pages: sign-in, company onboarding, workspace (domain and DNS, employees, AI settings, audit log, MCP tokens, password) and the operator console.
-- AI assistant side panel: questions about the mailbox with sources, "Kurz" (summary), "Mit KI antworten" (reply draft), meeting proposals that run only after "Bestätigen".
-- Files: the Bulwark file manager on the mail server's JMAP file storage, through the same proxy; up to 100 MB per file in the cloud. Office editing is switched off.
-- Sharing within a company: files, calendars, address books and mail folders through Bulwark's Share dialog. The platform serves the colleague directory and allows sharing only with people of the same company.
-- Xenaxio branding, German and English only, features that call external services switched off.
+- Own pages: sign-in, company onboarding, workspace administration (domains and DNS, people, shared mailboxes, AI settings and your own model, audit log, MCP tokens), Rooms, meetings, booking, projects and the operator console.
+- AI assistant side panel: questions about mailbox, calendar, files and chat with sources, summaries, reply drafts, tasks and scheduled jobs; actions with side effects run only after "Confirm".
+- Files: the Bulwark file manager on the mail server's JMAP file storage, through the same proxy; up to 100 MB per file in the cloud.
+- Sharing within a company: files, calendars, address books and mail folders through Bulwark's Share dialog, only with people of the same company.
+- Xenaxio branding, German and English, features that call external services switched off.
 
-Xenaxio code lives in `lib/xenaxio/`, `components/xenaxio/` and `app/(main)/[locale]/{login,onboarding,workspace,operator}`; changes to upstream files are kept small.
+Xenaxio code lives in `lib/xenaxio/`, `components/xenaxio/` and the Xenaxio pages under `app/(main)/[locale]/`; changes to upstream files are kept small.
 
 ## Building
 
