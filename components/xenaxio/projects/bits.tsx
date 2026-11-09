@@ -103,13 +103,14 @@ export function Modal({ open, title, onClose, children, wide = false }: { open: 
         role="dialog"
         aria-modal="true"
         aria-labelledby={id}
-        className={cn("max-h-[90dvh] w-full overflow-y-auto rounded-t-xl border border-border bg-background p-4 shadow-xl sm:rounded-xl", wide ? "sm:max-w-2xl" : "sm:max-w-md")}
+        className={cn("max-h-[90dvh] w-full overflow-y-auto rounded-t-xl border border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl sm:rounded-xl sm:pb-4", wide ? "sm:max-w-2xl" : "sm:max-w-md")}
       >
-        <div className="mb-3 flex items-center gap-2">
+        {/* The title and the close button stay in view while a long dialog scrolls. */}
+        <div className="sticky -top-4 z-10 -mx-4 -mt-4 mb-3 flex items-center gap-2 bg-background px-4 pt-4 pb-1">
           <h2 id={id} className="min-w-0 flex-1 text-base font-semibold">
             {title}
           </h2>
-          <button type="button" onClick={onClose} className="rounded p-1 text-muted-foreground hover:bg-muted" aria-label={t("common.close")}>
+          <button type="button" onClick={onClose} className="rounded p-2 text-muted-foreground hover:bg-muted sm:p-1" aria-label={t("common.close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -160,3 +161,10 @@ export function PeoplePicker({ selected, onChange, exclude = [], single = false 
 }
 
 export const selectClass = "h-9 w-full rounded-md border border-input bg-background px-2 text-sm";
+
+/**
+ * A date field that stays inside its column on the iPhone: Safari gives
+ * `type="date"` its own minimum width and height, so the field stuck out to the
+ * right and was taller than the others.
+ */
+export const dateClass = "min-w-0 appearance-none text-left [&::-webkit-date-and-time-value]:text-left";

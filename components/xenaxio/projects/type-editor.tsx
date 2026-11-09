@@ -44,7 +44,7 @@ const slug = (s: string) =>
 
 function TextPair({ value, onChange, label }: { value: Text; onChange: (t: Text) => void; label: string }) {
   return (
-    <div className="grid gap-2 sm:grid-cols-2">
+    <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
       <label className="block space-y-1 text-sm">
         <span className="text-xs text-muted-foreground">{label} (EN)</span>
         <Input value={value.en} onChange={(e) => onChange({ ...value, en: e.target.value })} maxLength={60} />
@@ -338,7 +338,7 @@ function TypeForm({ type, types, groups, onChanged, onGone }: { type: ObjectType
         <h2 className="text-lg font-semibold">{t("typeeditor.general")}</h2>
         <TextPair label={t("typeeditor.name")} value={name} onChange={setName} />
         <TextPair label={t("typeeditor.plural")} value={plural} onChange={setPlural} />
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <label className="block space-y-1 text-sm">
             <span className="text-xs text-muted-foreground">{t("typeeditor.prefix")}</span>
             <Input value={prefix} maxLength={4} onChange={(e) => setPrefix(e.target.value.toUpperCase().replace(/[^A-Z]/g, ""))} />

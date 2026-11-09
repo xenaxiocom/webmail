@@ -147,7 +147,7 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
           <span>{t("projects.field.description")}</span>
           <textarea className="min-h-20 w-full rounded-md border border-input bg-background p-2 text-sm font-normal" value={description} onChange={(e) => setDescription(e.target.value)} maxLength={20000} />
         </label>
-        <div className="grid gap-3 sm:grid-cols-2">
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
           <TextField label={t("projects.field.due")} type="date" value={dueOn} onChange={(e) => setDueOn(e.target.value)} />
           <label className="block space-y-1.5 text-sm font-medium">
             <span>{t("projects.field.visibility")}</span>
@@ -158,7 +158,7 @@ export function NewProjectDialog({ open, onClose, onCreated, parentId, type }: {
           </label>
         </div>
         {(type?.fields ?? []).length > 0 && (
-          <div className="grid gap-3 sm:grid-cols-2">
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
             {type!.fields
               .filter((f) => f.type !== "external" && f.type !== "formula" && f.type !== "rollup")
               .map((f) => (

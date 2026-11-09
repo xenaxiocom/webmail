@@ -11,7 +11,7 @@ import { cn } from "@/lib/utils";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { usePeopleStore } from "@/lib/xenaxio/people";
 import { asValueField, COMPUTED_KINDS, CURRENCIES, dayText, local, type ObjectFile, type ObjectSummary, objectFileUrl as objectFileHref, mapApps, mapHref, osmHref, type Place, projectsApi, type TypeField, typeHref } from "@/lib/xenaxio/projects";
-import { selectClass } from "./bits";
+import { dateClass, selectClass } from "./bits";
 
 type Money = { amount: number; currency: string };
 
@@ -227,7 +227,7 @@ export function FieldInput({ field, value, onSave, disabled, id, objectId }: { f
       );
     }
     case "date":
-      return <Input id={id} type="date" value={(value as string) ?? ""} disabled={disabled} onChange={(e) => onSave(e.target.value || null)} />;
+      return <Input id={id} type="date" className={dateClass} value={(value as string) ?? ""} disabled={disabled} onChange={(e) => onSave(e.target.value || null)} />;
     case "checkbox":
       return <input id={id} type="checkbox" className="h-4 w-4" checked={!!value} disabled={disabled} onChange={(e) => onSave(e.target.checked)} />;
     case "select":

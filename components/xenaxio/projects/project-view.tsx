@@ -44,7 +44,7 @@ import { toast } from "@/stores/toast-store";
 import { Board } from "./board";
 import { TaskChart } from "./task-chart";
 import { ComputedMark } from "./computed";
-import { ColorPicker, Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
+import { ColorPicker, dateClass, Modal, PeoplePicker, PersonBadge, selectClass, StatusChip } from "./bits";
 import { NewProjectDialog } from "./project-list";
 import { FieldInput } from "./fields";
 import { RecordComments } from "./record-comments";
@@ -653,7 +653,7 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
     due: (
       <label className="block space-y-1 text-sm">
         <span className="text-xs text-muted-foreground">{t("projects.field.due")}</span>
-        <Input type="date" value={project.dueOn ?? ""} disabled={!canEdit} onChange={(e) => void save({ dueOn: e.target.value || null })} />
+        <Input type="date" className={dateClass} value={project.dueOn ?? ""} disabled={!canEdit} onChange={(e) => void save({ dueOn: e.target.value || null })} />
       </label>
     ),
     owner: (
@@ -769,7 +769,7 @@ function Overview({ project, type, allTypes, onChanged, onOpenProject }: { proje
 
   return (
     <div className="min-h-0 flex-1 overflow-auto p-3 sm:p-4">
-      <div className="grid max-w-3xl gap-4 sm:grid-cols-2">
+      <div className="grid grid-cols-1 max-w-3xl gap-4 sm:grid-cols-2">
         {(type?.card ?? Object.keys(blocks)).map((key) => (blocks[key] ? <div key={key} className={cn(wide(key) && "sm:col-span-2")}>{blocks[key]}</div> : null))}
         {project.backrefs.map((b) => (
           <div key={`${b.type}:${b.field}`} className="space-y-1.5 text-sm sm:col-span-2">
