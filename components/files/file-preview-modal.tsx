@@ -11,6 +11,7 @@ import dynamic from "next/dynamic";
 import { EmlPreview, type ParsedEml } from "@/components/files/eml-preview";
 import { FilePreviewPluginSection } from "@/components/files/file-preview-plugin-section";
 import { MarkdownView } from "@/components/xenaxio/markdown-view";
+import { useSheetDrag } from "@/components/xenaxio/use-close-gestures";
 import { LinkifiedText } from "@/components/ui/linkified-text";
 import { canOpenUrlInNewWindow } from "@/lib/standalone-display";
 import { emailIframeCsp, sanitizeEmailBodyForIframe } from "@/lib/email-sanitization";
@@ -209,6 +210,9 @@ export function FilePreviewModal({ name, onClose, onDownload, getFileContent, fi
     };
   }, [getFileContent, name, blockRemote]);
 
+  // Xenaxio: on the phone pulling the top bar down closes the preview.
+  const drag = useSheetDrag(onClose);
+
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape") {
@@ -221,14 +225,14 @@ export function FilePreviewModal({ name, onClose, onDownload, getFileContent, fi
   }, [onClose]);
 
   return (
-    <div role="dialog" aria-label={name} className="fixed inset-0 z-50 flex flex-col bg-black/80" onClick={onClose}>
+    <div role="dialog" aria-label={name} className="fixed inset-0 z-50 flex flex-col bg-black/80" style={drag.style} onClick={onClose}>
       {/* The dialog is `fixed inset-0` under `viewport-fit=cover`, so in an
           installed iOS PWA (no browser chrome above it) the header would sit
           underneath the status bar and its buttons - including the close
           button - became unreachable (#936). Pad the bar itself so its
           background still bleeds behind the status bar / notch. The insets are
           physical, so pl/pr (not ps/pe) is correct in RTL too. */}
-      <div className="flex items-center justify-between gap-2 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 bg-background/90 backdrop-blur border-b border-border" onClick={(e) => e.stopPropagation()}>
+      <div className="flex items-center justify-between gap-2 pl-[calc(1rem+env(safe-area-inset-left))] pr-[calc(1rem+env(safe-area-inset-right))] pt-[calc(0.75rem+env(safe-area-inset-top))] pb-3 bg-background/90 backdrop-blur border-b border-border max-sm:touch-none" onClick={(e) => e.stopPropagation()} {...drag.handlers}>
         <h3 className="text-sm font-medium truncate">{name}</h3>
         <div className="flex items-center gap-2">
           {/* An installed app hands the new window to the system browser,

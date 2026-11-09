@@ -10,6 +10,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { cn } from "@/lib/utils";
+import { useSheetDrag } from "@/components/xenaxio/use-close-gestures";
 
 const MIN = 1;
 const MAX = 8;
@@ -134,6 +135,8 @@ export function ImageViewer({ src, name, download, onClose }: { src: string; nam
   };
 
   const zoomed = view.scale > MIN;
+  // On the phone pulling the top bar down closes the picture, as in the files' preview.
+  const drag = useSheetDrag(onClose);
   const button = "rounded-full p-2 hover:bg-white/15 disabled:opacity-40 disabled:hover:bg-transparent";
   return createPortal(
     <div
@@ -141,9 +144,10 @@ export function ImageViewer({ src, name, download, onClose }: { src: string; nam
       aria-modal="true"
       aria-label={name}
       className="fixed inset-0 z-[100] flex flex-col bg-black/90"
+      style={drag.style}
       onClick={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="flex items-center gap-1 px-4 py-3 text-white" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+      <div className="flex items-center gap-1 px-4 py-3 text-white max-sm:touch-none" style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }} {...drag.handlers}>
         <span className="mr-2 min-w-0 flex-1 truncate text-sm">{name}</span>
         <button type="button" onClick={() => zoom((s) => s / STEP)} disabled={!zoomed} aria-label={t("chat.zoom_out")} title={t("chat.zoom_out")} className={button}>
           <IconMinus size={20} />

@@ -16,12 +16,13 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { MarkdownView } from "@/components/xenaxio/markdown-view";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useEdgeSwipeClose } from "@/components/xenaxio/use-close-gestures";
 import { errorText, XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { type ObjectDetail, objectFileUrl, type Priority, projectsApi, type TaskDetail, type TaskInput, type TaskSummary } from "@/lib/xenaxio/projects";
 import { cn } from "@/lib/utils";
 import { toast } from "@/stores/toast-store";
-import { Modal, PersonBadge, selectClass } from "./bits";
+import { dateClass, Modal, PersonBadge, selectClass } from "./bits";
 import { ParentSelect, Subtasks, TaskPath } from "./subtasks";
 import { Checklist, CommentBody, History, MentionInput } from "./task-extras";
 import { FileText, useFileText } from "./file-text";
@@ -48,6 +49,8 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
   const router = useRouter();
   const canEdit = project.can.edit;
   const ref = useFocusTrap({ isActive: true, onEscape: onClose, restoreFocus: true });
+  // On the phone a swipe to the right from the left edge closes the task.
+  const edgeSwipe = useEdgeSwipeClose(onClose);
   // Step 134: pictures and files in the description and comments become the task's files.
   const [filesVersion, setFilesVersion] = useState(0);
   const fileTarget = useMemo(() => (canEdit ? { objectId: project.id, taskId, onUploaded: () => (setFilesVersion((v) => v + 1), onChanged()) } : undefined), [canEdit, project.id, taskId, onChanged]);
@@ -155,7 +158,12 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside ref={ref} role="dialog" aria-modal="true" aria-label={task?.title ?? t("projects.task")} className="flex h-full w-full max-w-lg flex-col border-l border-border bg-background shadow-xl">
+      <aside ref={ref} role="dialog" aria-modal="true" aria-label={task?.title ?? t("projects.task")} className="flex h-full w-full max-w-lg flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl"
+        style={edgeSwipe.style}
+        {...edgeSwipe.handlers}
+      >
+        {/* The header stays above the scrolling content and clear of the iPhone status bar
+            (viewport-fit=cover in the installed app), so close and delete are always reachable. */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">
           <span className="min-w-0 flex-1 truncate text-xs text-muted-foreground">
             {task ? (
@@ -171,7 +179,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
           {task && (
             <button
               type="button"
-              className={cn("flex items-center gap-1 rounded px-1.5 py-1 text-xs hover:bg-muted", task.watching ? "text-primary" : "text-muted-foreground")}
+              className={cn("flex items-center gap-1 rounded px-1.5 py-2 text-xs hover:bg-muted sm:py-1", task.watching ? "text-primary" : "text-muted-foreground")}
               aria-pressed={task.watching}
               onClick={() => void watch(!task.watching)}
               title={task.watching ? t("projects.watching") : undefined}
@@ -182,16 +190,16 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
             </button>
           )}
           {task && canEdit && (
-            <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setMoving(true)} aria-label={t("projects.move_title")} title={t("projects.move_title")}>
+            <button type="button" className="rounded p-2 sm:p-1 text-muted-foreground hover:bg-muted hover:text-foreground" onClick={() => setMoving(true)} aria-label={t("projects.move_title")} title={t("projects.move_title")}>
               <FolderInput className="h-4 w-4" />
             </button>
           )}
           {task && canEdit && (
-            <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted hover:text-destructive" onClick={() => setDeleting(true)} aria-label={t("projects.task_delete")}>
+            <button type="button" className="rounded p-2 sm:p-1 text-muted-foreground hover:bg-muted hover:text-destructive" onClick={() => setDeleting(true)} aria-label={t("projects.task_delete")}>
               <Trash className="h-4 w-4" />
             </button>
           )}
-          <button type="button" className="rounded p-1 text-muted-foreground hover:bg-muted" onClick={onClose} aria-label={t("common.close")}>
+          <button type="button" className="rounded p-2 text-muted-foreground hover:bg-muted sm:p-1" onClick={onClose} aria-label={t("common.close")}>
             <X className="h-4 w-4" />
           </button>
         </div>
@@ -222,7 +230,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
               />
             </div>
 
-            <div className="grid gap-3 sm:grid-cols-2">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <label className="block space-y-1 text-sm">
                 <span className="text-xs text-muted-foreground">{t("projects.column")}</span>
                 <select className={selectClass} value={task.columnId} disabled={!canEdit} onChange={(e) => void save({ columnId: e.target.value })}>
@@ -246,7 +254,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
               </label>
               <label className="block space-y-1 text-sm">
                 <span className="text-xs text-muted-foreground">{t("projects.field.due")}</span>
-                <Input type="date" value={task.dueOn ?? ""} disabled={!canEdit} onChange={(e) => void save({ dueOn: e.target.value || null })} />
+                <Input type="date" className={dateClass} value={task.dueOn ?? ""} disabled={!canEdit} onChange={(e) => void save({ dueOn: e.target.value || null })} />
               </label>
               <label className="block space-y-1 text-sm">
                 <span className="text-xs text-muted-foreground">{t("projects.priority.label")}</span>

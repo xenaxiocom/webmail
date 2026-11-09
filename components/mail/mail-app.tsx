@@ -58,6 +58,7 @@ import { usePaneId } from "@/hooks/use-pane-context";
 import { useKeyboardShortcuts, type GoToMailboxTarget } from "@/hooks/use-keyboard-shortcuts";
 import { findNextUnreadIndex } from "@/lib/next-unread-email";
 import { useRefreshGesture } from "@/hooks/use-refresh-gesture";
+import { edgeStripClass, useEdgeSwipeClose } from "@/components/xenaxio/use-close-gestures";
 import { useConfirmDialog } from "@/hooks/use-confirm-dialog";
 import { usePromptDialog } from "@/hooks/use-prompt-dialog";
 import { useBrowserNavigation, type NavSnapshot } from "@/hooks/use-browser-navigation";
@@ -4087,6 +4088,12 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
     onAccountMailboxSelect: handleAccountMailboxSelect,
   });
 
+  // Xenaxio: on the phone a swipe to the right from the left edge goes back to
+  // the list, as in iPhone apps (the installed app has no Back button). Called
+  // here, before the loading screen returns; handleMobileBack is defined below
+  // and runs only when the swipe ends.
+  const edgeSwipe = useEdgeSwipeClose(() => handleMobileBack(), isMobile && activeView === "viewer" && !showComposer);
+
   if (!initialCheckDone || authLoading || (!isAuthenticated || !client)) {
     return (
       <div className="flex h-screen items-center justify-center bg-background">
@@ -5220,7 +5227,9 @@ export function MailApp({ linkSegments: routeSegments }: MailAppProps = {}) {
               shouldHideViewerPane && "md:hidden",
               shouldHideHorizontalViewerPane && "md:hidden"
             )}
+            style={isMobile ? edgeSwipe.style : undefined}
           >
+            {isMobile && activeView === "viewer" && !showComposer && <div className={edgeStripClass} aria-hidden="true" {...edgeSwipe.handlers} />}
             {/* Inline Composer - shown in viewer pane.
                 In Pro/embedded mode the composer is hoisted into its own
                 Pro tab (see the effect below), so we never render it inline. */}

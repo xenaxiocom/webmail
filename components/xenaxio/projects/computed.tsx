@@ -143,7 +143,7 @@ export function RollupEditor({ type, types, value, onChange }: { type: ObjectTyp
   if (sources.length === 0) return <Notice kind="info">{t("computed.rollup_none")}</Notice>;
   return (
     <div className="space-y-2">
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <label className="space-y-1">
           <span className="block text-xs text-muted-foreground">{t("computed.rollup_from")}</span>
           <select
@@ -224,7 +224,7 @@ function RuleRow({ type, rule, onChange, onRemove }: { type: ObjectType; rule: T
           <Trash className="h-4 w-4" />
         </button>
       </div>
-      <div className="grid gap-2 sm:grid-cols-2">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         <Input value={rule.message.de} maxLength={300} onChange={(e) => onChange({ ...rule, message: { ...rule.message, de: e.target.value } })} placeholder={t("computed.rule_message_de")} aria-label={t("computed.rule_message_de")} />
         <Input value={rule.message.en} maxLength={300} onChange={(e) => onChange({ ...rule, message: { ...rule.message, en: e.target.value } })} placeholder={t("computed.rule_message_en")} aria-label={t("computed.rule_message_en")} />
       </div>
