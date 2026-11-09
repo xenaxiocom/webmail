@@ -16,6 +16,7 @@ import { ConfirmDialog } from "@/components/ui/confirm-dialog";
 import { Input } from "@/components/ui/input";
 import { MarkdownView } from "@/components/xenaxio/markdown-view";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useEdgeSwipeClose } from "@/components/xenaxio/use-close-gestures";
 import { errorText, XenaxioApiError } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { type ObjectDetail, objectFileUrl, type Priority, projectsApi, type TaskDetail, type TaskInput, type TaskSummary } from "@/lib/xenaxio/projects";
@@ -48,6 +49,8 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
   const router = useRouter();
   const canEdit = project.can.edit;
   const ref = useFocusTrap({ isActive: true, onEscape: onClose, restoreFocus: true });
+  // On the phone a swipe to the right from the left edge closes the task.
+  const edgeSwipe = useEdgeSwipeClose(onClose);
   // Step 134: pictures and files in the description and comments become the task's files.
   const [filesVersion, setFilesVersion] = useState(0);
   const fileTarget = useMemo(() => (canEdit ? { objectId: project.id, taskId, onUploaded: () => (setFilesVersion((v) => v + 1), onChanged()) } : undefined), [canEdit, project.id, taskId, onChanged]);
@@ -155,7 +158,10 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside ref={ref} role="dialog" aria-modal="true" aria-label={task?.title ?? t("projects.task")} className="flex h-full w-full max-w-lg flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl">
+      <aside ref={ref} role="dialog" aria-modal="true" aria-label={task?.title ?? t("projects.task")} className="flex h-full w-full max-w-lg flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl"
+        style={edgeSwipe.style}
+        {...edgeSwipe.handlers}
+      >
         {/* The header stays above the scrolling content and clear of the iPhone status bar
             (viewport-fit=cover in the installed app), so close and delete are always reachable. */}
         <div className="flex items-center gap-2 border-b border-border px-4 py-2.5">

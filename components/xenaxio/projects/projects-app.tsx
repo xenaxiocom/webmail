@@ -4,7 +4,7 @@
 // flows. One page: the list of projects, or one project (?id=…) with its
 // board, overview and linked emails and files; ?task=… opens a task. The
 // client is a static export, so the project and task travel in the query.
-import { Suspense, useCallback, useEffect, useState } from "react";
+import { Suspense, useCallback, useEffect, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { InlineAppView } from "@/components/layout/inline-app-view";
 import { MvTopBar } from "@/components/layout/mv-top-bar";
@@ -58,13 +58,32 @@ function ProjectsSection({ typeKey, objects }: { typeKey: string; objects: boole
 
   const go = useCallback((next: Place, replace = false) => writePlace(objects ? typeKey : null, next, replace), [objects, typeKey]);
 
+  // An opened task is its own step in the history, so Back (the Android button
+  // or gesture, the browser's Back, Safari's edge swipe) closes it instead of
+  // leaving the project. Going from one task to another replaces that step, and
+  // the close button steps back, so the history does not pile up.
+  const pushedTask = useRef(false);
+  const openTask = useCallback(
+    (task: string | null) => {
+      if (task && !place.task) {
+        pushedTask.current = true;
+        go({ id: place.id, task });
+      } else if (task) go({ id: place.id, task }, true);
+      else if (pushedTask.current) {
+        pushedTask.current = false;
+        window.history.back();
+      } else go({ id: place.id, task: null }, true);
+    },
+    [go, place.id, place.task],
+  );
+
   if (place.id) {
     return (
       <ProjectView
         key={place.id}
         id={place.id}
         taskId={place.task}
-        onOpenTask={(task) => go({ id: place.id, task }, true)}
+        onOpenTask={openTask}
         onOpenProject={(id) => go({ id, task: null })}
         onBack={() => go({ id: null, task: null })}
       />

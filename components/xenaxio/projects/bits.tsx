@@ -6,6 +6,7 @@ import { type ReactNode, useEffect, useId, useMemo, useState } from "react";
 import { X } from "@/components/icons";
 import { Input } from "@/components/ui/input";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
+import { useSheetDrag } from "@/components/xenaxio/use-close-gestures";
 import { cn } from "@/lib/utils";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { type CompanyPerson, usePeopleStore } from "@/lib/xenaxio/people";
@@ -95,6 +96,7 @@ export function Modal({ open, title, onClose, children, wide = false }: { open: 
   const t = useXT();
   const id = useId();
   const ref = useFocusTrap({ isActive: open, onEscape: onClose, restoreFocus: true });
+  const drag = useSheetDrag(onClose);
   if (!open) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 sm:items-center" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -104,9 +106,12 @@ export function Modal({ open, title, onClose, children, wide = false }: { open: 
         aria-modal="true"
         aria-labelledby={id}
         className={cn("max-h-[90dvh] w-full overflow-y-auto rounded-t-xl border border-border bg-background p-4 pb-[calc(1rem+env(safe-area-inset-bottom))] shadow-xl sm:rounded-xl sm:pb-4", wide ? "sm:max-w-2xl" : "sm:max-w-md")}
+        style={drag.style}
       >
-        {/* The title and the close button stay in view while a long dialog scrolls. */}
-        <div className="sticky -top-4 z-10 -mx-4 -mt-4 mb-3 flex items-center gap-2 bg-background px-4 pt-4 pb-1">
+        {/* The title and the close button stay in view while a long dialog scrolls;
+            on the phone this bar is also the handle to pull the sheet down. */}
+        <div className="sticky -top-4 z-10 -mx-4 -mt-4 mb-3 flex items-center gap-2 rounded-t-xl bg-background px-4 pt-4 pb-1 max-sm:touch-none" {...drag.handlers}>
+          <span className="absolute left-1/2 top-1.5 h-1 w-10 -translate-x-1/2 rounded-full bg-muted-foreground/40 sm:hidden" aria-hidden="true" />
           <h2 id={id} className="min-w-0 flex-1 text-base font-semibold">
             {title}
           </h2>
