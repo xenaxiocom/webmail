@@ -7,7 +7,9 @@
 //   full-screen panel, as "back" in iPhone apps (the installed app has no Back
 //   button of its own). Built on the swipe of the mail list (use-swipe-actions).
 // - useSheetDrag: pulling the top bar of a bottom sheet down closes it.
-import { type TouchEvent, useRef, useState } from "react";
+// - useBackSteps: Back (the Android button or gesture, the browser's Back)
+//   steps out of nested panes that do not change the address (Rooms).
+import { type TouchEvent, useEffect, useRef, useState } from "react";
 import { useSwipeActions } from "@/hooks/use-swipe-actions";
 
 /** How close to the left edge (px) a touch has to start to swipe a panel closed. */
@@ -65,4 +67,43 @@ export function useSheetDrag(onClose: () => void) {
       onTouchCancel: stop,
     },
   };
+}
+
+/** The field in history.state that keeps how deep the panes were. */
+const DEPTH = "xenaxioDepth";
+const historyDepth = (): number => {
+  const d = (window.history.state as Record<string, unknown> | null)?.[DEPTH];
+  return typeof d === "number" ? d : 0;
+};
+
+/**
+ * Back steps for nested panes on one address: `depth` is how deep the person is
+ * (0 the list, 1 a conversation, 2 its side panel). Going deeper adds a history
+ * step, so Back calls `onBack(depth)` with the depth to return to instead of
+ * leaving the page; going up in the page (a back button, a swipe) drops the
+ * steps again, so the history does not pile up. Next.js keeps our field next
+ * to its own in history.state (as the files' preview does with __filePreview).
+ */
+export function useBackSteps(depth: number, enabled: boolean, onBack: (depth: number) => void) {
+  const current = useRef(depth);
+  current.current = depth;
+  const back = useRef(onBack);
+  back.current = onBack;
+
+  useEffect(() => {
+    if (!enabled) return;
+    const steps = historyDepth();
+    if (depth > steps) window.history.pushState({ [DEPTH]: depth }, "");
+    else if (depth < steps) window.history.go(depth - steps);
+  }, [depth, enabled]);
+
+  useEffect(() => {
+    if (!enabled) return;
+    const onPop = () => {
+      const to = historyDepth();
+      if (to < current.current) back.current(to);
+    };
+    window.addEventListener("popstate", onPop);
+    return () => window.removeEventListener("popstate", onPop);
+  }, [enabled]);
 }

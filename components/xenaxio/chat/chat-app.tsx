@@ -15,7 +15,7 @@ import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useIsEmbedded } from "@/hooks/use-is-embedded";
 import { useIsMobile } from "@/hooks/use-media-query";
-import { useEdgeSwipeClose } from "@/components/xenaxio/use-close-gestures";
+import { useBackSteps, useEdgeSwipeClose } from "@/components/xenaxio/use-close-gestures";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
 import { useSidebarApps } from "@/hooks/use-sidebar-apps";
 import { useChatBadge } from "@/lib/xenaxio/chat/nav";
@@ -206,6 +206,11 @@ function ChatInside() {
   // from the left edge does the same, as in iPhone apps.
   const goBack = () => (panel ? setPanel(null) : setView({ kind: "home" }));
   const edgeSwipe = useEdgeSwipeClose(goBack, isMobile && (!!panel || view.kind !== "home"));
+  // The phone's Back (Android button or gesture) takes the same steps instead of leaving Rooms.
+  useBackSteps(panel ? 2 : view.kind !== "home" ? 1 : 0, isMobile, (to) => {
+    setPanel(null);
+    if (to === 0) setView({ kind: "home" });
+  });
 
   if (!status && !statusError) return <Notice title={t("chat.loading")} />;
   if (statusError && !status) return <Notice title={t("chat.error")} />;
