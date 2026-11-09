@@ -14,6 +14,7 @@ import {
 import { OperatorModels } from "@/components/xenaxio/operator-models";
 import { OperatorPeople } from "@/components/xenaxio/operator-people";
 import { OperatorImages } from "@/components/xenaxio/operator-images";
+import { OperatorQuality } from "@/components/xenaxio/operator-quality";
 import {
   AuthCard,
   Field,
@@ -91,7 +92,7 @@ function Console({
   const [product, setProduct] = useState<"workspace" | "rooms">("workspace");
   const [link, setLink] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [tab, setTab] = useState<"tenants" | "people" | "images" | "report" | "invitations" | "models">(
+  const [tab, setTab] = useState<"tenants" | "people" | "images" | "report" | "invitations" | "models" | "quality">(
     "tenants",
   );
 
@@ -162,7 +163,7 @@ function Console({
           className="flex gap-1 overflow-x-auto border-b border-border"
           aria-label={t("operator.title")}
         >
-          {(["tenants", "people", "images", "report", "invitations", "models"] as const).map((k) => (
+          {(["tenants", "people", "images", "report", "invitations", "models", "quality"] as const).map((k) => (
             <button
               key={k}
               type="button"
@@ -181,6 +182,8 @@ function Console({
         {tab === "images" && <OperatorImages />}
         {tab === "report" && <OperatorReportView />}
         {tab === "models" && <OperatorModels />}
+        {/* Step 146: anonymous numbers per tool to improve the assistant. */}
+        {tab === "quality" && <OperatorQuality />}
         {tab === "invitations" && (
           <>
             {error && <Notice kind="error">{error}</Notice>}

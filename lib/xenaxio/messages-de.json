@@ -799,7 +799,8 @@
     "images_chat_remove": "Bild entfernen",
     "images_chat_removed_done": "Die Nachricht mit dem Bild wurde für alle entfernt.",
     "images_chat_block_reason": "Grund für die Sperre der Person, die das Bild gesendet hat (alle Konten):",
-    "images_chat_person_blocked": "Die Person wurde gesperrt."
+    "images_chat_person_blocked": "Die Person wurde gesperrt.",
+    "tab_quality": "Qualität"
   },
   "about": {
     "based_on": "Basiert auf",
@@ -4425,5 +4426,33 @@
     "edit": "Bearbeiten",
     "remove": "Entfernen",
     "remove_confirm": "Den Helfer „{name}“ entfernen?"
+  },
+  "quality": {
+    "title": "Qualität des Assistenten",
+    "intro": "Anonyme Zahlen für die ganze Plattform, je Tag: wie oft jedes Werkzeug aufgerufen wurde, wie oft das Modell ihm fehlerhafte Eingaben gab, wie oft es fehlschlug und wie oft Personen seine Vorschläge abgelehnt haben. Keine Firma, Person oder Inhalte. Damit verbessern wir Beschreibungen der Werkzeuge und Anweisungen.",
+    "off": "Das Zählen ist aus.",
+    "on_since": "Gezählt wird seit {date}.",
+    "privacy_link": "Datenschutzerklärung, Abschnitt 7b",
+    "privacy_first": "Erst einschalten, wenn der Abschnitt 7b der Datenschutzerklärung auf xenaxio.com online ist.",
+    "confirm_on": "Ist Abschnitt 7b der Datenschutzerklärung auf xenaxio.com online? Das Zählen beginnt jetzt.",
+    "switch_on": "Zählen starten",
+    "switch_off": "Zählen beenden",
+    "answers_title": "Antworten, letzte {days} Tage",
+    "answers": "Antworten",
+    "bad": "Nicht hilfreich",
+    "budget": "An der Grenze",
+    "tools_title": "Werkzeuge, letzte {days} Tage",
+    "none": "Noch keine Zahlen.",
+    "tool": "Werkzeug",
+    "calls": "Aufrufe",
+    "invalid": "Fehlerhafte Eingaben",
+    "failed": "Fehlgeschlagen",
+    "declined": "Abgelehnt",
+    "external": "Externe Systeme (alle)",
+    "unknown": "Unbekannte Namen",
+    "legend": "Fehlerhafte Eingaben und Fehlschläge sind Anteile der Aufrufe, Abgelehnt der Vorschläge. Ein Werkzeug mit vielen fehlerhaften Eingaben braucht eine klarere Beschreibung.",
+    "company_title": "Anonyme Zahlen zur Verbesserung des Assistenten",
+    "company_intro": "Xenaxio zählt für die ganze Plattform, wie oft die Werkzeuge des Assistenten genutzt werden und wie oft etwas schiefgeht, ohne Inhalte, Personen oder Firmennamen (Datenschutzerklärung, Abschnitt 7b).",
+    "company_switch": "Die Nutzung meiner Firma mitzählen"
   }
 }

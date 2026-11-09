@@ -414,6 +414,8 @@ export interface AiAdmin {
   tenantTokens: number;
   /** Step 50: what the company allows for scheduled tasks (absent on older servers). */
   schedules?: ScheduleSettingsInfo;
+  /** Step 146: whether the company's use counts towards the platform's anonymous numbers. */
+  qualityStats?: boolean;
   /** Step 83: steps and input tokens per answer (null: the default); they apply on the Xenacore engine. */
   answers?: AnswerSettings;
   /** Step 84: which model each profile uses (missing: the company's model). */
@@ -1210,6 +1212,14 @@ export interface ExternalServer {
   connected: number;
 }
 
+/** Step 146: the platform's anonymous numbers for the last days (no company, person or text). */
+export interface QualityReport {
+  on: boolean;
+  since: string | null;
+  days: { day: string; answers: number; bad: number; budget: number }[];
+  tools: { tool: string; calls: number; invalid: number; failed: number; proposed: number; declined: number }[];
+}
+
 /** Step 145: a helper the company's admin set up for the assistant. */
 export interface CompanyHelper {
   id: string;
@@ -1504,6 +1514,7 @@ export const xenaxio = {
   chatChannels: () => request<{ channels: ChatChannelAdmin[] }>("GET", "/api/admin/chat/channels"),
   changeChatChannel: (roomId: string, change: ChatChannelChange) => request<ChatChannelAdmin>("PATCH", `/api/admin/chat/channels/${encodeURIComponent(roomId)}`, change),
   aiAdmin: () => request<AiAdmin>("GET", "/api/admin/ai"),
+  setQualityStats: (enabled: boolean) => request<{ qualityStats: boolean }>("PUT", "/api/admin/ai/quality-stats", { enabled }),
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
   setTranscription: (change: { mode: TranscriptionMode; model?: string | null }) =>
     request<{ mode: TranscriptionMode; customModel: string | null }>("PUT", "/api/admin/ai/transcription", change),
@@ -1633,6 +1644,9 @@ export const xenaxio = {
     removeImage: (kind: GalleryKind, ref: string, reason: string, mode: "hide" | "delete") => request<{ ok: true }>("POST", "/api/operator/images/remove", { kind, ref, reason, mode }),
     hiddenImages: () => request<{ hidden: HiddenImage[] }>("GET", "/api/operator/images/hidden").then((r) => r.hidden),
     restoreImage: (id: string) => request<{ hidden: HiddenImage[] }>("POST", `/api/operator/images/hidden/${encodeURIComponent(id)}/restore`, {}).then((r) => r.hidden),
+    // Step 146: anonymous daily numbers per tool ("Assistant quality") and the platform's switch.
+    quality: (days: number) => request<QualityReport>("GET", `/api/operator/ai-quality?days=${days}`),
+    setQuality: (on: boolean) => request<{ on: boolean; since: string | null }>("PUT", "/api/operator/ai-quality", { on }),
     // Step 108, part C3: chat pictures our own model flagged (only those, only a preview) and the threshold.
     imageCheckSettings: () => request<{ available: boolean; threshold: number | null }>("GET", "/api/operator/image-check"),
     setImageCheckThreshold: (threshold: number) => request<{ available: boolean; threshold: number }>("PUT", "/api/operator/image-check", { threshold }),

@@ -799,7 +799,8 @@
     "images_chat_remove": "Remove picture",
     "images_chat_removed_done": "The message with the picture was removed for everyone.",
     "images_chat_block_reason": "Reason for blocking the person who sent the picture (all accounts):",
-    "images_chat_person_blocked": "The person has been blocked."
+    "images_chat_person_blocked": "The person has been blocked.",
+    "tab_quality": "Assistant quality"
   },
   "about": {
     "based_on": "Based on",
@@ -4425,5 +4426,33 @@
     "edit": "Edit",
     "remove": "Remove",
     "remove_confirm": "Remove the helper “{name}”?"
+  },
+  "quality": {
+    "title": "Assistant quality",
+    "intro": "Anonymous numbers for the whole platform, per day: how often each tool was called, how often the model gave it bad arguments, how often it failed and how often people declined its proposals. No company, person or text is in them. Use them to improve tool descriptions and prompts.",
+    "off": "Counting is off.",
+    "on_since": "Counting since {date}.",
+    "privacy_link": "Privacy policy, section 7b",
+    "privacy_first": "Switch on only once the privacy policy line (section 7b) is live on xenaxio.com.",
+    "confirm_on": "Is section 7b of the privacy policy live on xenaxio.com? Counting starts now.",
+    "switch_on": "Start counting",
+    "switch_off": "Stop counting",
+    "answers_title": "Answers, last {days} days",
+    "answers": "Answers",
+    "bad": "Not helpful",
+    "budget": "Hit their budget",
+    "tools_title": "Tools, last {days} days",
+    "none": "No numbers yet.",
+    "tool": "Tool",
+    "calls": "Calls",
+    "invalid": "Bad arguments",
+    "failed": "Failed",
+    "declined": "Declined",
+    "external": "Outside systems (all)",
+    "unknown": "Unknown names",
+    "legend": "Bad arguments and failures are shares of calls, declined of proposals. A tool with many bad arguments needs a clearer description.",
+    "company_title": "Anonymous numbers to improve the assistant",
+    "company_intro": "Xenaxio counts, for the whole platform, how often each of the assistant's tools is used and goes wrong, without content, people or company names (privacy policy, section 7b).",
+    "company_switch": "Count my company's use too"
   }
 }
