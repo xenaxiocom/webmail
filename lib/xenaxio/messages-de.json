@@ -345,7 +345,11 @@
     "object_rule_failed": "{text}",
     "object_field_computed": "Dieses Feld wird berechnet und kann nicht geändert werden.",
     "object_field_in_use": "Das Feld wird noch verwendet: {usedBy}. Ändere zuerst diese Formeln, Regeln oder Berechnungen.",
-    "suggestion_not_found": "Dieser Vorschlag ist nicht mehr offen."
+    "suggestion_not_found": "Dieser Vorschlag ist nicht mehr offen.",
+    "helper_tool_not_allowed": "Ein Helfer darf nur Werkzeuge nutzen, die lesen oder vorbereiten: {tools}",
+    "helper_invalid": "Bitte Name, Zweck, Arbeitsweise und mindestens ein Werkzeug angeben.",
+    "helper_limit": "Ihre Firma hat bereits die höchste Zahl an Helfern (10).",
+    "helper_not_found": "Diesen Helfer gibt es nicht mehr."
   },
   "login": {
     "title": "Anmelden",
@@ -3505,7 +3509,8 @@
       "set_menu_items": "Einträge in meinem Menü ordnen und ausblenden",
       "add_object_comment": "Einträge kommentieren",
       "delegate": "Hilfsagenten",
-      "list_connections": "Externe Systeme ansehen, die Sie verbinden können"
+      "list_connections": "Externe Systeme ansehen, die Sie verbinden können",
+      "list_helpers": "Die Helfer des Assistenten sehen"
     },
     "admin_title": "KI-Berechtigungen der Firma",
     "admin_intro": "Obergrenze für alle in der Firma. Mitarbeitende können für sich nur strenger einstellen. Lesende Werkzeuge bleiben bei „Höchstens nachfragen“ erlaubt.",
@@ -4387,5 +4392,38 @@
     "rule_add": "Regel hinzufügen",
     "rule_remove": "Regel entfernen",
     "mark": "berechnet"
+  },
+  "helpers": {
+    "title": "Helfer",
+    "link_intro": "Eigene Helfer, denen der Assistent Teile seiner Arbeit gibt, z. B. einer, der Ihre Rechnungen oder Ihr CRM kennt.",
+    "link_open": "Helfer verwalten",
+    "intro": "Ein Helfer erledigt eine Art von Arbeit für den Assistenten: Er sucht, liest und bereitet vor, mit den Werkzeugen, die Sie ihm geben, und der Assistent nutzt seine Antwort. Beschreiben Sie, wofür er da ist, damit der Assistent weiß, wann er ihn fragt.",
+    "safety": "Helfer bekommen nur Werkzeuge, die lesen oder vorbereiten (zum Beispiel Entwürfe). Sie ändern, senden oder löschen nie etwas; Änderungen bleiben beim Assistenten und warten auf die Person, wo Ihre Berechtigungen es vorsehen.",
+    "built_in": "Eingebaute Helfer",
+    "none": "Noch keine eigenen Helfer.",
+    "add": "Helfer hinzufügen",
+    "add_title": "Neuer Helfer",
+    "name": "Name",
+    "name_placeholder": "Rechnungsstelle",
+    "role": "Wofür er da ist",
+    "role_placeholder": "Findet Rechnungen und Zahlungserinnerungen in der Post",
+    "role_hint": "Daran erkennt der Assistent, wann er den Helfer fragt.",
+    "instructions": "Wie er arbeitet",
+    "instructions_placeholder": "Zuerst nach der Rechnungsnummer suchen, dann nach dem Lieferanten. Betrag, Fälligkeit und Absender nennen.",
+    "tools": "Werkzeuge",
+    "tools_hint": "Nur Werkzeuge, die lesen oder vorbereiten. Werkzeuge externer Systeme erscheinen hier, sobald Sie sie unter Externe Werkzeuge als lesend freigeben.",
+    "reads": "liest",
+    "prepares": "bereitet vor",
+    "profile": "Modell",
+    "profile_default": "Modell der Firma",
+    "profile_fast": "Schnell",
+    "profile_smart": "Gründlich",
+    "enabled": "Aktiv",
+    "off": "aus",
+    "save": "Speichern",
+    "cancel": "Abbrechen",
+    "edit": "Bearbeiten",
+    "remove": "Entfernen",
+    "remove_confirm": "Den Helfer „{name}“ entfernen?"
   }
 }

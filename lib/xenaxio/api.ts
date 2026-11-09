@@ -1210,6 +1210,28 @@ export interface ExternalServer {
   connected: number;
 }
 
+/** Step 144: a helper the company's admin set up for the assistant. */
+export interface CompanyHelper {
+  id: string;
+  slug: string;
+  name: string;
+  role: string;
+  instructions: string;
+  tools: string[];
+  profile: "default" | "fast" | "smart";
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export type CompanyHelperInput = Pick<CompanyHelper, "name" | "role" | "instructions" | "tools" | "profile" | "enabled">;
+
+/** A tool a helper may get: it reads or prepares; `system` names the outside system it comes from. */
+export interface HelperTool {
+  name: string;
+  kind: string;
+  system?: string;
+}
+
 export type ExternalLevel = "allow" | "ask" | "deny";
 
 /** Step 122: a server an employee may use, with their sign-in and levels. */
@@ -1496,6 +1518,10 @@ export const xenaxio = {
   setCustomModelFallback: (enabled: boolean) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/fallback", { enabled }),
   removeCustomModel: () => request<{ ok: true }>("DELETE", "/api/admin/ai/custom"),
   // Step 122: MCP servers of the company (admin) and the employee's sign-in to them.
+  companyHelpers: () => request<{ helpers: CompanyHelper[]; tools: HelperTool[] }>("GET", "/api/admin/ai/helpers"),
+  addCompanyHelper: (input: CompanyHelperInput) => request<{ helper: CompanyHelper }>("POST", "/api/admin/ai/helpers", input),
+  updateCompanyHelper: (id: string, input: CompanyHelperInput) => request<{ helper: CompanyHelper }>("PUT", `/api/admin/ai/helpers/${id}`, input),
+  removeCompanyHelper: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/ai/helpers/${id}`),
   externalServers: () => request<{ servers: ExternalServer[]; redirectUri: string }>("GET", "/api/admin/ai/mcp-servers"),
   addExternalServer: (input: ExternalServerInput) => request<{ server: ExternalServer }>("POST", "/api/admin/ai/mcp-servers", input),
   updateExternalServer: (id: string, patch: { title?: string; enabled?: boolean; access?: "all" | "some"; users?: string[]; key?: string; keyHeader?: string }) =>

@@ -345,7 +345,11 @@
     "object_rule_failed": "{text}",
     "object_field_computed": "This field is computed and cannot be changed.",
     "object_field_in_use": "The field is still in use: {usedBy}. Change those formulas, rules or calculations first.",
-    "suggestion_not_found": "This suggestion is no longer open."
+    "suggestion_not_found": "This suggestion is no longer open.",
+    "helper_tool_not_allowed": "A helper may only use tools that read or prepare: {tools}",
+    "helper_invalid": "Please fill in the name, what it is for, how it works and at least one tool.",
+    "helper_limit": "Your company already has the most helpers possible (10).",
+    "helper_not_found": "This helper no longer exists."
   },
   "login": {
     "title": "Sign in",
@@ -3505,7 +3509,8 @@
       "set_menu_items": "Order and hide entries in my menu",
       "add_object_comment": "Comment on records",
       "delegate": "Helpers",
-      "list_connections": "See the outside systems you may connect"
+      "list_connections": "See the outside systems you may connect",
+      "list_helpers": "See the assistant's helpers"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",
@@ -4387,5 +4392,38 @@
     "rule_add": "Add rule",
     "rule_remove": "Remove rule",
     "mark": "computed"
+  },
+  "helpers": {
+    "title": "Helpers",
+    "link_intro": "Your own helpers the assistant hands parts of its work to, e.g. one that knows your invoices or your CRM.",
+    "link_open": "Manage helpers",
+    "intro": "A helper does one kind of work for the assistant: it searches, reads and prepares with the tools you give it, and the assistant uses its answer. Write what it is for, so the assistant knows when to ask it.",
+    "safety": "Helpers only get tools that read or prepare (drafts, for example). They never change, send or delete anything; changes stay with the assistant and wait for the person where your permissions say so.",
+    "built_in": "Built-in helpers",
+    "none": "No helpers of your own yet.",
+    "add": "Add a helper",
+    "add_title": "New helper",
+    "name": "Name",
+    "name_placeholder": "Invoice desk",
+    "role": "What it is for",
+    "role_placeholder": "Finds invoices and payment reminders in the mail",
+    "role_hint": "The assistant reads this to decide when to ask the helper.",
+    "instructions": "How it works",
+    "instructions_placeholder": "Search by the invoice number first, then by the supplier. Give amount, due date and sender.",
+    "tools": "Tools",
+    "tools_hint": "Only tools that read or prepare. Tools of outside systems appear here once you approve them under External tools as reading.",
+    "reads": "reads",
+    "prepares": "prepares",
+    "profile": "Model",
+    "profile_default": "Company model",
+    "profile_fast": "Fast",
+    "profile_smart": "Thorough",
+    "enabled": "On",
+    "off": "off",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "remove": "Remove",
+    "remove_confirm": "Remove the helper “{name}”?"
   }
 }

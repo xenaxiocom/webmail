@@ -113,7 +113,7 @@ export type AssistantEvent =
   /** `agent` (step 120): the call was made by one of the assistant's helpers. */
   | { type: "tool"; name: string; status: "start" | "done" | "error"; agent?: string }
   /** Step 120: a helper started or finished its part of the work. */
-  | { type: "delegate"; agent: string; status: "start" | "done" | "error" }
+  | { type: "delegate"; agent: string; status: "start" | "done" | "error"; name?: string }
   | { type: "sources"; emails: SourceEmail[] }
   | { type: "proposal"; id: string; tool: string; summary: ProposalSummary }
   | { type: "done"; inputTokens: number; outputTokens: number }

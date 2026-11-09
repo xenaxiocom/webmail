@@ -411,6 +411,14 @@ function AiSettings() {
           {t("external.admin_link_open")}
         </Link>
       </section>
+      {/* Step 144: the company's own helpers for the assistant. */}
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <h2 className="font-medium">{t("helpers.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("helpers.link_intro")}</p>
+        <Link href="/workspace/ai/helpers" className="text-sm text-primary underline underline-offset-4">
+          {t("helpers.link_open")}
+        </Link>
+      </section>
       {/* Step 91: facts every employee's assistant knows. */}
       <section className="space-y-2 rounded-lg border border-border bg-card p-4">
         <h2 className="font-medium">{t("memory.company_title")}</h2>

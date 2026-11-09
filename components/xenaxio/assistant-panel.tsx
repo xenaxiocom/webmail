@@ -78,6 +78,8 @@ interface Turn {
   tool?: string;
   /** Step 120: helpers working right now. */
   helpers?: string[];
+  /** Step 144: names of the company's own helpers (the built-in ones have texts). */
+  helperNames?: Record<string, string>;
   /** A tool call failed; worth showing only if no answer came after it. */
   toolFailed?: boolean;
   error?: string;
@@ -614,7 +616,7 @@ export function AssistantPanel() {
           else if (e.type === "delegate")
             update((turn) => {
               const now = (turn.helpers ?? []).filter((h, i, all) => !(e.status !== "start" && h === e.agent && all.indexOf(h) === i));
-              return { ...turn, helpers: e.status === "start" ? [...now, e.agent] : now };
+              return { ...turn, helpers: e.status === "start" ? [...now, e.agent] : now, ...(e.name ? { helperNames: { ...turn.helperNames, [e.agent]: e.name } } : {}) };
             });
           else if (e.type === "sources") update((turn) => ({ ...turn, sources: e.emails }));
           else if (e.type === "proposal") update((turn) => ({ ...turn, proposals: [...(turn.proposals ?? []), { id: e.id, tool: e.tool, summary: e.summary, state: "pending" }] }));
@@ -1060,7 +1062,7 @@ export function AssistantPanel() {
               {turn.tool && <p className="animate-pulse text-xs text-muted-foreground">{t(`assistant.tool_${turn.tool}`)}</p>}
               {turn.role === "assistant" && busy && i === turns.length - 1 && [...new Set(turn.helpers ?? [])].map((h) => (
                 <p key={h} className="animate-pulse text-xs text-muted-foreground" data-testid="helper-working">
-                  {t("assistant.helper_working", { helper: t(`assistant.helpers.${h}`) })}
+                  {t("assistant.helper_working", { helper: turn.helperNames?.[h] ?? t(`assistant.helpers.${h}`) })}
                 </p>
               ))}
               {turn.role === "assistant" && !turn.text && !turn.tool && busy && i === turns.length - 1 && <p className="animate-pulse text-xs text-muted-foreground">…</p>}
