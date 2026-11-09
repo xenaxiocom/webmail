@@ -344,7 +344,12 @@
     "object_rules_invalid": "A validation rule is not right: {error}",
     "object_rule_failed": "{text}",
     "object_field_computed": "This field is computed and cannot be changed.",
-    "object_field_in_use": "The field is still in use: {usedBy}. Change those formulas, rules or calculations first."
+    "object_field_in_use": "The field is still in use: {usedBy}. Change those formulas, rules or calculations first.",
+    "suggestion_not_found": "This suggestion is no longer open.",
+    "helper_tool_not_allowed": "A helper may only use tools that read or prepare: {tools}",
+    "helper_invalid": "Please fill in the name, what it is for, how it works and at least one tool.",
+    "helper_limit": "Your company already has the most helpers possible (10).",
+    "helper_not_found": "This helper no longer exists."
   },
   "login": {
     "title": "Sign in",
@@ -794,7 +799,8 @@
     "images_chat_remove": "Remove picture",
     "images_chat_removed_done": "The message with the picture was removed for everyone.",
     "images_chat_block_reason": "Reason for blocking the person who sent the picture (all accounts):",
-    "images_chat_person_blocked": "The person has been blocked."
+    "images_chat_person_blocked": "The person has been blocked.",
+    "tab_quality": "Assistant quality"
   },
   "about": {
     "based_on": "Based on",
@@ -1165,7 +1171,10 @@
     "learned": "Learned",
     "reject_reason": "Why? (optional)",
     "reject_confirm": "Decline",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "skill_suggested": "Turn requests like this into a skill? A draft “{name}” is ready.",
+    "skill_version_suggested": "A better version of your skill “{name}” is ready, from your corrections.",
+    "skill_suggested_open": "Review"
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -1689,7 +1698,15 @@
     "learn_on": "On: the assistant learns from drafts you change before sending, from your reason for declining a proposal and from your comment on a bad answer. A draft’s text is kept encrypted for at most 14 days and deleted right after the comparison.",
     "learn_off": "Off: the assistant does not learn from your corrections.",
     "learn_switch_on": "Turn on",
-    "learn_switch_off": "Turn off"
+    "learn_switch_off": "Turn off",
+    "share_company": "Suggest for company",
+    "shared_company": "Sent to your company’s admin. They decide whether it applies to everyone.",
+    "lesson_requests": "Lessons suggested by employees",
+    "lesson_request_by": "Suggested by {name}",
+    "lesson_request_accept": "Apply for everyone",
+    "lesson_request_decline": "Decline",
+    "add_company_lesson": "Add a lesson for everyone",
+    "company_lesson_hint": "A rule for how the assistant works for everyone, e.g. “Offers always state a validity of 30 days”."
   },
   "schedules": {
     "title": "Scheduled tasks ({count} of {max} active)",
@@ -3249,7 +3266,14 @@
     "invalid_name": "The name may only contain lower-case letters, digits and hyphens (1–64 characters).",
     "invalid_description": "Describe in at most {max} characters when the skill fits.",
     "invalid_text": "The instructions are empty or longer than {max} characters.",
-    "invalid_header": "The file does not start with a header of ---, name: and description:."
+    "invalid_header": "The file does not start with a header of ---, name: and description:.",
+    "suggested_title": "Suggested by the assistant",
+    "suggested_intro": "Drafts from requests you made again and again, and better versions of your skills after your corrections. Nothing changes until you press the button.",
+    "suggested_new": "New skill from your requests",
+    "suggested_version": "New version of “{name}”",
+    "suggested_create": "Create skill",
+    "suggested_apply": "Use this version",
+    "suggested_dismiss": "Dismiss"
   },
   "flows": {
     "title": "Flows",
@@ -3486,7 +3510,8 @@
       "set_menu_items": "Order and hide entries in my menu",
       "add_object_comment": "Comment on records",
       "delegate": "Helpers",
-      "list_connections": "See the outside systems you may connect"
+      "list_connections": "See the outside systems you may connect",
+      "list_helpers": "See the assistant's helpers"
     },
     "admin_title": "Company AI permissions",
     "admin_intro": "A limit for everyone in the company. Employees can only be stricter for themselves. Reading tools stay allowed under \"Ask at most\".",
@@ -4368,5 +4393,66 @@
     "rule_add": "Add rule",
     "rule_remove": "Remove rule",
     "mark": "computed"
+  },
+  "helpers": {
+    "title": "Helpers",
+    "link_intro": "Your own helpers the assistant hands parts of its work to, e.g. one that knows your invoices or your CRM.",
+    "link_open": "Manage helpers",
+    "intro": "A helper does one kind of work for the assistant: it searches, reads and prepares with the tools you give it, and the assistant uses its answer. Write what it is for, so the assistant knows when to ask it.",
+    "safety": "Helpers only get tools that read or prepare (drafts, for example). They never change, send or delete anything; changes stay with the assistant and wait for the person where your permissions say so.",
+    "built_in": "Built-in helpers",
+    "none": "No helpers of your own yet.",
+    "add": "Add a helper",
+    "add_title": "New helper",
+    "name": "Name",
+    "name_placeholder": "Invoice desk",
+    "role": "What it is for",
+    "role_placeholder": "Finds invoices and payment reminders in the mail",
+    "role_hint": "The assistant reads this to decide when to ask the helper.",
+    "instructions": "How it works",
+    "instructions_placeholder": "Search by the invoice number first, then by the supplier. Give amount, due date and sender.",
+    "tools": "Tools",
+    "tools_hint": "Only tools that read or prepare. Tools of outside systems appear here once you approve them under External tools as reading.",
+    "reads": "reads",
+    "prepares": "prepares",
+    "profile": "Model",
+    "profile_default": "Company model",
+    "profile_fast": "Fast",
+    "profile_smart": "Thorough",
+    "enabled": "On",
+    "off": "off",
+    "save": "Save",
+    "cancel": "Cancel",
+    "edit": "Edit",
+    "remove": "Remove",
+    "remove_confirm": "Remove the helper “{name}”?"
+  },
+  "quality": {
+    "title": "Assistant quality",
+    "intro": "Anonymous numbers for the whole platform, per day: how often each tool was called, how often the model gave it bad arguments, how often it failed and how often people declined its proposals. No company, person or text is in them. Use them to improve tool descriptions and prompts.",
+    "off": "Counting is off.",
+    "on_since": "Counting since {date}.",
+    "privacy_link": "Privacy policy, section 7b",
+    "privacy_first": "Switch on only once the privacy policy line (section 7b) is live on xenaxio.com.",
+    "confirm_on": "Is section 7b of the privacy policy live on xenaxio.com? Counting starts now.",
+    "switch_on": "Start counting",
+    "switch_off": "Stop counting",
+    "answers_title": "Answers, last {days} days",
+    "answers": "Answers",
+    "bad": "Not helpful",
+    "budget": "Hit their budget",
+    "tools_title": "Tools, last {days} days",
+    "none": "No numbers yet.",
+    "tool": "Tool",
+    "calls": "Calls",
+    "invalid": "Bad arguments",
+    "failed": "Failed",
+    "declined": "Declined",
+    "external": "Outside systems (all)",
+    "unknown": "Unknown names",
+    "legend": "Bad arguments and failures are shares of calls, declined of proposals. A tool with many bad arguments needs a clearer description.",
+    "company_title": "Anonymous numbers to improve the assistant",
+    "company_intro": "Xenaxio counts, for the whole platform, how often each of the assistant's tools is used and goes wrong, without content, people or company names (privacy policy, section 7b).",
+    "company_switch": "Count my company's use too"
   }
 }

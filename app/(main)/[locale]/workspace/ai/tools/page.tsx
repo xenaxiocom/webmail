@@ -194,7 +194,7 @@ function ServerCard({ server, users, onChanged }: { server: ExternalServer; user
                 <p className="font-mono text-sm">
                   {tool.name}
                   <span className="ml-2 font-sans text-xs text-muted-foreground">{tool.readOnly && !tool.confirm ? t("external.reads") : t("external.changes")}</span>
-                  {tool.change && <span className="ml-2 font-sans text-xs text-amber-600 dark:text-amber-400">{tool.change === "new" ? t("external.new") : t("external.changed")}</span>}
+                  {tool.change && <span className="ml-2 font-sans text-xs text-warning">{tool.change === "new" ? t("external.new") : t("external.changed")}</span>}
                 </p>
                 <p className="text-xs text-muted-foreground">{tool.description}</p>
               </div>

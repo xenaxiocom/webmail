@@ -414,6 +414,8 @@ export interface AiAdmin {
   tenantTokens: number;
   /** Step 50: what the company allows for scheduled tasks (absent on older servers). */
   schedules?: ScheduleSettingsInfo;
+  /** Step 146: whether the company's use counts towards the platform's anonymous numbers. */
+  qualityStats?: boolean;
   /** Step 83: steps and input tokens per answer (null: the default); they apply on the Xenacore engine. */
   answers?: AnswerSettings;
   /** Step 84: which model each profile uses (missing: the company's model). */
@@ -943,6 +945,8 @@ export interface MemoryInput {
   text: string;
   subject?: string;
   validUntil?: string | null;
+  /** Step 143: the admin writes a lesson for the whole company. */
+  kind?: "person" | "work" | "episode" | "lesson";
 }
 
 /** Step 49: a task the assistant carries out on a schedule (the user's page "Geplante Aufgaben"). */
@@ -1208,6 +1212,36 @@ export interface ExternalServer {
   connected: number;
 }
 
+/** Step 146: the platform's anonymous numbers for the last days (no company, person or text). */
+export interface QualityReport {
+  on: boolean;
+  since: string | null;
+  days: { day: string; answers: number; bad: number; budget: number }[];
+  tools: { tool: string; calls: number; invalid: number; failed: number; proposed: number; declined: number }[];
+}
+
+/** Step 145: a helper the company's admin set up for the assistant. */
+export interface CompanyHelper {
+  id: string;
+  slug: string;
+  name: string;
+  role: string;
+  instructions: string;
+  tools: string[];
+  profile: "default" | "fast" | "smart";
+  enabled: boolean;
+  updatedAt: string;
+}
+
+export type CompanyHelperInput = Pick<CompanyHelper, "name" | "role" | "instructions" | "tools" | "profile" | "enabled">;
+
+/** A tool a helper may get: it reads or prepares; `system` names the outside system it comes from. */
+export interface HelperTool {
+  name: string;
+  kind: string;
+  system?: string;
+}
+
 export type ExternalLevel = "allow" | "ask" | "deny";
 
 /** Step 122: a server an employee may use, with their sign-in and levels. */
@@ -1229,6 +1263,28 @@ export interface ExternalServerInput {
   key?: string;
   clientId?: string;
   clientSecret?: string;
+}
+
+
+/** Step 143: a skill the assistant drafted (or a new version of one of the person's skills); created only by the person. */
+export interface SkillSuggestionItem {
+  id: string;
+  kind: "new" | "version";
+  skillId: string | null;
+  name: string;
+  description: string;
+  body: string;
+  note: string | null;
+  createdAt: string;
+}
+
+/** Step 143: a lesson an employee suggested for the whole company. */
+export interface CompanyLessonRequest {
+  id: string;
+  text: string;
+  subject: string | null;
+  by: string;
+  createdAt: string;
 }
 
 export const xenaxio = {
@@ -1290,6 +1346,13 @@ export const xenaxio = {
   setMemoryEnabled: (enabled: boolean) => request<{ enabled: boolean }>("POST", "/api/ai/memories/settings", { enabled }),
   /** Step 121: learning from the person's corrections on or off. */
   setLearning: (enabled: boolean) => request<{ learn: boolean }>("POST", "/api/ai/memories/learning", { enabled }),
+  // Step 143: skills the assistant suggests, and lessons for the whole company.
+  skillSuggestions: () => request<{ suggestions: SkillSuggestionItem[] }>("GET", "/api/ai/skills/suggestions"),
+  acceptSkillSuggestion: (id: string, skill: { name: string; description: string; body: string }) => request<{ skillId: string }>("POST", `/api/ai/skills/suggestions/${id}/accept`, skill),
+  dismissSkillSuggestion: (id: string) => request<{ ok: true }>("POST", `/api/ai/skills/suggestions/${id}/dismiss`, {}),
+  suggestLessonForCompany: (id: string) => request<{ ok: true }>("POST", `/api/ai/memories/${id}/company`, {}),
+  companyLessonRequests: () => request<{ requests: CompanyLessonRequest[] }>("GET", "/api/admin/ai/memories/lesson-requests"),
+  answerCompanyLessonRequest: (id: string, accept: boolean, text?: string) => request<{ ok?: true; note?: MemoryNote }>("POST", `/api/admin/ai/memories/lesson-requests/${id}`, { accept, ...(text ? { text } : {}) }),
   schedules: () => request<ScheduleList>("GET", "/api/ai/schedules"),
   pauseSchedule: (id: string) => request<{ schedule: ScheduleInfo }>("POST", `/api/ai/schedules/${encodeURIComponent(id)}/pause`),
   resumeSchedule: (id: string) => request<{ schedule: ScheduleInfo }>("POST", `/api/ai/schedules/${encodeURIComponent(id)}/resume`),
@@ -1451,6 +1514,7 @@ export const xenaxio = {
   chatChannels: () => request<{ channels: ChatChannelAdmin[] }>("GET", "/api/admin/chat/channels"),
   changeChatChannel: (roomId: string, change: ChatChannelChange) => request<ChatChannelAdmin>("PATCH", `/api/admin/chat/channels/${encodeURIComponent(roomId)}`, change),
   aiAdmin: () => request<AiAdmin>("GET", "/api/admin/ai"),
+  setQualityStats: (enabled: boolean) => request<{ qualityStats: boolean }>("PUT", "/api/admin/ai/quality-stats", { enabled }),
   setAiAdmin: (change: { enabled?: boolean; model?: string; provider?: AiProvider }) => request<{ ok: true }>("POST", "/api/admin/ai", change),
   setTranscription: (change: { mode: TranscriptionMode; model?: string | null }) =>
     request<{ mode: TranscriptionMode; customModel: string | null }>("PUT", "/api/admin/ai/transcription", change),
@@ -1465,6 +1529,10 @@ export const xenaxio = {
   setCustomModelFallback: (enabled: boolean) => request<{ custom: CustomModel }>("POST", "/api/admin/ai/custom/fallback", { enabled }),
   removeCustomModel: () => request<{ ok: true }>("DELETE", "/api/admin/ai/custom"),
   // Step 122: MCP servers of the company (admin) and the employee's sign-in to them.
+  companyHelpers: () => request<{ helpers: CompanyHelper[]; tools: HelperTool[] }>("GET", "/api/admin/ai/helpers"),
+  addCompanyHelper: (input: CompanyHelperInput) => request<{ helper: CompanyHelper }>("POST", "/api/admin/ai/helpers", input),
+  updateCompanyHelper: (id: string, input: CompanyHelperInput) => request<{ helper: CompanyHelper }>("PUT", `/api/admin/ai/helpers/${id}`, input),
+  removeCompanyHelper: (id: string) => request<{ ok: true }>("DELETE", `/api/admin/ai/helpers/${id}`),
   externalServers: () => request<{ servers: ExternalServer[]; redirectUri: string }>("GET", "/api/admin/ai/mcp-servers"),
   addExternalServer: (input: ExternalServerInput) => request<{ server: ExternalServer }>("POST", "/api/admin/ai/mcp-servers", input),
   updateExternalServer: (id: string, patch: { title?: string; enabled?: boolean; access?: "all" | "some"; users?: string[]; key?: string; keyHeader?: string }) =>
@@ -1576,6 +1644,9 @@ export const xenaxio = {
     removeImage: (kind: GalleryKind, ref: string, reason: string, mode: "hide" | "delete") => request<{ ok: true }>("POST", "/api/operator/images/remove", { kind, ref, reason, mode }),
     hiddenImages: () => request<{ hidden: HiddenImage[] }>("GET", "/api/operator/images/hidden").then((r) => r.hidden),
     restoreImage: (id: string) => request<{ hidden: HiddenImage[] }>("POST", `/api/operator/images/hidden/${encodeURIComponent(id)}/restore`, {}).then((r) => r.hidden),
+    // Step 146: anonymous daily numbers per tool ("Assistant quality") and the platform's switch.
+    quality: (days: number) => request<QualityReport>("GET", `/api/operator/ai-quality?days=${days}`),
+    setQuality: (on: boolean) => request<{ on: boolean; since: string | null }>("PUT", "/api/operator/ai-quality", { on }),
     // Step 108, part C3: chat pictures our own model flagged (only those, only a preview) and the threshold.
     imageCheckSettings: () => request<{ available: boolean; threshold: number | null }>("GET", "/api/operator/image-check"),
     setImageCheckThreshold: (threshold: number) => request<{ available: boolean; threshold: number }>("PUT", "/api/operator/image-check", { threshold }),

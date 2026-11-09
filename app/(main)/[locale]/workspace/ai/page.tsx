@@ -411,6 +411,14 @@ function AiSettings() {
           {t("external.admin_link_open")}
         </Link>
       </section>
+      {/* Step 145: the company's own helpers for the assistant. */}
+      <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+        <h2 className="font-medium">{t("helpers.title")}</h2>
+        <p className="text-sm text-muted-foreground">{t("helpers.link_intro")}</p>
+        <Link href="/workspace/ai/helpers" className="text-sm text-primary underline underline-offset-4">
+          {t("helpers.link_open")}
+        </Link>
+      </section>
       {/* Step 91: facts every employee's assistant knows. */}
       <section className="space-y-2 rounded-lg border border-border bg-card p-4">
         <h2 className="font-medium">{t("memory.company_title")}</h2>
@@ -423,6 +431,32 @@ function AiSettings() {
       {data.transcription && <TranscriptionSettings value={data.transcription} hasOwnServer={!!data.custom} onSaved={load} />}
 
       {data.schedules && <ScheduleSettings value={data.schedules} onSaved={load} />}
+      {/* Step 146: the company's part in the platform's anonymous numbers. */}
+      {data.qualityStats !== undefined && (
+        <section className="space-y-2 rounded-lg border border-border bg-card p-4">
+          <h2 className="font-medium">{t("quality.company_title")}</h2>
+          <p className="text-sm text-muted-foreground">{t("quality.company_intro")}</p>
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={data.qualityStats}
+              disabled={busy}
+              onChange={(e) => {
+                const on = e.target.checked;
+                setBusy(true);
+                setMessage(null);
+                xenaxio
+                  .setQualityStats(on)
+                  .then(() => load())
+                  .then(() => setMessage({ kind: "success", text: t("aiadmin.saved") }))
+                  .catch((err) => setMessage({ kind: "error", text: errorText(t, err) }))
+                  .finally(() => setBusy(false));
+              }}
+            />
+            {t("quality.company_switch")}
+          </label>
+        </section>
+      )}
 
       <section className="space-y-3 rounded-lg border border-border bg-card p-4">
         <h2 className="font-medium">{t("aiadmin.usage", { month })}</h2>

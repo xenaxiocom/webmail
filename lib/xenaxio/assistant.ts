@@ -113,7 +113,7 @@ export type AssistantEvent =
   /** `agent` (step 120): the call was made by one of the assistant's helpers. */
   | { type: "tool"; name: string; status: "start" | "done" | "error"; agent?: string }
   /** Step 120: a helper started or finished its part of the work. */
-  | { type: "delegate"; agent: string; status: "start" | "done" | "error" }
+  | { type: "delegate"; agent: string; status: "start" | "done" | "error"; name?: string }
   | { type: "sources"; emails: SourceEmail[] }
   | { type: "proposal"; id: string; tool: string; summary: ProposalSummary }
   | { type: "done"; inputTokens: number; outputTokens: number }
@@ -128,6 +128,8 @@ export type AssistantEvent =
   | { type: "skill"; name: string }
   /** Step 91 (Xenacore): facts the assistant kept in this answer; the panel offers to undo them. */
   | { type: "memory"; items: { id: string; text: string }[] }
+  /** Step 143: a draft skill (or a new version of one) waits on the page "What the assistant knows". */
+  | { type: "skill_suggestion"; id: string; kind: "new" | "version"; name: string }
   /** Step 101: what the answer really did, from its tool calls (not from the model's words). */
   | ({ type: "actions" } & ActionReport);
 
