@@ -56,7 +56,7 @@ function AddServer({ onAdded, redirectUri }: { onAdded: () => Promise<void>; red
       <div className="grid gap-3 sm:grid-cols-2">
         <label className="space-y-1 text-sm">
           <span>{t("external.name")}</span>
-          <Input value={title} maxLength={60} placeholder="Salesforce" onChange={(e) => setTitle(e.target.value)} />
+          <Input value={title} maxLength={60} placeholder="CRM" onChange={(e) => setTitle(e.target.value)} />
         </label>
         <label className="space-y-1 text-sm">
           <span>{t("external.url")}</span>
