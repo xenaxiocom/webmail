@@ -12,12 +12,18 @@ import { useSwipeActions } from "@/hooks/use-swipe-actions";
 
 /** How close to the left edge (px) a touch has to start to swipe a panel closed. */
 export const EDGE = 32;
+/** An invisible strip over the left edge of a panel whose content is an iframe. */
+export const edgeStripClass = "absolute inset-y-0 left-0 z-20 w-5";
 /** How far (px) the top bar of a sheet has to be pulled down to close it. */
 export const SHEET_CLOSE = 80;
 
-/** Spread `handlers` on the panel and `style` moves it with the finger. */
-export function useEdgeSwipeClose(onClose: () => void) {
-  const swipe = useSwipeActions({ hasLeft: false, hasRight: true, onCommit: onClose });
+/**
+ * Spread `handlers` on the panel and `style` moves it with the finger. Where the
+ * panel's content is an iframe (an email), the touches never reach the panel:
+ * spread the handlers on a strip over the left edge instead (`edgeStripClass`).
+ */
+export function useEdgeSwipeClose(onClose: () => void, enabled = true) {
+  const swipe = useSwipeActions({ enabled, hasLeft: false, hasRight: true, onCommit: onClose });
   return {
     style: swipe.offsetX > 0 ? { transform: `translateX(${swipe.offsetX}px)` } : undefined,
     handlers: {

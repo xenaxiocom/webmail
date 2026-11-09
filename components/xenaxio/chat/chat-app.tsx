@@ -15,6 +15,7 @@ import { AppTopBannerSlot } from "@/components/plugins/app-top-banner-slot";
 import { useDocumentTitle } from "@/hooks/use-document-title";
 import { useIsEmbedded } from "@/hooks/use-is-embedded";
 import { useIsMobile } from "@/hooks/use-media-query";
+import { useEdgeSwipeClose } from "@/components/xenaxio/use-close-gestures";
 import { useMountainViewShell } from "@/hooks/use-mountain-view-shell";
 import { useSidebarApps } from "@/hooks/use-sidebar-apps";
 import { useChatBadge } from "@/lib/xenaxio/chat/nav";
@@ -200,6 +201,12 @@ function ChatInside() {
     return () => document.removeEventListener("keydown", onKey);
   }, [client, view, openRoom, isMobile, toggleSidebar]);
 
+  // On a phone one pane at a time; "back" goes from the side panel to the
+  // conversation and from the conversation to the list. A swipe to the right
+  // from the left edge does the same, as in iPhone apps.
+  const goBack = () => (panel ? setPanel(null) : setView({ kind: "home" }));
+  const edgeSwipe = useEdgeSwipeClose(goBack, isMobile && (!!panel || view.kind !== "home"));
+
   if (!status && !statusError) return <Notice title={t("chat.loading")} />;
   if (statusError && !status) return <Notice title={t("chat.error")} />;
   if (status && !status.enabled) {
@@ -239,7 +246,7 @@ function ChatInside() {
   // Every pane is min-w-0: without it a long channel name, link or code line
   // widened the whole chat past the screen and pushed "Send" off it (Android).
   const back = (
-    <button type="button" onClick={() => (panel ? setPanel(null) : setView({ kind: "home" }))} className="flex h-10 shrink-0 items-center gap-1 border-b border-border px-3 text-sm text-primary">
+    <button type="button" onClick={goBack} className="flex h-10 shrink-0 items-center gap-1 border-b border-border px-3 text-sm text-primary">
       <IconArrowLeft size={16} />
       {panel ? client.roomName(client.rooms.get(view.kind === "room" ? view.roomId : "") ?? ({ name: t("chat.title") } as never)) || t("chat.title") : t("chat.channels")}
     </button>
@@ -251,14 +258,14 @@ function ChatInside() {
       <div className="relative flex min-h-0 flex-1">
       {isMobile ? (
         panel ? (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col" style={edgeSwipe.style} {...edgeSwipe.handlers}>
             {back}
             <ChatSidePanel client={client} panel={panel} />
           </div>
         ) : view.kind === "home" ? (
           sidebar
         ) : (
-          <div className="flex min-h-0 min-w-0 flex-1 flex-col">
+          <div className="flex min-h-0 min-w-0 flex-1 flex-col" style={edgeSwipe.style} {...edgeSwipe.handlers}>
             {back}
             {main}
           </div>

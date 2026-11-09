@@ -16,6 +16,20 @@ describe("ImageViewer (chat picture over the whole window)", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
+  it("closes on the phone when its top bar is pulled down far enough", () => {
+    const onClose = open();
+    const bar = screen.getByText("pic.png").parentElement as HTMLElement;
+    const pull = (to: number) => {
+      fireEvent.touchStart(bar, { touches: [{ clientX: 100, clientY: 20 }] });
+      fireEvent.touchMove(bar, { touches: [{ clientX: 100, clientY: to }] });
+      fireEvent.touchEnd(bar, { touches: [] });
+    };
+    pull(60);
+    expect(onClose).not.toHaveBeenCalled();
+    pull(160);
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
   it("closes with Escape and a click beside the picture, not on it", () => {
     const onClose = open();
     fireEvent.click(screen.getByAltText("pic.png"));
