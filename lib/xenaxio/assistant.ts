@@ -128,7 +128,7 @@ export type AssistantEvent =
   | { type: "skill"; name: string }
   /** Step 91 (Xenacore): facts the assistant kept in this answer; the panel offers to undo them. */
   | { type: "memory"; items: { id: string; text: string }[] }
-  /** Step 142: a draft skill (or a new version of one) waits on the page "What the assistant knows". */
+  /** Step 143: a draft skill (or a new version of one) waits on the page "What the assistant knows". */
   | { type: "skill_suggestion"; id: string; kind: "new" | "version"; name: string }
   /** Step 101: what the answer really did, from its tool calls (not from the model's words). */
   | ({ type: "actions" } & ActionReport);

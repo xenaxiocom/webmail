@@ -15,7 +15,7 @@ import { useXT } from "@/lib/xenaxio/i18n";
 function CompanyKnowledge() {
   const t = useXT();
   const [data, setData] = useState<{ notes: MemoryNote[]; maxNotes: number; maxLength: number } | null>(null);
-  // Step 142: lessons employees suggested for everyone.
+  // Step 143: lessons employees suggested for everyone.
   const [requests, setRequests] = useState<CompanyLessonRequest[]>([]);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -67,7 +67,7 @@ function CompanyKnowledge() {
           onDelete={remove}
         />
       </section>
-      {/* Step 142: lessons employees suggested; only the admin makes them the company's. */}
+      {/* Step 143: lessons employees suggested; only the admin makes them the company's. */}
       {requests.length > 0 && (
         <section className="space-y-2" aria-labelledby="lesson-requests-title">
           <h2 id="lesson-requests-title" className="font-medium">
@@ -102,7 +102,7 @@ function CompanyKnowledge() {
         hint={t("memory.add_hint", { max: data.maxLength })}
         onAdd={(input) => run(() => xenaxio.addCompanyMemory(input))}
       />
-      {/* Step 142: a lesson for everyone (how the assistant works for the whole company). */}
+      {/* Step 143: a lesson for everyone (how the assistant works for the whole company). */}
       {data.notes.length < data.maxNotes && (
         <details className="text-sm">
           <summary className="cursor-pointer text-muted-foreground">{t("memory.add_company_lesson")}</summary>

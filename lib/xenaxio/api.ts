@@ -943,7 +943,7 @@ export interface MemoryInput {
   text: string;
   subject?: string;
   validUntil?: string | null;
-  /** Step 142: the admin writes a lesson for the whole company. */
+  /** Step 143: the admin writes a lesson for the whole company. */
   kind?: "person" | "work" | "episode" | "lesson";
 }
 
@@ -1210,7 +1210,7 @@ export interface ExternalServer {
   connected: number;
 }
 
-/** Step 144: a helper the company's admin set up for the assistant. */
+/** Step 145: a helper the company's admin set up for the assistant. */
 export interface CompanyHelper {
   id: string;
   slug: string;
@@ -1256,7 +1256,7 @@ export interface ExternalServerInput {
 }
 
 
-/** Step 142: a skill the assistant drafted (or a new version of one of the person's skills); created only by the person. */
+/** Step 143: a skill the assistant drafted (or a new version of one of the person's skills); created only by the person. */
 export interface SkillSuggestionItem {
   id: string;
   kind: "new" | "version";
@@ -1268,7 +1268,7 @@ export interface SkillSuggestionItem {
   createdAt: string;
 }
 
-/** Step 142: a lesson an employee suggested for the whole company. */
+/** Step 143: a lesson an employee suggested for the whole company. */
 export interface CompanyLessonRequest {
   id: string;
   text: string;
@@ -1336,7 +1336,7 @@ export const xenaxio = {
   setMemoryEnabled: (enabled: boolean) => request<{ enabled: boolean }>("POST", "/api/ai/memories/settings", { enabled }),
   /** Step 121: learning from the person's corrections on or off. */
   setLearning: (enabled: boolean) => request<{ learn: boolean }>("POST", "/api/ai/memories/learning", { enabled }),
-  // Step 142: skills the assistant suggests, and lessons for the whole company.
+  // Step 143: skills the assistant suggests, and lessons for the whole company.
   skillSuggestions: () => request<{ suggestions: SkillSuggestionItem[] }>("GET", "/api/ai/skills/suggestions"),
   acceptSkillSuggestion: (id: string, skill: { name: string; description: string; body: string }) => request<{ skillId: string }>("POST", `/api/ai/skills/suggestions/${id}/accept`, skill),
   dismissSkillSuggestion: (id: string) => request<{ ok: true }>("POST", `/api/ai/skills/suggestions/${id}/dismiss`, {}),

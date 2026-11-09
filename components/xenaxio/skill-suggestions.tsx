@@ -1,6 +1,6 @@
 "use client";
 
-// Step 142 (Xenacore, stage 9): skills the assistant drafted from requests the
+// Step 143 (Xenacore, stage 9): skills the assistant drafted from requests the
 // person made again and again, and new versions of their own skills after
 // their corrections. Only a draft: the person edits it and creates it, or
 // dismisses it; the assistant never creates or changes a skill itself.

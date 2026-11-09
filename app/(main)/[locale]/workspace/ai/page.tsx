@@ -411,7 +411,7 @@ function AiSettings() {
           {t("external.admin_link_open")}
         </Link>
       </section>
-      {/* Step 144: the company's own helpers for the assistant. */}
+      {/* Step 145: the company's own helpers for the assistant. */}
       <section className="space-y-2 rounded-lg border border-border bg-card p-4">
         <h2 className="font-medium">{t("helpers.title")}</h2>
         <p className="text-sm text-muted-foreground">{t("helpers.link_intro")}</p>

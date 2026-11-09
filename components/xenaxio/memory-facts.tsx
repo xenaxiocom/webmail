@@ -103,7 +103,7 @@ function FactRow({ note, maxLength, busy, onSave, onDelete, onShare }: { note: M
           {t("memory.delete")}
         </Button>
       )}
-      {/* Step 142: a lesson for everyone; the company's admin decides. */}
+      {/* Step 143: a lesson for everyone; the company's admin decides. */}
       {onShare && (
         <Button size="sm" variant="outline" disabled={busy} onClick={onShare}>
           {t("memory.share_company")}

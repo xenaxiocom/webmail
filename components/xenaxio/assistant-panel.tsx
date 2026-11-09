@@ -78,7 +78,7 @@ interface Turn {
   tool?: string;
   /** Step 120: helpers working right now. */
   helpers?: string[];
-  /** Step 144: names of the company's own helpers (the built-in ones have texts). */
+  /** Step 145: names of the company's own helpers (the built-in ones have texts). */
   helperNames?: Record<string, string>;
   /** A tool call failed; worth showing only if no answer came after it. */
   toolFailed?: boolean;
@@ -94,7 +94,7 @@ interface Turn {
   skills?: string[];
   /** Step 91: facts the assistant kept in this answer; `undone` once the user took one back. */
   memory?: { id: string; text: string; undone?: boolean; lesson?: boolean }[];
-  /** Step 142: a draft skill the assistant made from requests like this one. */
+  /** Step 143: a draft skill the assistant made from requests like this one. */
   skillSuggestion?: { kind: "new" | "version"; name: string };
   /** Step 101: what the answer really did, from its tool calls. */
   actions?: ActionReport;
@@ -1079,7 +1079,7 @@ export function AssistantPanel() {
                   )}
                 </p>
               ))}
-              {/* Step 142: only a draft; the person creates the skill on the page. */}
+              {/* Step 143: only a draft; the person creates the skill on the page. */}
               {turn.skillSuggestion && (
                 <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
                   <span>{turn.skillSuggestion.kind === "new" ? t("assistant.skill_suggested", { name: turn.skillSuggestion.name }) : t("assistant.skill_version_suggested", { name: turn.skillSuggestion.name })}</span>

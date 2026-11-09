@@ -1,6 +1,6 @@
 "use client";
 
-// Step 144 (Xenacore, stage 9, part C): "Administration → AI → Helpers" — the
+// Step 145 (Xenacore, stage 9, part C): "Administration → AI → Helpers" — the
 // company's own helpers. The admin writes what a helper is for, how it works
 // and which tools it may use; only tools that read or prepare are offered, so
 // a helper never changes, proposes or sends anything. The assistant hands it

@@ -23,7 +23,7 @@ function Memory() {
   const t = useXT();
   const [data, setData] = useState<MemoryState | null>(null);
   const [busy, setBusy] = useState(false);
-  // Step 142: a lesson was sent to the admin for the whole company.
+  // Step 143: a lesson was sent to the admin for the whole company.
   const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -163,7 +163,7 @@ function MySkills() {
         </h2>
         <p className="text-sm text-muted-foreground">{t("skills.my_intro")}</p>
       </div>
-      {/* Step 142: drafts the assistant made; created only here, by the person. */}
+      {/* Step 143: drafts the assistant made; created only here, by the person. */}
       <SkillSuggestions onChanged={load} />
       <SkillManager api={ownSkills} skills={data.own} max={data.max} onChanged={load} />
       {given.length > 0 && (
