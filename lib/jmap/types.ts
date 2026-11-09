@@ -978,6 +978,9 @@ export interface FileNode {
   parentId: string | null;
   name: string;
   type: string; // "d" for directory, MIME type for files
+  // Kind of node: 0.16 sends `nodeType`, Stalwart 1.x `@type` (read through
+  // fromDraftFileNode, never sent in FileNode/set). Xenaxio step 149.
+  nodeType?: 'file' | 'directory' | 'symlink';
   blobId: string | null;
   size: number;
   created: string;

@@ -14,6 +14,7 @@ import { isTaskLikeObject, type ScannedCalendarObject } from "@/lib/calendar-com
 import { DEFAULT_CALENDAR_COMPONENTS, mkCalendarCollection, newCalendarCollectionName } from "@/lib/webdav/calendar-collection";
 import { sanitizeDisplayName, splitMailbox } from "@/lib/rfc5322-mailbox";
 import { decodeFileNodeName } from "./filenode-name";
+import { fromDraftFileNode, toDraftFileNodeCreate } from "./filenode-kind";
 import { contactFromWire, contactToWire } from "./contact-wire";
 import { SchedulingDeniedError } from "./scheduling-error";
 import { PrincipalsRequestError } from "./principals-error";
@@ -75,7 +76,8 @@ function toLegacyRights(rights: FileNodeRights): LegacyFileNodeRights {
 
 /** A FileNode as the server sent it, normalized for the UI. */
 function fromWireFileNode(node: FileNode): FileNode {
-  const decoded = withDecodedName(node);
+  // Xenaxio step 149: Stalwart 1.x names the kind `@type` and the media type `mediaType`.
+  const decoded = withDecodedName(fromDraftFileNode(node));
   if (!decoded.myRights && !decoded.shareWith) return decoded;
   return {
     ...decoded,
@@ -8106,6 +8108,8 @@ export class JMAPClient implements IJMAPClient {
 
   private static FILE_NODE_PROPERTIES = [
     "id", "parentId", "name", "type", "blobId", "size", "created", "modified",
+    // Xenaxio step 149: the kind and media type under Stalwart 1.x's names.
+    "nodeType", "@type", "mediaType",
     // Stalwart omits shareWith/myRights from FileNode/get unless requested
     // explicitly, so the share dialog and indicators can't see existing
     // shares without naming them here (same as CALENDAR_PROPERTIES).
@@ -8374,6 +8378,21 @@ export class JMAPClient implements IJMAPClient {
     return !!cap && !("forbiddenNameChars" in cap);
   }
 
+  /**
+   * Xenaxio step 149: Stalwart 1.x takes File Storage draft 18 in a create
+   * (`@type`, `mediaType`). Of the drafts Stalwart has shipped, only that one
+   * lists `supportedNodeTypes` in the capability (as Bulwark upstream checks).
+   */
+  private usesDraftFileNodeCreate(accountId: string): boolean {
+    const cap = this.fileNodeCapability(accountId) ?? this.fileNodeCapability(this.getFilesAccountId());
+    return !!cap && "supportedNodeTypes" in cap;
+  }
+
+  /** The create as the account's server wants it (props use the 0.16 names). */
+  private fileNodeCreateWire(accountId: string, props: Record<string, unknown>): Record<string, unknown> {
+    return this.usesDraftFileNodeCreate(accountId) ? toDraftFileNodeCreate(props) : props;
+  }
+
   /** Naming rules for new FileNodes in `accountId`, if the server publishes any. */
   getFileNameRules(accountId?: string): FileNameRules | null {
     return fileNameRulesFrom(this.fileNodeCapability(accountId || this.getFilesAccountId()));
@@ -8417,7 +8436,7 @@ export class JMAPClient implements IJMAPClient {
     for (let attempt = 1; ; attempt++) {
       const name = attempt === 1 ? baseName : numberedFileName(baseName, attempt);
       const response = await this.request(
-        [["FileNode/set", { accountId, onExists: "rename", create: { n0: { ...props, name } } }, "fns0"]],
+        [["FileNode/set", { accountId, onExists: "rename", create: { n0: this.fileNodeCreateWire(accountId, { ...props, name }) } }, "fns0"]],
         this.fileUsing(),
       );
       const result = response.methodResponses?.[0];
