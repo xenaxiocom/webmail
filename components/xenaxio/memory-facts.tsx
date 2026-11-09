@@ -50,7 +50,7 @@ function FactForm({ initial, maxLength, busy, submitLabel, onSubmit, onCancel }:
   );
 }
 
-function FactRow({ note, maxLength, busy, onSave, onDelete }: { note: MemoryNote; maxLength: number; busy: boolean; onSave?: (input: MemoryInput) => Promise<boolean>; onDelete?: () => void }) {
+function FactRow({ note, maxLength, busy, onSave, onDelete, onShare }: { note: MemoryNote; maxLength: number; busy: boolean; onSave?: (input: MemoryInput) => Promise<boolean>; onDelete?: () => void; onShare?: () => void }) {
   const t = useXT();
   const locale = useLocale();
   const [editing, setEditing] = useState(false);
@@ -103,12 +103,18 @@ function FactRow({ note, maxLength, busy, onSave, onDelete }: { note: MemoryNote
           {t("memory.delete")}
         </Button>
       )}
+      {/* Step 142: a lesson for everyone; the company's admin decides. */}
+      {onShare && (
+        <Button size="sm" variant="outline" disabled={busy} onClick={onShare}>
+          {t("memory.share_company")}
+        </Button>
+      )}
     </li>
   );
 }
 
 /** A list of facts; without handlers it is read-only. */
-export function FactList({ notes, maxLength, busy, empty, onSave, onDelete }: { notes: MemoryNote[]; maxLength: number; busy: boolean; empty: string; onSave?: (note: MemoryNote, input: MemoryInput) => Promise<boolean>; onDelete?: (note: MemoryNote) => void }) {
+export function FactList({ notes, maxLength, busy, empty, onSave, onDelete, onShare }: { notes: MemoryNote[]; maxLength: number; busy: boolean; empty: string; onSave?: (note: MemoryNote, input: MemoryInput) => Promise<boolean>; onDelete?: (note: MemoryNote) => void; onShare?: (note: MemoryNote) => void }) {
   if (notes.length === 0) return <p className="text-sm text-muted-foreground">{empty}</p>;
   return (
     <ul className="divide-y divide-border rounded-lg border border-border">
@@ -120,6 +126,7 @@ export function FactList({ notes, maxLength, busy, empty, onSave, onDelete }: { 
           busy={busy}
           {...(onSave ? { onSave: (input: MemoryInput) => onSave(note, input) } : {})}
           {...(onDelete ? { onDelete: () => onDelete(note) } : {})}
+          {...(onShare ? { onShare: () => onShare(note) } : {})}
         />
       ))}
     </ul>

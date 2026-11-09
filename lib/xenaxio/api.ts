@@ -943,6 +943,8 @@ export interface MemoryInput {
   text: string;
   subject?: string;
   validUntil?: string | null;
+  /** Step 142: the admin writes a lesson for the whole company. */
+  kind?: "person" | "work" | "episode" | "lesson";
 }
 
 /** Step 49: a task the assistant carries out on a schedule (the user's page "Geplante Aufgaben"). */
@@ -1231,6 +1233,28 @@ export interface ExternalServerInput {
   clientSecret?: string;
 }
 
+
+/** Step 142: a skill the assistant drafted (or a new version of one of the person's skills); created only by the person. */
+export interface SkillSuggestionItem {
+  id: string;
+  kind: "new" | "version";
+  skillId: string | null;
+  name: string;
+  description: string;
+  body: string;
+  note: string | null;
+  createdAt: string;
+}
+
+/** Step 142: a lesson an employee suggested for the whole company. */
+export interface CompanyLessonRequest {
+  id: string;
+  text: string;
+  subject: string | null;
+  by: string;
+  createdAt: string;
+}
+
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
   lookupTranscripts: (files: { id: string; accountId?: string }[]) => request<TranscriptLookup>("POST", "/api/files/transcripts/lookup", { files }),
@@ -1290,6 +1314,13 @@ export const xenaxio = {
   setMemoryEnabled: (enabled: boolean) => request<{ enabled: boolean }>("POST", "/api/ai/memories/settings", { enabled }),
   /** Step 121: learning from the person's corrections on or off. */
   setLearning: (enabled: boolean) => request<{ learn: boolean }>("POST", "/api/ai/memories/learning", { enabled }),
+  // Step 142: skills the assistant suggests, and lessons for the whole company.
+  skillSuggestions: () => request<{ suggestions: SkillSuggestionItem[] }>("GET", "/api/ai/skills/suggestions"),
+  acceptSkillSuggestion: (id: string, skill: { name: string; description: string; body: string }) => request<{ skillId: string }>("POST", `/api/ai/skills/suggestions/${id}/accept`, skill),
+  dismissSkillSuggestion: (id: string) => request<{ ok: true }>("POST", `/api/ai/skills/suggestions/${id}/dismiss`, {}),
+  suggestLessonForCompany: (id: string) => request<{ ok: true }>("POST", `/api/ai/memories/${id}/company`, {}),
+  companyLessonRequests: () => request<{ requests: CompanyLessonRequest[] }>("GET", "/api/admin/ai/memories/lesson-requests"),
+  answerCompanyLessonRequest: (id: string, accept: boolean, text?: string) => request<{ ok?: true; note?: MemoryNote }>("POST", `/api/admin/ai/memories/lesson-requests/${id}`, { accept, ...(text ? { text } : {}) }),
   schedules: () => request<ScheduleList>("GET", "/api/ai/schedules"),
   pauseSchedule: (id: string) => request<{ schedule: ScheduleInfo }>("POST", `/api/ai/schedules/${encodeURIComponent(id)}/pause`),
   resumeSchedule: (id: string) => request<{ schedule: ScheduleInfo }>("POST", `/api/ai/schedules/${encodeURIComponent(id)}/resume`),

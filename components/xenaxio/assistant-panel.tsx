@@ -92,6 +92,8 @@ interface Turn {
   skills?: string[];
   /** Step 91: facts the assistant kept in this answer; `undone` once the user took one back. */
   memory?: { id: string; text: string; undone?: boolean; lesson?: boolean }[];
+  /** Step 142: a draft skill the assistant made from requests like this one. */
+  skillSuggestion?: { kind: "new" | "version"; name: string };
   /** Step 101: what the answer really did, from its tool calls. */
   actions?: ActionReport;
   /** Step 121: a proposal of this answer the user just declined: the panel asks why (optional). */
@@ -622,6 +624,7 @@ export function AssistantPanel() {
           else if (e.type === "budget") update((turn) => ({ ...turn, budget: true }));
           else if (e.type === "skill") update((turn) => ({ ...turn, skills: [...new Set([...(turn.skills ?? []), e.name])] }));
           else if (e.type === "memory") update((turn) => ({ ...turn, memory: [...(turn.memory ?? []), ...e.items] }));
+          else if (e.type === "skill_suggestion") update((turn) => ({ ...turn, skillSuggestion: { kind: e.kind, name: e.name } }));
           else if (e.type === "actions") update((turn) => ({ ...turn, actions: { steps: e.steps, changed: e.changed, claimMismatch: e.claimMismatch } }));
         }
       } catch (err) {
@@ -1074,6 +1077,15 @@ export function AssistantPanel() {
                   )}
                 </p>
               ))}
+              {/* Step 142: only a draft; the person creates the skill on the page. */}
+              {turn.skillSuggestion && (
+                <p className="flex flex-wrap items-center gap-2 text-xs text-muted-foreground">
+                  <span>{turn.skillSuggestion.kind === "new" ? t("assistant.skill_suggested", { name: turn.skillSuggestion.name }) : t("assistant.skill_version_suggested", { name: turn.skillSuggestion.name })}</span>
+                  <Link href="/workspace/assistant#skill-suggestions" className="text-primary underline underline-offset-2">
+                    {t("assistant.skill_suggested_open")}
+                  </Link>
+                </p>
+              )}
               {/* Step 83: the answer stopped at the company's limit; the next answer picks up from the plan and what was found. */}
               {turn.budget && i === turns.length - 1 && !busy && (
                 <div className="flex flex-wrap items-center gap-2">

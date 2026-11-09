@@ -14,6 +14,7 @@ import { Notice, Spinner } from "@/components/xenaxio/ui";
 import { WorkspaceShell } from "@/components/xenaxio/workspace-shell";
 import { ScheduleList } from "@/components/xenaxio/schedule-list";
 import { SkillManager } from "@/components/xenaxio/skill-manager";
+import { SkillSuggestions } from "@/components/xenaxio/skill-suggestions";
 import { AddFact, FactList } from "@/components/xenaxio/memory-facts";
 import { errorText, type MemoryInput, type MemoryNote, type MemoryState, ownSkills, type SkillItem, type SkillSummary, xenaxio } from "@/lib/xenaxio/api";
 import { useXT } from "@/lib/xenaxio/i18n";
@@ -22,6 +23,8 @@ function Memory() {
   const t = useXT();
   const [data, setData] = useState<MemoryState | null>(null);
   const [busy, setBusy] = useState(false);
+  // Step 142: a lesson was sent to the admin for the whole company.
+  const [shared, setShared] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -105,7 +108,8 @@ function Memory() {
         {/* Step 121: lessons from the user's corrections, with their own switch. */}
         <div className="space-y-2">
           <h3 className="text-sm font-medium">{t("memory.lessons")}</h3>
-          <FactList notes={lessons} maxLength={data.maxLength} busy={busy} empty={t("memory.lessons_none")} onSave={save} onDelete={remove} />
+          <FactList notes={lessons} maxLength={data.maxLength} busy={busy} empty={t("memory.lessons_none")} onSave={save} onDelete={remove} onShare={(note) => void run(() => xenaxio.suggestLessonForCompany(note.id)).then((ok) => ok && setShared(true))} />
+          {shared && <p className="text-xs text-muted-foreground">{t("memory.shared_company")}</p>}
         </div>
         {(data.company?.length ?? 0) > 0 && (
           <div className="space-y-2">
@@ -159,6 +163,8 @@ function MySkills() {
         </h2>
         <p className="text-sm text-muted-foreground">{t("skills.my_intro")}</p>
       </div>
+      {/* Step 142: drafts the assistant made; created only here, by the person. */}
+      <SkillSuggestions onChanged={load} />
       <SkillManager api={ownSkills} skills={data.own} max={data.max} onChanged={load} />
       {given.length > 0 && (
         <details className="text-sm">

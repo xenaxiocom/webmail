@@ -344,7 +344,8 @@
     "object_rules_invalid": "Eine Prüfregel stimmt nicht: {error}",
     "object_rule_failed": "{text}",
     "object_field_computed": "Dieses Feld wird berechnet und kann nicht geändert werden.",
-    "object_field_in_use": "Das Feld wird noch verwendet: {usedBy}. Ändere zuerst diese Formeln, Regeln oder Berechnungen."
+    "object_field_in_use": "Das Feld wird noch verwendet: {usedBy}. Ändere zuerst diese Formeln, Regeln oder Berechnungen.",
+    "suggestion_not_found": "Dieser Vorschlag ist nicht mehr offen."
   },
   "login": {
     "title": "Anmelden",
@@ -1165,7 +1166,10 @@
     "learned": "Gelernt",
     "reject_reason": "Warum? (optional)",
     "reject_confirm": "Ablehnen",
-    "cancel": "Abbrechen"
+    "cancel": "Abbrechen",
+    "skill_suggested": "Solche Anfragen als Fähigkeit speichern? Ein Entwurf „{name}“ liegt bereit.",
+    "skill_version_suggested": "Eine bessere Version Ihrer Fähigkeit „{name}“ liegt bereit, aus Ihren Korrekturen.",
+    "skill_suggested_open": "Ansehen"
   },
   "mcp": {
     "title": "KI-Chats verbinden",
@@ -1689,7 +1693,15 @@
     "learn_on": "An: Der Assistent lernt aus Entwürfen, die Sie vor dem Senden ändern, aus Ihrem Grund für eine Ablehnung und aus Ihrem Kommentar zu einer schlechten Antwort. Der Text eines Entwurfs wird höchstens 14 Tage verschlüsselt aufbewahrt und gleich nach dem Vergleich gelöscht.",
     "learn_off": "Aus: Der Assistent lernt nicht aus Ihren Korrekturen.",
     "learn_switch_on": "Einschalten",
-    "learn_switch_off": "Ausschalten"
+    "learn_switch_off": "Ausschalten",
+    "share_company": "Für die Firma vorschlagen",
+    "shared_company": "An den Admin Ihrer Firma gesendet. Er entscheidet, ob sie für alle gilt.",
+    "lesson_requests": "Von Mitarbeitenden vorgeschlagene Lektionen",
+    "lesson_request_by": "Vorgeschlagen von {name}",
+    "lesson_request_accept": "Für alle übernehmen",
+    "lesson_request_decline": "Ablehnen",
+    "add_company_lesson": "Lektion für alle hinzufügen",
+    "company_lesson_hint": "Eine Regel, wie der Assistent für alle arbeitet, z. B. „Angebote nennen immer eine Gültigkeit von 30 Tagen“."
   },
   "schedules": {
     "title": "Geplante Aufgaben ({count} von {max} aktiv)",
@@ -3249,7 +3261,14 @@
     "invalid_name": "Der Name darf nur Kleinbuchstaben, Ziffern und Bindestriche enthalten (1–64 Zeichen).",
     "invalid_description": "Beschreiben Sie in höchstens {max} Zeichen, wann die Fähigkeit passt.",
     "invalid_text": "Die Anleitung ist leer oder länger als {max} Zeichen.",
-    "invalid_header": "Die Datei beginnt nicht mit einem Kopf aus ---, name: und description:."
+    "invalid_header": "Die Datei beginnt nicht mit einem Kopf aus ---, name: und description:.",
+    "suggested_title": "Vom Assistenten vorgeschlagen",
+    "suggested_intro": "Entwürfe aus Anfragen, die Sie immer wieder stellen, und bessere Versionen Ihrer Fähigkeiten nach Ihren Korrekturen. Nichts ändert sich, bevor Sie auf den Knopf drücken.",
+    "suggested_new": "Neue Fähigkeit aus Ihren Anfragen",
+    "suggested_version": "Neue Version von „{name}“",
+    "suggested_create": "Fähigkeit anlegen",
+    "suggested_apply": "Diese Version übernehmen",
+    "suggested_dismiss": "Verwerfen"
   },
   "flows": {
     "title": "Flows",

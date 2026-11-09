@@ -344,7 +344,8 @@
     "object_rules_invalid": "A validation rule is not right: {error}",
     "object_rule_failed": "{text}",
     "object_field_computed": "This field is computed and cannot be changed.",
-    "object_field_in_use": "The field is still in use: {usedBy}. Change those formulas, rules or calculations first."
+    "object_field_in_use": "The field is still in use: {usedBy}. Change those formulas, rules or calculations first.",
+    "suggestion_not_found": "This suggestion is no longer open."
   },
   "login": {
     "title": "Sign in",
@@ -1165,7 +1166,10 @@
     "learned": "Learned",
     "reject_reason": "Why? (optional)",
     "reject_confirm": "Decline",
-    "cancel": "Cancel"
+    "cancel": "Cancel",
+    "skill_suggested": "Turn requests like this into a skill? A draft “{name}” is ready.",
+    "skill_version_suggested": "A better version of your skill “{name}” is ready, from your corrections.",
+    "skill_suggested_open": "Review"
   },
   "mcp": {
     "title": "Connect AI chats",
@@ -1689,7 +1693,15 @@
     "learn_on": "On: the assistant learns from drafts you change before sending, from your reason for declining a proposal and from your comment on a bad answer. A draft’s text is kept encrypted for at most 14 days and deleted right after the comparison.",
     "learn_off": "Off: the assistant does not learn from your corrections.",
     "learn_switch_on": "Turn on",
-    "learn_switch_off": "Turn off"
+    "learn_switch_off": "Turn off",
+    "share_company": "Suggest for company",
+    "shared_company": "Sent to your company’s admin. They decide whether it applies to everyone.",
+    "lesson_requests": "Lessons suggested by employees",
+    "lesson_request_by": "Suggested by {name}",
+    "lesson_request_accept": "Apply for everyone",
+    "lesson_request_decline": "Decline",
+    "add_company_lesson": "Add a lesson for everyone",
+    "company_lesson_hint": "A rule for how the assistant works for everyone, e.g. “Offers always state a validity of 30 days”."
   },
   "schedules": {
     "title": "Scheduled tasks ({count} of {max} active)",
@@ -3249,7 +3261,14 @@
     "invalid_name": "The name may only contain lower-case letters, digits and hyphens (1–64 characters).",
     "invalid_description": "Describe in at most {max} characters when the skill fits.",
     "invalid_text": "The instructions are empty or longer than {max} characters.",
-    "invalid_header": "The file does not start with a header of ---, name: and description:."
+    "invalid_header": "The file does not start with a header of ---, name: and description:.",
+    "suggested_title": "Suggested by the assistant",
+    "suggested_intro": "Drafts from requests you made again and again, and better versions of your skills after your corrections. Nothing changes until you press the button.",
+    "suggested_new": "New skill from your requests",
+    "suggested_version": "New version of “{name}”",
+    "suggested_create": "Create skill",
+    "suggested_apply": "Use this version",
+    "suggested_dismiss": "Dismiss"
   },
   "flows": {
     "title": "Flows",
