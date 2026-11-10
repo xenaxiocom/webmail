@@ -349,7 +349,15 @@
     "helper_tool_not_allowed": "Ein Helfer darf nur Werkzeuge nutzen, die lesen oder vorbereiten: {tools}",
     "helper_invalid": "Bitte Name, Zweck, Arbeitsweise und mindestens ein Werkzeug angeben.",
     "helper_limit": "Ihre Firma hat bereits die höchste Zahl an Helfern (10).",
-    "helper_not_found": "Diesen Helfer gibt es nicht mehr."
+    "helper_not_found": "Diesen Helfer gibt es nicht mehr.",
+    "package_unknown": "Dieses Paket gibt es nicht.",
+    "package_not_installed": "Das Paket ist nicht installiert.",
+    "package_disabled": "Das Paket ist derzeit nicht verfügbar.",
+    "package_type_taken": "Ein Objekttyp mit dem Schlüssel „{type}“ gibt es schon – benennen oder archivieren Sie ihn zuerst.",
+    "package_right_unknown": "Dieses Recht kennt das Paket nicht.",
+    "package_group_unknown": "Eine Gruppe gibt es nicht.",
+    "package_user_unknown": "Eine Person gehört nicht zur Firma.",
+    "package_model_check_failed": "Das Modell hat die Prüfung nicht bestanden ({error}): Es muss Bilder lesen und streng JSON antworten."
   },
   "login": {
     "title": "Anmelden",
@@ -447,7 +455,9 @@
     "my_menu": "Mein Menü",
     "my_menu_desc": "Einträge im Menü ordnen und ausblenden",
     "connections": "Verbindungen",
-    "connections_desc": "Externe Systeme der Firma (CRM, Buchhaltung) für Ihren Assistenten"
+    "connections_desc": "Externe Systeme der Firma (CRM, Buchhaltung) für Ihren Assistenten",
+    "extensions": "Erweiterungen",
+    "extensions_desc": "Branchenpakete wie Xenaxio Maritime: installieren, Rechte, KI-Modell"
   },
   "domain": {
     "title": "Domains und DNS",
@@ -4454,5 +4464,28 @@
     "company_title": "Anonyme Zahlen zur Verbesserung des Assistenten",
     "company_intro": "Xenaxio zählt für die ganze Plattform, wie oft die Werkzeuge des Assistenten genutzt werden und wie oft etwas schiefgeht, ohne Inhalte, Personen oder Firmennamen (Datenschutzerklärung, Abschnitt 7b).",
     "company_switch": "Die Nutzung meiner Firma mitzählen"
+  },
+  "packages": {
+    "title": "Erweiterungen",
+    "intro": "Branchenpakete ergänzen Xenaxio um Lösungen für Ihre Branche – zum Beispiel Xenaxio Maritime für Stabilität und Beladung von Schiffen. Ein Paket bringt eigene Objekttypen, Fähigkeiten des Assistenten und eine eigene App mit. Installieren und entfernen kann nur der Admin der Firma.",
+    "none": "Für Ihre Firma sind noch keine Branchenpakete verfügbar.",
+    "install": "Installieren",
+    "remove": "Entfernen",
+    "remove_text": "„{name}“ entfernen? Die Objekttypen des Pakets kommen ins Archiv; die Einträge bleiben lesbar. Rechte und Modell des Pakets werden zurückgesetzt.",
+    "brings": "Bringt mit: {types}",
+    "open_app": "App öffnen",
+    "types_link": "Objekttypen ansehen",
+    "rights": "Rechte",
+    "rights_hint": "Wer was im Paket darf: alle, Gruppen oder einzelne Personen. Admins haben alle Rechte.",
+    "everyone": "Alle Mitarbeitenden",
+    "model": "KI-Modell des Pakets",
+    "model_company": "Wie die Firma (KI-Einstellungen der Firma)",
+    "model_own": "Eigenes Modell für dieses Paket",
+    "model_url": "Adresse (OpenAI-kompatibel)",
+    "model_name": "Modell",
+    "model_key": "API-Schlüssel",
+    "model_key_kept": "API-Schlüssel (gespeichert – leer lassen, um ihn zu behalten)",
+    "model_hint": "Beim Speichern prüft Xenaxio, ob das Modell Bilder liest und streng JSON antwortet. Der Verbrauch zählt nicht zum Kontingent von Xenaxio.",
+    "model_checking": "Wird geprüft …"
   }
 }
