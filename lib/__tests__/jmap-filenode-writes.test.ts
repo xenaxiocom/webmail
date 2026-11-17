@@ -5,9 +5,9 @@ type Call = [string, Record<string, unknown>, string];
 
 // A primary account "me" plus a shared drive "grp", as listed by
 // listAllFileNodesAcrossAccounts ("grp:<id>").
-function makeClient(nodes: Record<string, Array<Record<string, unknown>>>) {
+function makeClient(nodes: Record<string, Array<Record<string, unknown>>>, filenodeCap: Record<string, unknown> = {}) {
   const client = new JMAPClient('https://jmap.example.com', 'user@example.com', 'pass');
-  const fileCap = { 'urn:ietf:params:jmap:filenode': {} };
+  const fileCap = { 'urn:ietf:params:jmap:filenode': filenodeCap };
   Object.assign(client, {
     accountId: 'me',
     capabilities: { 'urn:ietf:params:jmap:filenode': {} },
@@ -47,6 +47,27 @@ function makeClient(nodes: Record<string, Array<Record<string, unknown>>>) {
 }
 
 const sets = (calls: Call[]) => calls.filter(([m]) => m === 'FileNode/set').map(([, a]) => a);
+
+describe('FileNode writes on Stalwart 1.x (Xenaxio step 149)', () => {
+  const draft = { supportedNodeTypes: ['Directory', 'File', 'SymLink'], forbiddenNameChars: '/' };
+
+  it('creates folders and files with `@type` and `mediaType`', async () => {
+    const { client, calls } = makeClient({}, draft);
+    await client.createFileDirectory('Neu', null);
+    await client.createFileNode('a.txt', 'b1', 'text/plain', 3, null);
+    const [dir, file] = sets(calls);
+    expect(dir).toMatchObject({ accountId: 'me', create: { n0: { '@type': 'Directory', name: 'Neu' } } });
+    expect(file).toMatchObject({ create: { n0: { '@type': 'File', name: 'a.txt', blobId: 'b1', mediaType: 'text/plain', size: 3 } } });
+    expect((file.create as { n0: Record<string, unknown> }).n0).not.toHaveProperty('type');
+  });
+
+  it('keeps the 0.16 names for servers without supportedNodeTypes', async () => {
+    const { client, calls } = makeClient({}, { forbiddenNameChars: '/' });
+    await client.createFileNode('a.txt', 'b1', 'text/plain', 3, null);
+    expect(sets(calls)[0]).toMatchObject({ create: { n0: { name: 'a.txt', type: 'text/plain' } } });
+    expect((sets(calls)[0].create as { n0: Record<string, unknown> }).n0).not.toHaveProperty('@type');
+  });
+});
 
 describe('FileNode writes', () => {
   it('writes inside a shared drive go to that account with bare ids', async () => {
