@@ -236,9 +236,9 @@ function MembersTab({ client, room, onInvite }: { client: ChatClient; room: Room
                   {nameOf(m.userId)}
                   {self && <span className="text-muted-foreground"> ({t("chat.you")})</span>}
                 </span>
-                {m.membership === "invite" && <span className="shrink-0 rounded bg-muted px-1 text-[10px] text-muted-foreground">{t("chat.details_invited")}</span>}
+                {m.membership === "invite" && <span className="shrink-0 rounded bg-muted px-1 text-[0.625rem] text-muted-foreground">{t("chat.details_invited")}</span>}
                 {manager && (
-                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-[10px] font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
+                  <span className="inline-flex shrink-0 items-center gap-0.5 rounded bg-amber-100 px-1 text-[0.625rem] font-semibold text-amber-800 dark:bg-amber-500/20 dark:text-amber-300">
                     <IconCrown size={11} />
                     {t("chat.details_manager")}
                   </span>

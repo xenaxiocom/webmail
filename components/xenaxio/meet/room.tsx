@@ -123,7 +123,7 @@ function Tile({ hands }: { hands: Set<string> }) {
           {!screen && <TrackMutedIndicator trackRef={{ participant: p, source: Track.Source.Microphone }} show="muted" />}
           {screen ? <span>{t("screen_of", { name })}</span> : <ParticipantName />}
           {p.isLocal && <span className="opacity-70"> {t("you")}</span>}
-          {isGuest(p.identity) && <span className="ml-1 rounded bg-white/20 px-1 text-[10px] uppercase">{t("guest")}</span>}
+          {isGuest(p.identity) && <span className="ml-1 rounded bg-white/20 px-1 text-[0.625rem] uppercase">{t("guest")}</span>}
           {hands.has(p.identity) && !screen && (
             <span className="ml-1" aria-label={t("hand_raised_short")}>
               ✋
@@ -233,7 +233,7 @@ function VoiceFace({ participant: p, hand }: { participant: Participant; hand: b
           </span>
         )}
       </span>
-      <span className="w-full truncate text-center text-[11px] text-white/80">{p.isLocal ? t("you_short") : name.split(/\s+/)[0]}</span>
+      <span className="w-full truncate text-center text-[0.6875rem] text-white/80">{p.isLocal ? t("you_short") : name.split(/\s+/)[0]}</span>
     </li>
   );
 }

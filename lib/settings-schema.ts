@@ -458,6 +458,9 @@ export const NOT_YET_SETTINGS: readonly string[] = [
   'writingLanguage', 'calendarNarrowWeekAllDays',
   // A plugin's print style: offered only while that plugin runs.
   'printTheme',
+  // xenaxio: how a page looks (widths, boards and lists), set where it is
+  // shown and kept on the platform (rule 10), not rows of Settings.
+  'filesSidebarWidth', 'filesDetailsWidth', 'xenaxioViews',
 ];
 
 /** Line breaks, tabs and other control characters. */

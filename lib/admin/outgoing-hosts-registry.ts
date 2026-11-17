@@ -185,6 +185,28 @@ export const NON_REQUEST_HOSTS: readonly { host: string; files: readonly string[
   { host: 'bulwark-webmail.vercel.app', why: 'sample message text', files: ['stores/email-store.ts'] },
   { host: 'randomuser.me', why: 'docs links in a comment of the mock server', files: ['app/api/dev-jmap/[...path]/route.ts'] },
   { host: 'schema.org', why: 'vocabulary names in booking markup, matched and never requested', files: ['lib/structured-mail/extract.ts'] },
+  // xenaxio: links people open themselves, credits and examples; the client
+  // requests only its own origin (/api).
+  { host: 'acme.xenaxio.com', why: 'xenaxio: example portal address in a hint', files: ['app/(main)/[locale]/connect/page.tsx'] },
+  { host: 'firma.xenaxio.com', why: 'xenaxio: example portal address in a hint', files: ['lib/xenaxio/api.ts'] },
+  { host: 'xenrooms.com', why: 'xenaxio: link to the XenRooms site', files: ['app/(main)/[locale]/start/page.tsx', 'app/(main)/[locale]/workspace/rooms/people/page.tsx'] },
+  { host: 'xenaxio.com', why: 'xenaxio: link to the product site', files: ['components/xenaxio/operator-quality.tsx'] },
+  { host: 'www.apple.com', why: 'xenaxio: link to the Mac the own-model page describes', files: ['app/(main)/[locale]/workspace/ai/own-model/page.tsx'] },
+  { host: 'llm.ihre-firma.de', why: "xenaxio: example address of a company's own model", files: ['app/(main)/[locale]/workspace/ai/page.tsx'] },
+  { host: 'matrix.to', why: 'xenaxio: Matrix links in chat messages are recognised, never fetched', files: ['lib/xenaxio/chat/format.ts'] },
+  { host: 't.me', why: 'xenaxio: profile contact link the person opens', files: ['lib/xenaxio/chat/profile.ts'] },
+  { host: 'wa.me', why: 'xenaxio: profile contact link the person opens', files: ['lib/xenaxio/chat/profile.ts'] },
+  { host: 'signal.me', why: 'xenaxio: profile contact link the person opens', files: ['lib/xenaxio/chat/profile.ts'] },
+  { host: 'x.com', why: 'xenaxio: profile contact link the person opens', files: ['lib/xenaxio/chat/profile.ts'] },
+  { host: 'github.com', why: 'xenaxio: profile contact link, and the source code link (AGPL)', files: ['lib/xenaxio/chat/profile.ts', 'components/xenaxio/about-attribution.tsx'] },
+  { host: 'www.linkedin.com', why: 'xenaxio: profile contact link the person opens', files: ['lib/xenaxio/chat/profile.ts'] },
+  { host: 'other.site', why: 'xenaxio: example in a comment', files: ['lib/xenaxio/portal.ts'] },
+  { host: 'www.openstreetmap.org', why: 'xenaxio: map link of a place field, opened by the person', files: ['lib/xenaxio/projects.ts'] },
+  { host: 'www.google.com', why: 'xenaxio: map link of a place field, opened by the person', files: ['lib/xenaxio/projects.ts'] },
+  { host: 'maps.apple.com', why: 'xenaxio: map link of a place field, opened by the person', files: ['lib/xenaxio/projects.ts'] },
+  { host: 'www.gnu.org', why: 'xenaxio: licence link (AGPL)', files: ['components/xenaxio/about-attribution.tsx'] },
+  { host: 'firma.de', why: 'xenaxio: example address in a hint', files: ['components/xenaxio/booking-admin.tsx'] },
+  { host: 'zoom.us', why: 'xenaxio: example meeting link in a hint', files: ['components/xenaxio/booking-settings.tsx'] },
 ];
 
 /**
@@ -215,6 +237,15 @@ export const BUILT_URL_FILES: readonly { file: string; why: string }[] = [
   { file: 'lib/validation.ts', why: "scheme checks" },
   { file: 'lib/vcard.ts', why: "scheme checks of contact URLs" },
   { file: 'stores/calendar-store.ts', why: "webcal:// rewritten to https:// for a feed the user subscribed to" },
+  // xenaxio: URLs built from the company's own data or the person's input.
+  { file: 'app/(main)/[locale]/workspace/ai/own-model/page.tsx', why: "xenaxio: the address of the company's own model the admin enters" },
+  { file: 'app/(main)/[locale]/workspace/appearance/page.tsx', why: "xenaxio: the company's own logo address" },
+  { file: 'lib/xenaxio/chat/format.ts', why: 'xenaxio: links in chat messages, shown as links' },
+  { file: 'lib/xenaxio/notes.ts', why: 'xenaxio: links in notes, shown as links' },
+  { file: 'components/xenaxio/chat/channel-extras.tsx', why: 'xenaxio: links a channel member adds' },
+  { file: 'components/xenaxio/chat/composer.tsx', why: 'xenaxio: adds the scheme to a link the person types' },
+  { file: 'components/xenaxio/chat/profile.tsx', why: 'xenaxio: contact links from a profile' },
+  { file: 'components/xenaxio/flows/flows-app.tsx', why: "xenaxio: the company's own webhook address" },
 ];
 
 /** Folders whose host literals are sample mail content, never requests. */

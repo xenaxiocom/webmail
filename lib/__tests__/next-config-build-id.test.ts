@@ -1,4 +1,4 @@
-import { readFileSync } from 'node:fs';
+import { readFileSync, existsSync } from 'node:fs';
 import { join } from 'node:path';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
@@ -37,6 +37,8 @@ describe('build id', () => {
     const root = join(__dirname, '..', '..');
     expect(readFileSync(join(root, 'Dockerfile'), 'utf-8')).toMatch(/ARG BULWARK_BUILD_SEED=\s+ENV BULWARK_BUILD_SEED=\$BULWARK_BUILD_SEED/);
     for (const workflow of ['docker-publish.yml', 'docker-publish-releases.yml']) {
+      // xenaxio: Bulwark's image workflows are not in this fork.
+      if (!existsSync(join(root, '.github', 'workflows', workflow))) continue;
       const text = readFileSync(join(root, '.github', 'workflows', workflow), 'utf-8');
       const builds = text.split('build-args: |').length - 1;
       const seeded = text.split('BULWARK_BUILD_SEED=${{ github.sha }}-${{ github.run_id }}-${{ github.run_attempt }}').length - 1;

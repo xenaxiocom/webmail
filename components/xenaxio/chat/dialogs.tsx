@@ -139,7 +139,7 @@ export function PeoplePicker({
         {picked.map((u) => (
           <span key={u} className="inline-flex items-center gap-1 rounded bg-accent px-1.5 py-0.5 text-sm">
             {colleagues.get(u)?.displayName ?? outside[u] ?? u}
-            {client.isExternalUser(u) && <span className="text-[10px] text-muted-foreground">{serverOfUser(u)}</span>}
+            {client.isExternalUser(u) && <span className="text-[0.625rem] text-muted-foreground">{serverOfUser(u)}</span>}
             <button type="button" onClick={() => setPicked(picked.filter((p) => p !== u))} aria-label={t("chat.close")}>
               <IconX size={12} />
             </button>

@@ -72,7 +72,7 @@ function NameHints({ fields, onPick }: { fields: TypeField[]; onPick: (name: str
   return (
     <div className="flex flex-wrap gap-1">
       {names.map((n) => (
-        <button key={n.key} type="button" className="rounded bg-muted px-1.5 py-0.5 font-mono text-[11px] hover:bg-accent" title={n.label} onClick={() => onPick(n.key)}>
+        <button key={n.key} type="button" className="rounded bg-muted px-1.5 py-0.5 font-mono text-[0.6875rem] hover:bg-accent" title={n.label} onClick={() => onPick(n.key)}>
           {n.key}
         </button>
       ))}
@@ -282,7 +282,7 @@ export function ComputedMark({ field }: { field: TypeField }) {
   const t = useXT();
   if (!COMPUTED_KINDS.includes(field.type)) return null;
   return (
-    <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[10px] font-normal text-muted-foreground" title={field.formula?.expr}>
+    <span className="ml-1 rounded bg-muted px-1 py-0.5 text-[0.625rem] font-normal text-muted-foreground" title={field.formula?.expr}>
       {t("computed.mark")}
     </span>
   );

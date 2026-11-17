@@ -207,7 +207,9 @@ describe('JMAP Metadata in the request-building sources', () => {
   // Drops block comments and line comments that start a line or follow
   // whitespace, so `https://` inside a string stays.
   const withoutComments = (source: string) =>
-    source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1');
+    source.replace(/\/\*[\s\S]*?\*\//g, '').replace(/(^|\s)\/\/.*$/gm, '$1')
+      // xenaxio: a media element's preload="metadata" is HTML, not JMAP.
+      .replace(/\bpreload\s*=\s*(['"])metadata\1/g, '');
 
   const FORBIDDEN = [
     /privateMetadata/,

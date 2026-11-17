@@ -308,7 +308,7 @@ describe('Permissions-Policy for the operator\'s sidebar apps', () => {
   it('turns camera and microphone off without such an app', async () => {
     withApps([{ ...chat, allow: ['clipboard-write', 'fullscreen'] }]);
     expect((await load('/en/mail')).headers.get('permissions-policy'))
-      .toBe('camera=(), microphone=(), geolocation=(), payment=()');
+      .toBe('camera=(), microphone=(), display-capture=(self), geolocation=(), payment=()');
   });
 
   it('names the app\'s origin, and the document\'s own, for what it was granted', async () => {
@@ -317,13 +317,13 @@ describe('Permissions-Policy for the operator\'s sidebar apps', () => {
       { ...chat, id: 'admin-app-talk', url: 'https://talk.example.com', allow: ['microphone'] },
     ]);
     expect((await load('/en/mail')).headers.get('permissions-policy')).toBe(
-      'camera=(self "https://chat.example.com"), microphone=(self "https://chat.example.com" "https://talk.example.com"), geolocation=(), payment=()'
+      'camera=(self "https://chat.example.com"), microphone=(self "https://chat.example.com" "https://talk.example.com"), display-capture=(self), geolocation=(), payment=()'
     );
   });
 
   it('never for an app that opens in a tab', async () => {
     withApps([{ ...chat, openMode: 'tab', allow: ['microphone', 'camera'] }]);
     expect((await load('/en/mail')).headers.get('permissions-policy'))
-      .toBe('camera=(), microphone=(), geolocation=(), payment=()');
+      .toBe('camera=(), microphone=(), display-capture=(self), geolocation=(), payment=()');
   });
 });

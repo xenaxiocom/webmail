@@ -81,7 +81,7 @@ export function WorkspaceNavLink({
           <Briefcase className="w-5 h-5" />
           {dot}
         </span>
-        <span className="text-[10px] font-medium leading-tight truncate max-w-full">{label}</span>
+        <span className="text-[0.625rem] font-medium leading-tight truncate max-w-full">{label}</span>
       </Link>
     );
   }

@@ -253,6 +253,8 @@ describe('build wiring', () => {
       /next build --webpack[\s\S]{0,40}node scripts\/standalone-guard\.mjs/,
     );
     expect(readFileSync(path.join(ROOT, '.dockerignore'), 'utf8')).toContain('!scripts/standalone-guard.mjs');
-    expect(readFileSync(path.join(ROOT, '.github/workflows/standalone-release.yml'), 'utf8')).toMatch(/run: npm run build/);
+    // xenaxio: Bulwark's release workflows are not in this fork.
+    const release = path.join(ROOT, '.github/workflows/standalone-release.yml');
+    if (existsSync(release)) expect(readFileSync(release, 'utf8')).toMatch(/run: npm run build/);
   });
 });

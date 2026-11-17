@@ -301,7 +301,7 @@ export function PictureFramer({ src, aspect, round, focus, onChange, label }: { 
         className="pointer-events-none h-full w-full object-cover"
         style={{ objectPosition: objectPosition(focus) }}
       />
-      <span className="pointer-events-none absolute inset-x-0 bottom-1.5 text-center text-[11px] font-medium text-white drop-shadow">{t("chat.profile_framer_drag")}</span>
+      <span className="pointer-events-none absolute inset-x-0 bottom-1.5 text-center text-[0.6875rem] font-medium text-white drop-shadow">{t("chat.profile_framer_drag")}</span>
     </div>
   );
 }

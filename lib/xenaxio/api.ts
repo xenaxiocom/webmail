@@ -183,7 +183,7 @@ export interface MailAppSettings {
 export interface PortalInfo {
   name: string;
   slug: string | null;
-  /** Main address, e.g. https://firma.xenaxio.com. */
+  /** Main address, e.g. `https://firma.xenaxio.com` */
   url: string;
   color: string | null;
   colorText: string | null;

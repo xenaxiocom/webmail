@@ -16,6 +16,10 @@ const ALLOWED: Record<string, string> = {
   'components/email/rich-text-editor.tsx': "the editor toolbar's pickers (font, size, colour)",
   'components/email/move-to-dialog.tsx': 'a folder list inside the Move dialog',
   'components/files/import-eml-dialog.tsx': 'a folder list inside the import dialog',
+  // xenaxio: our own menus from before Bulwark 1.21; moving them to the shared ContextMenu is a follow-up.
+  'components/xenaxio/assistant-panel.tsx': 'xenaxio: the assistant panel menu, not yet on the shared menu',
+  'components/xenaxio/chat/sidebar.tsx': 'xenaxio: the Rooms sidebar menus, not yet on the shared menu',
+  'components/xenaxio/projects/fields.tsx': 'xenaxio: field pickers in projects, not yet on the shared menu',
 };
 
 const ROOT = path.resolve(__dirname, '../../..');

@@ -31,7 +31,7 @@ import { cn } from "@/lib/utils";
 const HEX = /^#[0-9a-f]{6}$/i;
 
 type TileSize = "lg" | "md" | "sm";
-const BOX: Record<TileSize, string> = { lg: "h-10 w-10 text-sm", md: "h-9 w-9 text-xs", sm: "h-7 w-7 text-[11px]" };
+const BOX: Record<TileSize, string> = { lg: "h-10 w-10 text-sm", md: "h-9 w-9 text-xs", sm: "h-7 w-7 text-[0.6875rem]" };
 
 /** The company's logo or initials on its colour. */
 function CompanyMark({ account, size }: { account: BrowserAccount; size: TileSize }) {
@@ -66,7 +66,7 @@ function Badge({ important, unread, ring = "ring-secondary", small = false }: { 
       <span
         className={cn(
           "absolute flex items-center justify-center rounded-full bg-red-600 font-bold leading-none text-white ring-2",
-          small ? "-right-2 -top-2 h-4 min-w-4 px-0.5 text-[9px]" : "-right-1.5 -top-1.5 h-[18px] min-w-[18px] px-1 text-[10px]",
+          small ? "-right-2 -top-2 h-4 min-w-4 px-0.5 text-[0.5625rem]" : "-right-1.5 -top-1.5 h-[18px] min-w-[18px] px-1 text-[0.625rem]",
           ring,
         )}
       >

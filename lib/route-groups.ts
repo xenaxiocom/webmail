@@ -21,6 +21,9 @@ export const API_GROUPS: readonly string[] = [
 export const PAGE_AREAS: readonly string[] = [
   'apps', 'auth', 'calendar', 'contacts', 'files', 'login', 'mail', 'plugins', 'popout', 'pro', 'settings',
   'admin', 'setup', 'connector', 'protocol', 'plugin-sandbox', 'plugin-sandbox-privileged',
+  // xenaxio: our own pages.
+  'book', 'chat', 'connect', 'demo', 'flows', 'meet', 'meetings', 'objects', 'onboarding', 'operator',
+  'projects', 'rooms', 'start', 'workspace',
 ];
 
 const API = new Set(API_GROUPS);
