@@ -1,5 +1,5 @@
-import { render, screen, fireEvent, waitFor } from '@testing-library/react';
-import { describe, it, expect, beforeEach, vi } from 'vitest';
+import { act, render, screen, fireEvent, waitFor } from '@testing-library/react';
+import { describe, it, expect, beforeEach, afterEach, vi } from 'vitest';
 import type { Email, Mailbox } from '@/lib/jmap/types';
 import { KEYWORD_PREFIX } from '@/lib/thread-utils';
 
@@ -10,6 +10,7 @@ import { KEYWORD_PREFIX } from '@/lib/thread-utils';
 const { MvListToolbar } = await import('../mv-list-toolbar');
 const { useEmailStore } = await import('@/stores/email-store');
 const { useAuthStore } = await import('@/stores/auth-store');
+const { useAccountStore } = await import('@/stores/account-store');
 const { useSettingsStore } = await import('@/stores/settings-store');
 
 const rights = {
@@ -58,16 +59,20 @@ describe('MvListToolbar filing actions', () => {
     toolbar();
 
     fireEvent.click(screen.getByLabelText('move_to'));
+    // One login: no account named above its folders.
+    expect(document.querySelector('[data-move-folder-list]')).not.toBeNull();
+    expect(document.querySelector('[data-move-heading]')).toBeNull();
     fireEvent.click(screen.getByText('Receipts'));
 
-    await waitFor(() => expect(batchMoveToMailbox).toHaveBeenCalledWith({}, 'receipts'));
+    await waitFor(() => expect(batchMoveToMailbox).toHaveBeenCalledWith({}, 'receipts', undefined, []));
   });
 
   it('does not offer the folder you are already in as a destination', () => {
     toolbar();
 
     fireEvent.click(screen.getByLabelText('move_to'));
-    expect(screen.queryByText('mailboxes.inbox')).toBeNull();
+    // Shown greyed, where the sidebar has it.
+    expect(screen.getByText('mailboxes.inbox').closest('button')).toBeDisabled();
   });
 
   it('puts a tag on the whole selection when only some of it carries the tag', async () => {
@@ -105,12 +110,82 @@ describe('MvListToolbar filing actions', () => {
 
     fireEvent.click(screen.getByRole('button', { name: 'move_to' }));
     expect(screen.getByText('Travel')).toBeInTheDocument();
-    fireEvent.change(screen.getByRole('textbox', { name: 'move_to' }), { target: { value: 'rec' } });
+    fireEvent.change(screen.getByRole('textbox', { name: 'filter_placeholder' }), { target: { value: 'rec' } });
     expect(screen.getByText('Receipts')).toBeInTheDocument();
     expect(screen.queryByText('Travel')).toBeNull();
 
     fireEvent.click(screen.getByText('create_label'));
     expect(onCreateFolder).toHaveBeenCalledTimes(1);
+  });
+
+  // Another login browsed in the sidebar: its folders, whose ids repeat the
+  // active login's ("receipts" is that login's "Payroll").
+  describe('with two logins', () => {
+    const original = { auth: useAuthStore.getState() };
+    beforeEach(() => {
+      const a = { getAccountId: () => 'A' };
+      const b = { getAccountId: () => 'B' };
+      useAuthStore.setState({
+        activeAccountId: 'login-a', client: a as never,
+        getClientForAccount: ((id: string) => (id === 'login-a' ? a : id === 'login-b' ? b : undefined)) as never,
+      } as never);
+    });
+    afterEach(() => {
+      useAuthStore.setState(original.auth);
+      useAccountStore.setState({ accounts: originalAccounts } as never);
+      useEmailStore.setState({ viewingAccountId: null, accountMailboxes: {}, isUnifiedView: false } as never);
+    });
+    const originalAccounts = useAccountStore.getState().accounts;
+    const account = (id: string, email: string) => ({ id, email, label: email, username: email, serverUrl: 'https://mail.example', isConnected: true });
+
+    it('offers the folders of the login browsed, not the active login\'s with the same ids', () => {
+      useEmailStore.setState({
+        viewingAccountId: 'login-b',
+        accountMailboxes: { 'login-b': [mailbox('inbox', 'Inbox', 'inbox'), mailbox('receipts', 'Payroll')] },
+      } as never);
+      toolbar();
+      fireEvent.click(screen.getByLabelText('move_to'));
+      expect(screen.getByText('Payroll')).toBeInTheDocument();
+      expect(screen.queryByText('Receipts')).toBeNull();
+    });
+
+    it('says whose folders they are, by that login\'s address, above them', () => {
+      useAccountStore.setState({ accounts: [account('login-a', 'ann@example.org'), account('login-b', 'bob@example.net')] } as never);
+      useEmailStore.setState({
+        viewingAccountId: 'login-b',
+        accountMailboxes: { 'login-b': [mailbox('inbox', 'Inbox', 'inbox'), mailbox('receipts', 'Payroll')] },
+      } as never);
+      toolbar();
+      fireEvent.click(screen.getByLabelText('move_to'));
+      const heading = document.querySelector('[data-move-heading]');
+      expect(heading).toHaveTextContent('bob@example.net');
+      // Above the folders.
+      expect(heading!.compareDocumentPosition(screen.getByText('Payroll')) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+    });
+
+    it('names no account above the active login\'s own folders', () => {
+      useAccountStore.setState({ accounts: [account('login-a', 'ann@example.org'), account('login-b', 'bob@example.net')] } as never);
+      toolbar();
+      fireEvent.click(screen.getByLabelText('move_to'));
+      expect(screen.getByText('Receipts')).toBeInTheDocument();
+      expect(document.querySelector('[data-move-heading]')).toBeNull();
+      expect(screen.queryByText('ann@example.org')).toBeNull();
+    });
+
+    it('offers no folders for a selection of two logins, and says why', () => {
+      const ofA = { ...message('a'), sourceClientAccountId: 'login-a', sourceAccountId: 'A' } as Email;
+      const ofB = { ...message('b'), sourceClientAccountId: 'login-b', sourceAccountId: 'B' } as Email;
+      useEmailStore.setState({
+        isUnifiedView: true, emails: [ofA, ofB], accountMailboxes: { 'login-b': [mailbox('receipts', 'Payroll')] },
+        selectedEmailKeys: new Set(['login-a/A:a', 'login-b/B:b']),
+      } as never);
+      toolbar();
+      expect(screen.queryByLabelText('move_to')).toBeNull();
+      const unavailable = document.querySelector('[data-mv-move-unavailable]');
+      expect(unavailable).not.toBeNull();
+      expect(unavailable).toBeDisabled();
+      expect(unavailable?.getAttribute('title')).toBe('rules.cross_account');
+    });
   });
 
   it('shows neither control until something is selected', () => {
@@ -149,16 +224,32 @@ describe('MvListToolbar overflow menu', () => {
     open();
 
     expect(screen.getByText('mark_all_folders_read')).toBeInTheDocument();
+    // The app's one menu (R6): the ContextMenu, in a portal, with its rows.
+    const menu = screen.getByRole('menu');
+    expect(menu.parentElement).toBe(document.body);
+    expect(screen.getByRole('menuitem', { name: 'mark_all_folders_read' }).className).toContain('pointer-coarse:min-h-11');
+  });
+
+  it('offers Group by date, ticked while the setting is on', () => {
+    useSettingsStore.setState({ groupListByDate: false } as never);
+    render(<MvListToolbar loadedCount={1} onRefresh={() => {}} />);
+    open();
+
+    const item = screen.getByTestId('mail-group-by-date');
+    expect(item.getAttribute('aria-checked')).toBe('false');
+    fireEvent.click(item);
+    expect(useSettingsStore.getState().groupListByDate).toBe(true);
+    expect(screen.queryByRole('menu')).toBeNull();
   });
 
   it('withholds emptying the folder outside spam and the bin', () => {
     render(<MvListToolbar loadedCount={1} onRefresh={() => {}} onEmptyFolder={() => {}} />);
     open();
 
-    expect(screen.queryByText('empty_folder')).toBeNull();
+    for (const label of ['empty_folder', 'empty_trash', 'empty_spam']) expect(screen.queryByText(label)).toBeNull();
   });
 
-  it('offers it in the bin', () => {
+  it('offers it in the bin, as Empty Trash', () => {
     useEmailStore.setState({
       mailboxes: [mailbox('trash', 'Trash', 'trash')],
       selectedMailbox: 'trash',
@@ -167,7 +258,7 @@ describe('MvListToolbar overflow menu', () => {
     render(<MvListToolbar loadedCount={1} onRefresh={() => {}} onEmptyFolder={onEmptyFolder} />);
     open();
 
-    fireEvent.click(screen.getByText('empty_folder'));
+    fireEvent.click(screen.getByText('empty_trash'));
     expect(onEmptyFolder).toHaveBeenCalledOnce();
   });
 });
@@ -273,7 +364,86 @@ describe('MvListToolbar delete prompt', () => {
     select(folder);
     deleteSelection();
 
-    expect(await screen.findByText('permanent_delete_confirm_title')).toBeInTheDocument();
+    // A selection: "Delete these emails permanently?", not the one-message title.
+    expect(await screen.findByText('delete_forever_batch_title')).toBeInTheDocument();
     expect(batchDelete).not.toHaveBeenCalled();
+  });
+});
+
+// Settings > Accessibility: "Confirm before deleting" and "Confirm before
+// archiving" ask before the selection goes, also when the bulk-delete prompt
+// is off (WCAG 3.3.4).
+describe('MvListToolbar removal confirmations', () => {
+  const batchDelete = vi.fn().mockResolvedValue(true);
+  const batchArchive = vi.fn().mockResolvedValue(true);
+
+  beforeEach(() => {
+    batchDelete.mockClear();
+    batchArchive.mockClear();
+    useAuthStore.setState({ client: {} as never } as never);
+    useEmailStore.setState({
+      emails: [message('a'), message('b')],
+      mailboxes,
+      selectedMailbox: 'inbox',
+      selectedEmailKeys: new Set(['a', 'b']),
+      isUnifiedView: false,
+      unifiedRole: null,
+      error: null,
+      batchDelete,
+      batchArchive,
+    } as never);
+  });
+
+  it('asks before deleting with "Confirm before deleting" on, and deletes after Delete', async () => {
+    useSettingsStore.setState({ confirmBulkDelete: false, permanentlyDeleteJunk: false, confirmDelete: true } as never);
+    render(<MvListToolbar loadedCount={2} onRefresh={() => {}} />);
+    fireEvent.click(screen.getByLabelText('delete'));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('delete_title');
+    expect(batchDelete).not.toHaveBeenCalled();
+    fireEvent.click(screen.getAllByRole('button', { name: 'delete' }).at(-1)!);
+    await waitFor(() => expect(batchDelete).toHaveBeenCalledTimes(1));
+  });
+
+  it('asks before archiving with "Confirm before archiving" on, and keeps the mail on Cancel', async () => {
+    useSettingsStore.setState({ confirmArchive: true } as never);
+    render(<MvListToolbar loadedCount={2} onRefresh={() => {}} />);
+    fireEvent.click(screen.getByLabelText('archive'));
+
+    const dialog = await screen.findByRole('alertdialog');
+    expect(dialog).toHaveTextContent('archive_title');
+    fireEvent.click(screen.getByRole('button', { name: 'cancel' }));
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).toBeNull());
+    expect(batchArchive).not.toHaveBeenCalled();
+  });
+
+  it('archives straight away with the setting off', async () => {
+    useSettingsStore.setState({ confirmArchive: false } as never);
+    render(<MvListToolbar loadedCount={2} onRefresh={() => {}} />);
+    fireEvent.click(screen.getByLabelText('archive'));
+    await waitFor(() => expect(batchArchive).toHaveBeenCalledTimes(1));
+    expect(screen.queryByRole('alertdialog')).toBeNull();
+  });
+
+  it('leaves no timer running once it is gone', async () => {
+    // The buttons stay disabled for a moment after an action. A bare timer
+    // for that outlived the toolbar and reached React after the test
+    // environment was torn down ("window is not defined", failing CI).
+    vi.useFakeTimers();
+    try {
+      useSettingsStore.setState({ confirmArchive: false } as never);
+      const { unmount } = render(<MvListToolbar loadedCount={2} onRefresh={() => {}} />);
+      await act(async () => {
+        fireEvent.click(screen.getByLabelText('archive'));
+      });
+      expect(batchArchive).toHaveBeenCalledTimes(1);
+      expect(vi.getTimerCount()).toBeGreaterThan(0);
+
+      unmount();
+      expect(vi.getTimerCount()).toBe(0);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

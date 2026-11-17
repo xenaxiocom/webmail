@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
+import { getClientIP } from '@/lib/admin/session';
 import { encryptSession } from '@/lib/auth/crypto';
 import { sessionCookieName } from '@/lib/auth/session-cookie';
 import { getCookieOptions } from '@/lib/oauth/cookie-config';
@@ -8,13 +9,19 @@ import { normalizeJmapServerUrl } from '@/lib/auth/verify-jmap-auth';
 import { setStalwartAuthContextInStore } from '@/lib/stalwart/auth-context';
 import { recordLogin } from '@/lib/telemetry/login-tracker';
 import { ImpersonationJwtError, verifyImpersonationJwt } from '@/lib/impersonation/jwt';
-import { consumeImpersonationJti } from '@/lib/impersonation/replay-store';
+import { consumeImpersonationJti, isImpersonationReplayUnavailable } from '@/lib/impersonation/replay-store';
 import {
   readImpersonationConfig,
   resolveImpersonationServerUrl,
 } from '@/lib/impersonation/master-config';
-import { mintImpersonationCredential } from '@/lib/impersonation/app-password';
+import {
+  IMPERSONATION_DESCRIPTION_PREFIX,
+  mintImpersonationCredential,
+  revokeImpersonationCredential,
+} from '@/lib/impersonation/app-password';
 import { IMPERSONATION_GRANT_COOKIE, sealImpersonationGrant } from '@/lib/impersonation/grant-cookie';
+import { IMPERSONATION_MARKER_COOKIE, IMPERSONATION_MARKER_MAX_AGE_SECONDS } from '@/lib/impersonation/marker-cookie';
+import { IMPERSONATION_RESTORE_COOKIE, parkOwnSession } from '@/lib/impersonation/restore';
 
 export const runtime = 'nodejs';
 
@@ -78,7 +85,15 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 
-  if (!(await consumeImpersonationJti(claims.jti, claims.exp))) {
+  let firstUse: boolean;
+  try {
+    firstUse = await consumeImpersonationJti(claims.jti, claims.exp);
+  } catch (err) {
+    if (!isImpersonationReplayUnavailable(err)) throw err;
+    // Not "already used": the use couldn't be recorded, and the link may work in a moment.
+    return NextResponse.json({ error: 'Impersonation is temporarily unavailable' }, { status: 503, headers: { 'Retry-After': '10' } });
+  }
+  if (!firstUse) {
     logger.warn('Impersonation JWT replay rejected', { jti: claims.jti });
     return NextResponse.json({ error: 'Token already used' }, { status: 401 });
   }
@@ -106,34 +121,75 @@ export async function GET(request: NextRequest) {
       mailbox: claims.mailbox,
       masterUser: config.masterUser,
       masterPassword: config.masterPassword,
-      description: `Support session ${claims.jti}`.slice(0, 100),
+      description: `${IMPERSONATION_DESCRIPTION_PREFIX}${claims.jti}`.slice(0, 100),
     });
   } catch (err) {
+    // A fixed text: an error here can quote Stalwart's answer, which holds
+    // the new app password. Only the HTTP status, when there was one.
     logger.error('Impersonation credential could not be created', {
       jti: claims.jti,
       mailbox: claims.mailbox,
-      error: err instanceof Error ? err.message : 'Unknown',
+      status: err instanceof Error && 'status' in err && typeof err.status === 'number' ? err.status : null,
     });
     return NextResponse.json({ error: 'Could not open the mailbox' }, { status: 502 });
   }
 
+  // Sealed before anything is parked or written: if sealing fails (no
+  // session secret), the app password just made is deleted again and the
+  // browser keeps the session it had.
+  let sessionToken: string;
+  let grantToken: string;
+  try {
+    sessionToken = encryptSession(normalizedServerUrl, claims.mailbox, credential.secret);
+    grantToken = sealImpersonationGrant({
+      serverUrl: normalizedServerUrl,
+      mailbox: claims.mailbox,
+      credentialId: credential.id,
+    });
+  } catch {
+    logger.error('Impersonation session could not be sealed; deleting its app password', { jti: claims.jti, mailbox: claims.mailbox });
+    try {
+      await revokeImpersonationCredential({
+        serverUrl: normalizedServerUrl,
+        mailbox: claims.mailbox,
+        masterUser: config.masterUser,
+        masterPassword: config.masterPassword,
+        id: credential.id,
+      });
+    } catch {
+      logger.warn('Impersonation app password not deleted; it expires on its own', { jti: claims.jti, expires_at: credential.expiresAt });
+    }
+    return NextResponse.json({ error: 'Could not open the mailbox' }, { status: 500 });
+  }
+
   const cookieStore = await cookies();
-  const sessionToken = encryptSession(normalizedServerUrl, claims.mailbox, credential.secret);
+  // Park the browser's own session before the target's cookies replace it,
+  // for "Return to my account" (lib/impersonation/restore.ts). Without it
+  // the handoff goes ahead as before, and the way back is signing in again.
+  let restoreHandle: string | null = null;
+  try {
+    restoreHandle = await parkOwnSession(cookieStore, credential.id);
+  } catch (err) {
+    logger.warn('Impersonation restore handle not created', {
+      jti: claims.jti,
+      error: err instanceof Error ? err.message : 'Unknown',
+    });
+  }
   cookieStore.set(sessionCookieName(IMPERSONATION_SLOT), sessionToken, impersonationCookieOptions());
   setStalwartAuthContextInStore(cookieStore, IMPERSONATION_SLOT, {
     serverUrl: normalizedServerUrl,
     username: claims.mailbox,
     authHeader: `Basic ${Buffer.from(`${claims.mailbox}:${credential.secret}`).toString('base64')}`,
   });
-  cookieStore.set(
-    IMPERSONATION_GRANT_COOKIE,
-    sealImpersonationGrant({
-      serverUrl: normalizedServerUrl,
-      mailbox: claims.mailbox,
-      credentialId: credential.id,
-    }),
-    impersonationCookieOptions(),
-  );
+  cookieStore.set(IMPERSONATION_GRANT_COOKIE, grantToken, impersonationCookieOptions());
+  if (restoreHandle) cookieStore.set(IMPERSONATION_RESTORE_COOKIE, restoreHandle, impersonationCookieOptions());
+  else cookieStore.delete(IMPERSONATION_RESTORE_COOKIE);
+  // Lets ImpersonationReconciler tell this handoff from any link to /?impersonated=1.
+  cookieStore.set(IMPERSONATION_MARKER_COOKIE, '1', {
+    ...getCookieOptions(),
+    httpOnly: false,
+    maxAge: IMPERSONATION_MARKER_MAX_AGE_SECONDS,
+  });
 
   // Structured audit log - operators rely on this for security review.
   logger.info('Impersonation session granted', {
@@ -144,10 +200,10 @@ export async function GET(request: NextRequest) {
     actor_user_id: claims.actor_user_id,
     iss: claims.iss,
     expires_at: credential.expiresAt,
-    ip:
-      request.headers.get('x-forwarded-for')?.split(',')[0]?.trim() ||
-      request.headers.get('x-real-ip') ||
-      null,
+    restorable: !!restoreHandle,
+    // The address the rate limits key on (TRUSTED_PROXY_DEPTH from the right),
+    // not the first X-Forwarded-For entry, which the client writes itself.
+    ip: getClientIP(request),
     referer: request.headers.get('referer'),
     user_agent: request.headers.get('user-agent'),
   });

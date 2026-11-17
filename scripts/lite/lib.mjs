@@ -39,10 +39,22 @@ export const LITE_REMOVED_PATHS = [
   "instrumentation.ts",
   "instrumentation.node.ts",
   "app/(main)/[...rest]",
+  "app/(main)/[locale]/[...rest]",
   "app/(main)/protocol",
+  "app/(main)/[locale]/popout",
   "e2e",
   "integration",
+  // The local store: Lite has no offline mode. A dev checkout may hold these.
+  "public/store-worker.js",
+  "public/sqlite3mc",
 ];
+
+/** The local store's engine in an export: Lite has no offline mode, and must not ship or load it. */
+export function unexpectedEngineFiles(files) {
+  return files
+    .map((file) => file.replace(/\\/g, "/"))
+    .filter((file) => /(^|\/)store-worker\.js$/.test(file) || /(^|\/)sqlite3mc\//.test(file) || /(^|\/)sqlite3\.(wasm|mjs)$/.test(file));
+}
 
 /** Test trees are pruned too: they import the routes removed above. */
 export const LITE_TEST_DIR_NAME = "__tests__";
@@ -184,6 +196,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/plugin-secrets",
   // stores/settings-store.ts - settingsSyncEnabled is pinned off.
   "/api/settings",
+  // lib/devices/client.ts - offline mode and its wipes aren't in Lite (no OfflineHost, IS_LITE guards in the auth store).
+  "/api/devices",
   // Stalwart's own account discovery (lib/auth/lite-oauth.ts), not a route of this app.
   "/api/discover",
   // OAuth / SSO / pairing - Lite discovers and redeems codes in the browser
@@ -195,9 +209,24 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/auth/reauth/sso/complete",
   "/api/auth/pair/create",
   "/api/auth/pair/status",
+  // Mobile sign-in hand-off with a code (login page, SSO callback) - skipped
+  // in Lite, which has no server to park the sign-in on and hands over in
+  // the fragment.
+  "/api/auth/handoff/create",
+  "/api/auth/handoff/confirm",
+  // The desktop app's sign-in on an instance: no bridge in a browser, and IS_LITE guards.
+  "/api/auth/desktop-handoff/check",
+  "/api/auth/desktop-handoff/discard",
+  "/api/auth/desktop-handoff/park",
+  "/api/auth/desktop-handoff/redeem",
+  // Return from an impersonation (#1538): lib/impersonation/return-client.ts
+  // skips every call in Lite, which has no impersonation.
+  "/api/auth/impersonate/return",
   "/api/auth/totp-token-exchange",
   "/api/auth/session",
   "/api/auth/verify",
+  // The sign-in form's mail server lookup: the login page skips it in Lite (IS_LITE).
+  "/api/auth/discover-server",
   "/api/auth/stalwart-context",
   "/api/account/stalwart/jmap",
   // Admin shield probe - skipped in Lite (components/layout/navigation-rail.tsx).
@@ -207,21 +236,28 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/admin/policy",
   // lib/account-archive-client.ts - the feature is pinned off in Lite.
   "/api/account-archive",
-  // WOPI (#425) - use-wopi-status returns disabled in Lite.
+  // WOPI (#425) - use-wopi-status returns disabled in Lite, so "New file"
+  // never fetches a document template either (#1393).
   "/api/wopi/status",
   "/api/wopi/launch",
+  "/api/wopi/template",
   // Calendar: ICS URL import/subscriptions + CalDAV discovery are hidden in Lite.
   "/api/fetch-ical",
   "/api/caldav/discover",
   "/api/webdav",
-  // Sender favicons - disabled in Lite (initials fallback).
+  // Sender favicons and BIMI logos - disabled in Lite (initials fallback).
   "/api/favicon",
+  "/api/bimi",
   // Web push relay paths (relative to the *relay* origin, not this host).
   "/api/push/vapid-public-key",
   "/api/push/register",
   "/api/push/active",
   "/api/push/verify",
   "/api/push/jmap",
+  // Offline mode (#523) - OfflineHost isn't mounted in Lite, and the update
+  // check (lib/app-update.ts) asks lite-build.json there instead.
+  "/api/offline/shell",
+  "/api/version",
   // Dev-only JMAP mock.
   "/api/jmap",
   "/api/dev-jmap",
@@ -264,9 +300,39 @@ export function buildLiteConfig(env = {}, { target = "static" } = {}) {
       : {}),
     rememberMeEnabled: parseBool(env.LITE_REMEMBER_ME, true),
     demoMode: parseBool(env.LITE_DEMO_MODE, false),
+    // Written out so deployers find the switch (#903; lib/outgoing-hosts.ts).
+    noThirdPartyTraffic: parseBool(env.LITE_NO_THIRD_PARTY_TRAFFIC, false),
     loginShowTotp: true,
     loginShowVersion: true,
   };
+}
+
+/**
+ * The connector targets of lib/connector/registry.ts (its source: these
+ * scripts can't import TypeScript), each with whether a Lite export can open
+ * it. One that needs the admin session (`admin: true`) can't, nor can one
+ * whose path leads into a route the export leaves out (LITE_REMOVED_PATHS,
+ * such as /setup). A target added to the registry later is judged the same
+ * way.
+ */
+export function connectorTargetsFromSource(source) {
+  const starts = [...source.matchAll(/^\s{4}name: '([a-z0-9_]+)',$/gm)];
+  if (starts.length === 0) throw new Error("no connector targets found in lib/connector/registry.ts");
+  const listEnd = source.indexOf("] as const;", starts[starts.length - 1].index);
+  const removed = LITE_REMOVED_PATHS
+    .filter((path) => path.startsWith("app/(main)/"))
+    .map((path) => `/${path.slice("app/(main)/".length)}`);
+  return starts.map((match, i) => {
+    const block = source.slice(match.index, i + 1 < starts.length ? starts[i + 1].index : listEnd === -1 ? undefined : listEnd);
+    const paths = [...block.matchAll(/['"`](\/[^'"`$?]*)/g)].map((m) => m[1]);
+    const admin = /\badmin:\s*true\b/.test(block);
+    const missing = paths.some((path) => removed.some((route) => path === route || path.startsWith(`${route}/`)));
+    return { name: match[1], lite: !admin && !missing };
+  });
+}
+
+export function readConnectorTargets(root = resolveRepoRoot(import.meta.url)) {
+  return connectorTargetsFromSource(readFileSync(join(root, "lib", "connector", "registry.ts"), "utf8"));
 }
 
 /** policy.json: only the gates Lite must pin; the app merges the rest over its defaults. */
@@ -279,17 +345,11 @@ export function buildLiteConfig(env = {}, { target = "static" } = {}) {
  *
  * The target names are read out of lib/connector/registry.ts rather than
  * duplicated here: a list that drifts would have this build telling connectors
- * it can resolve links it cannot.
+ * it can resolve links it cannot. Only the targets a Lite export can open are
+ * listed (readConnectorTargets).
  */
 export function buildConnectorCapabilities({ appName, version, basePath = "" }) {
-  const source = readFileSync(
-    join(resolveRepoRoot(import.meta.url), "lib", "connector", "registry.ts"),
-    "utf8",
-  );
-  const targets = [...source.matchAll(/^\s{4}name: '([a-z0-9_]+)',$/gm)].map((m) => m[1]);
-  if (targets.length === 0) {
-    throw new Error("no connector targets found in lib/connector/registry.ts");
-  }
+  const targets = readConnectorTargets().filter((target) => target.lite).map((target) => target.name);
   return (
     JSON.stringify(
       {
@@ -386,6 +446,33 @@ export function buildRootRedirect({ basePath = "", locales, defaultLocale = "en"
 }
 
 /**
+ * The not-found texts of each built locale for the 404 shim: the title and
+ * text of app/(main)/[locale]/not-found.tsx and its button.
+ *
+ * @param {string} root
+ * @param {string[]} locales
+ * @returns {Record<string, { title: string, description: string, home: string }>}
+ */
+export function readNotFoundMessages(root, locales) {
+  /** @type {Record<string, { title: string, description: string, home: string }>} */
+  const messages = {};
+  for (const locale of locales) {
+    try {
+      const table = JSON.parse(readFileSync(join(root, "locales", locale, "common.json"), "utf8"));
+      const title = table?.not_found?.title;
+      const description = table?.not_found?.description;
+      const home = table?.errors?.go_home;
+      if (typeof title === "string" && typeof description === "string" && typeof home === "string") {
+        messages[locale] = { title, description, home };
+      }
+    } catch {
+      // A locale without a table keeps the English page.
+    }
+  }
+  return messages;
+}
+
+/**
  * 404.html for hosts without rewrite rules (GitHub Pages, S3 website hosting).
  *
  * `next build` exports Next's default not-found page as 404.html: the
@@ -397,8 +484,25 @@ export function buildRootRedirect({ basePath = "", locales, defaultLocale = "en"
  * hands the link over (hooks/use-lite-link-segments.ts). Only `<locale>` and
  * `<surface>` from the allowlists ever reach `location.replace`, so a crafted
  * URL cannot turn this into an open redirect.
+ *
+ * A path without a locale (/login, /mail/...) goes to the same path under
+ * the reader's locale, picked as the root index.html picks it; the target
+ * stays on this origin and starts with an allowlisted locale.
+ *
+ * A page that stays a 404 speaks the language of its URL (/de/gibtsnicht in
+ * German), else the reader's: `messages` holds each built locale's texts,
+ * which are set as text, never as markup.
  */
-export function buildNotFoundShim({ basePath = "", locales, surfaces = LITE_SURFACES }) {
+export function buildNotFoundShim({ basePath = "", locales, surfaces = LITE_SURFACES, defaultLocale = "en", messages = {} }) {
+  const fallback = locales.includes(defaultLocale) ? defaultLocale : locales[0];
+  const english = messages.en ?? {
+    title: "Page not found",
+    description: "This page doesn't exist or has moved. Check the address, or go back to your inbox.",
+    home: "Go to inbox",
+  };
+  const built = {};
+  for (const locale of locales) if (messages[locale]) built[locale] = messages[locale];
+  const escapeHtml = (text) => String(text).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
   return `<!doctype html>
 <html lang="en">
 <head>
@@ -417,6 +521,31 @@ export function buildNotFoundShim({ basePath = "", locales, surfaces = LITE_SURF
     path = path.slice(base.length) || "/";
   }
   var parts = path.split("/").filter(Boolean);
+  if (parts.length > 0 && locales.indexOf(parts[0]) === -1) {
+    var fallback = ${JSON.stringify(fallback)};
+    var pick = function (tag) {
+      if (!tag) return null;
+      tag = String(tag);
+      if (locales.indexOf(tag) !== -1) return tag;
+      var lower = tag.toLowerCase();
+      if (lower.indexOf("zh") === 0) {
+        if (/zh-(tw|hk|mo|hant)/.test(lower) && locales.indexOf("zh-TW") !== -1) return "zh-TW";
+        if (locales.indexOf("zh") !== -1) return "zh";
+      }
+      var short = lower.split("-")[0];
+      for (var i = 0; i < locales.length; i++) if (locales[i].toLowerCase() === short) return locales[i];
+      return null;
+    };
+    var chosen = null;
+    try {
+      var stored = JSON.parse(localStorage.getItem(${JSON.stringify(LOCALE_STORAGE_KEY)}) || "null");
+      chosen = pick(stored && stored.state && stored.state.locale);
+    } catch (e) {}
+    var langs = navigator.languages || [navigator.language];
+    for (var j = 0; !chosen && j < langs.length; j++) chosen = pick(langs[j]);
+    location.replace(base + "/" + (chosen || fallback) + "/" + parts.join("/") + location.search + location.hash);
+    return;
+  }
   if (parts.length < 2 || locales.indexOf(parts[0]) === -1 || surfaces.indexOf(parts[1]) === -1) return;
   var target = base + "/" + parts[0] + "/" + parts[1] + "/";
   // The shell itself is missing (host misconfigured): show the 404 instead of looping.
@@ -426,20 +555,67 @@ export function buildNotFoundShim({ basePath = "", locales, surfaces = LITE_SURF
 })();
 </script>
 <style>
-  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; background: #fff; color: #111; }
-  @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #ededed; } }
-  main { text-align: center; padding: 1rem; }
-  h1 { font-size: 2.25rem; margin: 0 0 .5rem; }
-  p { margin: 0 0 1.5rem; opacity: .7; }
-  a { color: inherit; }
+  body { margin: 0; min-height: 100vh; display: flex; align-items: center; justify-content: center; font-family: system-ui, sans-serif; background: #fff; color: #0a0a0a; }
+  @media (prefers-color-scheme: dark) { body { background: #0a0a0a; color: #fafafa; } a { background: #fafafa; color: #0a0a0a; } }
+  main { text-align: center; padding: 1rem; max-width: 28rem; }
+  .code { margin: 0 0 .5rem; font-size: .875rem; font-weight: 600; color: #737373; }
+  h1 { font-size: 1.5rem; font-weight: 700; margin: 0 0 .5rem; }
+  p { margin: 0 0 1.5rem; color: #737373; }
+  a { display: inline-block; padding: .5rem 1rem; border-radius: .375rem; background: #0a0a0a; color: #fafafa; font-size: .875rem; font-weight: 500; text-decoration: none; }
 </style>
 </head>
 <body>
 <main>
-  <h1>404</h1>
-  <p>This page could not be found.</p>
-  <a href="${basePath}/">Go home</a>
+  <p class="code">404</p>
+  <h1 id="not-found-title">${escapeHtml(english.title)}</h1>
+  <p id="not-found-text">${escapeHtml(english.description)}</p>
+  <a id="not-found-home" href="${basePath}/">${escapeHtml(english.home)}</a>
 </main>
+<script>
+(function () {
+  var base = ${JSON.stringify(basePath)};
+  var messages = ${inlineJson(built)};
+  var fallback = ${JSON.stringify(fallback)};
+  var rtl = ${JSON.stringify(RTL_LOCALES)};
+  var pick = function (tag) {
+    if (!tag) return null;
+    tag = String(tag);
+    if (messages[tag]) return tag;
+    var lower = tag.toLowerCase();
+    if (lower.indexOf("zh") === 0) {
+      if (/zh-(tw|hk|mo|hant)/.test(lower) && messages["zh-TW"]) return "zh-TW";
+      if (messages.zh) return "zh";
+    }
+    var short = lower.split("-")[0];
+    for (var key in messages) if (Object.prototype.hasOwnProperty.call(messages, key) && key.toLowerCase() === short) return key;
+    return null;
+  };
+  var path = location.pathname;
+  if (base && path.indexOf(base + "/") === 0) path = path.slice(base.length);
+  // The locale of the URL first, then the one picked in Settings, then the browser's.
+  var first = path.split("/").filter(Boolean)[0];
+  var locale = first && Object.prototype.hasOwnProperty.call(messages, first) ? first : null;
+  if (!locale) {
+    try {
+      var stored = JSON.parse(localStorage.getItem(${JSON.stringify(LOCALE_STORAGE_KEY)}) || "null");
+      locale = pick(stored && stored.state && stored.state.locale);
+    } catch (e) {}
+  }
+  var langs = navigator.languages || [navigator.language];
+  for (var j = 0; !locale && j < langs.length; j++) locale = pick(langs[j]);
+  if (!locale) locale = messages[fallback] ? fallback : null;
+  if (!locale) return;
+  var text = messages[locale];
+  document.documentElement.lang = locale;
+  document.documentElement.dir = rtl.indexOf(locale) !== -1 ? "rtl" : "ltr";
+  document.title = "404 - " + text.title;
+  document.getElementById("not-found-title").textContent = text.title;
+  document.getElementById("not-found-text").textContent = text.description;
+  var home = document.getElementById("not-found-home");
+  home.textContent = text.home;
+  home.setAttribute("href", base + "/" + locale + "/");
+})();
+</script>
 </body>
 </html>
 `;
@@ -461,7 +637,12 @@ export function buildRedirects({ basePath = "", locales, surfaces = LITE_SURFACE
 }
 
 /** The Content-Security-Policy every static host should send (`_headers`, the container image). */
-export function buildCsp({ connectSrc = "*" } = {}) {
+export function buildCsp({ connectSrc = "*", noThirdParty = false } = {}) {
+  if (noThirdParty) {
+    const strict = noThirdPartyDirectives(connectSrc);
+    const byName = new Map(strict.map((d) => [d.split(" ")[0], d]));
+    return buildCsp({ connectSrc }).split("; ").map((d) => byName.get(d.split(" ")[0]) ?? d).join("; ");
+  }
   return [
     "default-src 'self'",
     // The static export ships inline hydration scripts, so no nonce is possible
@@ -480,19 +661,26 @@ export function buildCsp({ connectSrc = "*" } = {}) {
     "object-src 'none'",
     "base-uri 'self'",
     "form-action 'self'",
-    "frame-ancestors 'none'",
+    // 'self' because the PDF preview frames a blob: document, and Safari
+    // applies this policy to that document as well (#1301).
+    "frame-ancestors 'self'",
     "media-src 'self' blob:",
   ].join("; ");
+}
+
+/** Whether a `<script>` tag with these attributes runs its own text (no src, not a data block). */
+function runsInlineText(attrs) {
+  if (/\bsrc\s*=/i.test(attrs)) return false;
+  // Data blocks (JSON, templates) never execute.
+  const type = /\btype\s*=\s*["']?([^"'\s>]+)/i.exec(attrs)?.[1]?.toLowerCase();
+  return !type || type === "module" || /^(text|application)\/(x-)?(java|ecma)script$/.test(type);
 }
 
 /** The `'sha256-...'` source for every inline script in an HTML document. */
 export function inlineScriptHashes(html) {
   const hashes = new Set();
   for (const [, attrs, body] of html.matchAll(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi)) {
-    if (/\bsrc\s*=/i.test(attrs)) continue;
-    // Data blocks (JSON, templates) never execute.
-    const type = /\btype\s*=\s*["']?([^"'\s>]+)/i.exec(attrs)?.[1]?.toLowerCase();
-    if (type && type !== "module" && !/^(text|application)\/(x-)?(java|ecma)script$/.test(type)) continue;
+    if (!runsInlineText(attrs)) continue;
     // Browsers normalise newlines before the script text is hashed.
     const text = body.replace(/\r\n?/g, "\n");
     hashes.add(`'sha256-${createHash("sha256").update(text, "utf8").digest("base64")}'`);
@@ -505,9 +693,31 @@ export function inlineScriptHashes(html) {
  * and scripts from this origin, nothing else. Enforced together with the
  * host's header policy, it takes away the header's 'unsafe-inline'.
  */
-export function buildScriptHashCsp(hashes) {
-  // xenaxio step 92: 'wasm-unsafe-eval' — see buildCsp.
-  return [`script-src 'self' 'wasm-unsafe-eval'${hashes.map((h) => ` ${h}`).join("")}`, "object-src 'none'", "base-uri 'self'"].join("; ");
+export function buildScriptHashCsp(hashes, { noThirdParty = false, connectSrc = "*" } = {}) {
+  return [
+    // xenaxio step 92: 'wasm-unsafe-eval' — see buildCsp.
+    `script-src 'self' 'wasm-unsafe-eval'${hashes.map((h) => ` ${h}`).join("")}`,
+    "object-src 'none'",
+    "base-uri 'self'",
+    ...(noThirdParty ? noThirdPartyDirectives(connectSrc) : []),
+  ].join("; ");
+}
+
+/**
+ * A build made with LITE_NO_THIRD_PARTY_TRAFFIC=true (#903) fences the page
+ * like the server build's header does: its own origin and the JMAP server
+ * only, so a link the in-app switches miss still can't load anything from
+ * an outside host. `connectSrc` is the JMAP origin, or `*` when users may
+ * type any server (then only connect-src stays open).
+ */
+export function noThirdPartyDirectives(connectSrc = "*") {
+  const own = connectSrc === "*" ? "" : ` ${connectSrc}`;
+  return [
+    `connect-src 'self' ${connectSrc}`,
+    `img-src 'self' data: blob:${own}`,
+    "font-src 'self' data:",
+    "media-src 'self' blob:",
+  ];
 }
 
 /**
@@ -515,8 +725,96 @@ export function buildScriptHashCsp(hashes) {
  * script: right after <meta charset> (which has to stay within the first
  * 1024 bytes), else as early in the document as possible.
  */
-export function withScriptHashCsp(html) {
-  const meta = `<meta http-equiv="Content-Security-Policy" content="${buildScriptHashCsp(inlineScriptHashes(html))}"/>`;
+export function withScriptHashCsp(html, options = {}) {
+  return withMetaCsp(html, buildScriptHashCsp(inlineScriptHashes(html), options));
+}
+
+/** What a page shows instead of itself inside another site's frame. */
+export const FOREIGN_FRAME_MESSAGE = "Bulwark Webmail cannot be shown inside another site's page. Open it directly.";
+
+/** Marks the frame refusal script, so checks can tell it from the page's own. */
+export const FRAME_GUARD_ATTRIBUTE = "data-bulwark-frame-guard";
+
+/**
+ * Whether `win` is inside a frame of another site: a frame above it is on
+ * another origin (whose location it can't even read). `allowed` names one
+ * other origin that may frame it, the portal a build is made for
+ * (NEXT_PUBLIC_PARENT_ORIGIN). Runs in the browser: the Stalwart entry and
+ * the static pages' refusal embed it with Function#toString.
+ */
+export function isForeignFrame(win, allowed) {
+  var foreign = false;
+  try {
+    for (var w = win; w !== w.parent; w = w.parent) {
+      if (w.parent.location.origin !== win.location.origin) { foreign = true; break; }
+    }
+  } catch {
+    foreign = true;
+  }
+  if (!foreign || !allowed) return foreign;
+  var origins = win.location.ancestorOrigins;
+  if (origins && origins.length) {
+    for (var i = 0; i < origins.length; i++) if (origins[i] !== win.location.origin && origins[i] !== allowed) return true;
+    return false;
+  }
+  try { return new URL(win.document.referrer).origin !== allowed; } catch { return true; }
+}
+
+/**
+ * The first script of every page of the static target. A <meta> policy can't
+ * carry frame-ancestors, and hosts such as GitHub Pages or a plain S3 bucket
+ * send no headers, so the page itself stops loading inside another site's
+ * frame and shows FOREIGN_FRAME_MESSAGE. Frames of its own origin load, and
+ * so does `parentOrigin` when the build names one.
+ */
+export function buildFrameGuardScript({ parentOrigin = "" } = {}) {
+  return `(function () {
+  var isForeignFrame = ${isForeignFrame.toString()};
+  if (!isForeignFrame(window, ${inlineJson(parentOrigin)})) return;
+  try { window.stop(); } catch (e) {}
+  // Built with the DOM, not markup: the build finds where the page policy goes
+  // by searching each page for its head and charset tags, this text included.
+  document.documentElement.replaceChildren(document.createElement("head"), document.createElement("body"));
+  var p = document.createElement("p");
+  p.textContent = ${inlineJson(FOREIGN_FRAME_MESSAGE)};
+  p.style.cssText = "font:16px/1.5 system-ui,sans-serif;max-width:36rem;margin:20vh auto 0;padding:1rem;text-align:center";
+  document.body.appendChild(p);
+})();`;
+}
+
+/** The origin of NEXT_PUBLIC_PARENT_ORIGIN, or "" when it names none. */
+export function parentOriginOf(value) {
+  try {
+    return value ? new URL(String(value).trim()).origin : "";
+  } catch {
+    return "";
+  }
+}
+
+/** `html` with the frame refusal as its first script: right after <meta charset>, else at the top of <head>. */
+export function withFrameGuard(html, options = {}) {
+  const script = `<script ${FRAME_GUARD_ATTRIBUTE}="">${buildFrameGuardScript(options)}</script>`;
+  const anchor = /<meta\s+charset\s*=[^>]*>/i.exec(html) ?? /<head\b[^>]*>/i.exec(html)
+    ?? /<html\b[^>]*>/i.exec(html) ?? /<!doctype[^>]*>/i.exec(html);
+  const at = anchor ? anchor.index + anchor[0].length : 0;
+  return html.slice(0, at) + script + html.slice(at);
+}
+
+/**
+ * Problems with the frame refusal of a static page (empty = fine): it must be
+ * the first script, and the page's own policy must allow it.
+ */
+export function frameGuardProblems(html) {
+  const first = /<script\b([^>]*)>([\s\S]*?)<\/script\s*>/i.exec(html);
+  if (!first || !first[1].includes(FRAME_GUARD_ATTRIBUTE)) return ["does not start with the frame refusal script"];
+  const policy = /<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html)?.[1] ?? "";
+  const [hash] = inlineScriptHashes(first[0]);
+  return policy.includes(hash) ? [] : ["has a frame refusal its policy does not allow"];
+}
+
+/** `html` with a <meta> carrying `policy`, placed as withScriptHashCsp places it. */
+function withMetaCsp(html, policy) {
+  const meta = `<meta http-equiv="Content-Security-Policy" content="${policy}"/>`;
   // Without a <head> the parser still places a leading <meta> in the implied one.
   const anchor = /<meta\s+charset\s*=[^>]*>/i.exec(html) ?? /<head\b[^>]*>/i.exec(html)
     ?? /<html\b[^>]*>/i.exec(html) ?? /<!doctype[^>]*>/i.exec(html);
@@ -525,26 +823,30 @@ export function withScriptHashCsp(html) {
 }
 
 /**
- * The policy of the Stalwart target's entry document. Stalwart sends no
- * security headers for an Application, so this <meta> is all there is. The
- * shells it writes in are rewritten for the mount at runtime, which rules
- * out build-time hashes; it still forbids plugins, eval, foreign scripts and
- * a moved <base>. frame-ancestors cannot be set from a <meta>: the entry
- * refuses to run in a frame of another origin instead.
+ * The policy of the Stalwart target. Stalwart sends no security headers for
+ * an Application, so the entry document's <meta> is all there is, and every
+ * document the app opens on its origin inherits it. Scripts come from this
+ * origin only: `scriptHashes` names the entry's own inline script, and the
+ * shells it writes in carry no inline script at all (their scripts are files,
+ * moveShellScriptsToFiles), so nothing that depends on the mount or the
+ * client id has to be hashed. It also forbids plugins, eval and a moved
+ * <base>. frame-ancestors cannot be set from a <meta>: the entry refuses to
+ * run in a frame of another origin instead.
  */
-export function buildStalwartEntryCsp() {
+export function buildStalwartEntryCsp(scriptHashes = []) {
   return buildCsp({ connectSrc: "*" })
     .split("; ")
     .filter((directive) => !directive.startsWith("frame-ancestors"))
+    .map((directive) => (directive.startsWith("script-src ") ? `script-src 'self'${scriptHashes.map((h) => ` ${h}`).join("")}` : directive))
     .join("; ");
 }
 
 /** Security headers for hosts that read a `_headers` file. */
-export function buildHeaders({ basePath = "", connectSrc = "*" }) {
-  const csp = buildCsp({ connectSrc });
+export function buildHeaders({ basePath = "", connectSrc = "*", noThirdParty = false }) {
+  const csp = buildCsp({ connectSrc, noThirdParty });
   return `${basePath || ""}/*
   X-Content-Type-Options: nosniff
-  X-Frame-Options: DENY
+  X-Frame-Options: SAMEORIGIN
   Referrer-Policy: strict-origin-when-cross-origin
   Permissions-Policy: camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=()
   Content-Security-Policy: ${csp}
@@ -566,9 +868,9 @@ export function exampleDocRoot(basePath = "") {
   return { root: "/var/www/bulwark-lite", files: `/var/www/bulwark-lite${basePath}` };
 }
 
-export function buildNginxExample({ basePath = "", surfaces = LITE_SURFACES, connectSrc = "*" }) {
+export function buildNginxExample({ basePath = "", surfaces = LITE_SURFACES, connectSrc = "*", noThirdParty = false }) {
   const location = basePath ? `${basePath}/` : "/";
-  const csp = buildCsp({ connectSrc });
+  const csp = buildCsp({ connectSrc, noThirdParty });
   const { root, files } = exampleDocRoot(basePath);
   const surfaceAlternation = surfaces.join("|");
   return `# Bulwark Lite - nginx example. Unzip the archive into ${files}
@@ -580,7 +882,7 @@ server {
     root ${root};
 
     add_header X-Content-Type-Options nosniff always;
-    add_header X-Frame-Options DENY always;
+    add_header X-Frame-Options SAMEORIGIN always;
     add_header Referrer-Policy strict-origin-when-cross-origin always;
     # connect-src names the JMAP server this bundle was built for. Every page
     # also carries a <meta> policy that allows only its own inline scripts.
@@ -591,7 +893,7 @@ server {
     location ${basePath}/_next/static/ {
         add_header Cache-Control "public, max-age=31536000, immutable" always;
         add_header X-Content-Type-Options nosniff always;
-        add_header X-Frame-Options DENY always;
+        add_header X-Frame-Options SAMEORIGIN always;
         add_header Referrer-Policy strict-origin-when-cross-origin always;
         add_header Content-Security-Policy "${csp}" always;
     }
@@ -637,7 +939,7 @@ export function buildNginxContainerTemplate({ surfaces = LITE_SURFACES } = {}) {
   // location with headers of its own repeats these.
   const securityHeaders = (indent) => [
     "add_header X-Content-Type-Options nosniff always;",
-    "add_header X-Frame-Options DENY always;",
+    "add_header X-Frame-Options SAMEORIGIN always;",
     "add_header Referrer-Policy strict-origin-when-cross-origin always;",
     // xenaxio step 78: camera, microphone and screen for meetings, own pages only.
     'add_header Permissions-Policy "camera=(self), microphone=(self), display-capture=(self), geolocation=(), payment=()" always;',
@@ -698,9 +1000,9 @@ ${securityHeaders("        ")}
 `;
 }
 
-export function buildCaddyExample({ basePath = "", surfaces = LITE_SURFACES, connectSrc = "*" }) {
+export function buildCaddyExample({ basePath = "", surfaces = LITE_SURFACES, connectSrc = "*", noThirdParty = false }) {
   const { root, files } = exampleDocRoot(basePath);
-  const csp = buildCsp({ connectSrc });
+  const csp = buildCsp({ connectSrc, noThirdParty });
   const surfaceAlternation = surfaces.join("|");
   return `# Bulwark Lite - Caddy example. Unzip the archive into ${files}
 # so that ${basePath}/index.html is served at ${basePath || ""}/.
@@ -710,7 +1012,7 @@ webmail.example.com {
 
     header {
         X-Content-Type-Options nosniff
-        X-Frame-Options DENY
+        X-Frame-Options SAMEORIGIN
         Referrer-Policy strict-origin-when-cross-origin
         # connect-src names the JMAP server this bundle was built for.
         Content-Security-Policy "${csp}"
@@ -763,17 +1065,32 @@ ${demoMode ? "Demo mode is ON: the login page offers a built-in demo account and
      while \`jmapServerUrl\` is empty.
    - \`rememberMeEnabled\`: \`false\` never remembers a sign-in (sessions then end with the tab).
      Sign-ins are otherwise remembered; \`loginShowRememberMe: true\` lets people choose.
+   - \`noThirdPartyTraffic\`: \`true\` keeps the browser off every built-in outside host
+     (no Google Maps links on event addresses; see the third-party traffic docs).
+   - \`oauthRevokeOnSignOut\`: \`false\` keeps the refresh token valid at the server on
+     sign-out, so Stalwart 1.0 does not ask for consent again on the next sign-in.
    Optional keys: \`demoMode\`, \`jmapServers\`, \`jmapServerAutoPickByDomain\`, the login logo/company/link keys and \`loginShow*\` toggles (same names as the Docker env vars, camelCased).
-3. Allow the browser to talk to the mail server (CORS). In Stalwart:
+3. Allow the browser to talk to the mail server (CORS). In Stalwart, turn on
+   the \`usePermissiveCors\` setting of the \`Http\` object: in the web admin
+   under **Settings > Network > HTTP > Security** ("Permissive CORS policy"),
+   or with
 
-   \`\`\`toml
-   [http]
-   permissive-cors = true
+   \`\`\`bash
+   stalwart-cli update Http --field usePermissiveCors=true
+   stalwart-cli create Action/ReloadSettings
    \`\`\`
 
-   or an equivalent reverse-proxy rule that allows your Lite origin with the
+   or over JMAP as an administrator: \`x:Http/set\` with
+   \`{"update": {"singleton": {"usePermissiveCors": true}}}\`. It applies once
+   the settings are reloaded (the \`ReloadSettings\` action) or Stalwart
+   restarts. On the current 1.0 pre-releases \`ReloadSettings\` fails while the
+   stock spam-filter rules are loaded, so restart Stalwart there instead.
+   Stalwart 0.16 and later ignore the \`[http] permissive-cors\` key of the old
+   TOML configuration.
+
+   A reverse-proxy rule works too if it allows your Lite origin with the
    \`Authorization\` and \`Content-Type\` headers on \`/.well-known/jmap\`, \`/jmap/*\`,
-   \`/api/auth\` and \`/auth/token\`.
+   \`/api/auth\`, \`/auth/token\` and, for Stalwart 1.0, \`/auth/register\`.
 
 ## Host configuration
 
@@ -784,7 +1101,8 @@ Deep links such as \`${basePath}/en/mail/thread/abc\` are served by the shell at
 - nginx: see \`nginx.conf.example\`.
 - Caddy: see \`Caddyfile.example\`.
 ${basePath ? `  Both examples serve root-relative paths, so unzip into \`<web root>${basePath}\`\n  (e.g. \`${exampleDocRoot(basePath).files}\`), not into the web root itself.\n` : ""}- GitHub Pages and other hosts without rewrites: \`404.html\` replays the link
-  in the browser. It works, with one extra page load.
+  in the browser. It works, with one extra page load. Such hosts usually send
+  none of the headers in \`_headers\` either (see Security notes).
 
 \`_headers\` also carries the recommended security headers. Adjust
 \`connect-src\` to your JMAP server's origin if you prefer a strict policy.
@@ -796,30 +1114,54 @@ multiple accounts, calendar, contacts, files, themes, settings export/import,
 password and TOTP login, demo mode, deep links.
 
 Not available in Lite (they need the Node.js server): the admin console and
-setup wizard, plugins and sidebar apps, settings sync across devices, OAuth /
-SSO login, the account security tab (app passwords, 2FA setup), ICS URL
-subscriptions and CalDAV discovery, sender favicons, office (WOPI) editing,
-web push notifications, the update banner, device pairing, and the
-"Default apps" page (registering Lite as the mailto:/webcal: handler).
+setup wizard, plugins and sidebar apps, settings sync across devices, the
+account security tab (app passwords, 2FA setup), ICS URL subscriptions and
+CalDAV discovery, sender favicons, office (WOPI) editing, web push
+notifications, the update banner, device pairing, and the "Default apps" page
+(registering Lite as the mailto:/webcal: handler).
+
+OAuth / SSO login is not in this build. It is in Lite when Stalwart serves it
+as an Application (\`npm run build:lite -- --target=stalwart\`, or the
+\`${STALWART_ZIP_NAME}\` of a release): accounts whose domain signs in at an
+OpenID provider are sent there, and setting the Application's
+\`oauthClientId\` adds **Sign in with SSO**. That bundle's README explains it.
 
 ## Security notes
 
 - No cookies and no server session. Requests to the mail server carry the
   token or credentials of the signed-in account only.
-- "Remember me" keeps a Stalwart refresh token in the browser's localStorage
-  (a plain token, never the password). Without "remember me" the token lives
-  in sessionStorage and the session ends with the tab. Both are readable by
-  any script running on your Lite origin, so serve Lite from an origin you
-  control and keep the Content-Security-Policy from \`_headers\`.
+- "Remember me" keeps a Stalwart refresh token in the browser's localStorage,
+  never the password; without "remember me" it lives in sessionStorage and
+  the session ends with the tab. Tokens are stored sealed with a key the
+  browser keeps in IndexedDB and lets no script copy out, so a script that
+  reads web storage finds no token and what is stored is of no use outside
+  this browser profile. A script running on your Lite origin can still use
+  that key while the browser holds it, so serve Lite from a host name of its
+  own that you control (not one that also serves files people upload) and
+  keep the Content-Security-Policy from \`_headers\`. Where IndexedDB is
+  blocked or does not answer, a sign-in lasts only as long as the page.
+- Serve Lite over HTTPS. On a plain http:// address other than localhost,
+  browsers withhold the Web Crypto API the token sign-in needs, so Lite falls
+  back to Basic auth with the password kept in sessionStorage for the tab (see
+  the next point), and they send no fetch metadata (\`Sec-Fetch-*\` headers)
+  with its requests. Several of the protections described here assume HTTPS.
 - Servers without Stalwart's token login (\`/api/auth\`) fall back to Basic
   auth. "Remember me" is then hidden; the credentials stay in sessionStorage
   for the lifetime of the tab so a reload does not sign you out. The same
   fallback applies when a reverse proxy in front of Stalwart answers
   \`/api/auth\` without CORS headers: the login still works, but "remember me"
   then only lasts for the tab, so add the CORS rule from step 3 there too.
-- Because the export contains inline scripts, \`script-src\` must allow
-  \`'unsafe-inline'\`. Email HTML is still rendered sanitised in a sandboxed
-  frame, exactly as in the full build.
+- Every page carries a \`<meta>\` Content-Security-Policy that runs only its
+  own inline scripts (by hash) and scripts from its own origin, so the
+  \`'unsafe-inline'\` in the header policy changes nothing where both apply.
+  Each page also refuses to run inside another site's frame. Email HTML is
+  still rendered sanitised in a sandboxed frame, exactly as in the full build.
+- A \`<meta>\` can't carry the rest of \`_headers\`. Hosts that send no headers
+  of their own, such as GitHub Pages or a plain S3 bucket, go without
+  \`frame-ancestors\` and \`X-Frame-Options\` (the pages' own refusal stands in),
+  \`X-Content-Type-Options: nosniff\`, the \`connect-src\`, \`img-src\`,
+  \`frame-src\` and \`form-action\` limits, \`Referrer-Policy\` and
+  \`Permissions-Policy\`. Prefer a host that sends them.
 `;
 }
 
@@ -1153,6 +1495,96 @@ export function inlineJson(value) {
     .replace(PARAGRAPH_SEPARATOR, BACKSLASH + "u2029");
 }
 
+/** A JavaScript string literal in plain ASCII, so a script file reads the same whatever charset it is decoded with. */
+function asciiStringLiteral(value) {
+  const json = JSON.stringify(value);
+  let out = "";
+  for (let i = 0; i < json.length; i++) {
+    const code = json.charCodeAt(i);
+    out += code > 0x7e || code === 0x3c ? BACKSLASH + "u" + code.toString(16).padStart(4, "0") : json[i];
+  }
+  return out;
+}
+
+/** The global the entry sets to the runtime mount; the shells' script files read it. */
+export const STALWART_MOUNT_GLOBAL = "__BULWARK_LITE_MOUNT__";
+/** Where the Stalwart target keeps the scripts its shells held inline, and the boot script. */
+export const STALWART_SCRIPT_DIR = "_next/lite";
+export const STALWART_BOOT_FILE = `${STALWART_SCRIPT_DIR}/boot.js`;
+
+/** The root-absolute URLs rewriteShellForMount points at the mount. */
+const SHELL_URL_NEEDLES = ['"/_next/', '"/manifest.webmanifest"', '"/branding/'];
+// Stands for the mount while a script is rebuilt: private-use characters no payload holds.
+const MOUNT_MARK = String.fromCharCode(0xe000) + "bulwark-lite-mount" + String.fromCharCode(0xe001);
+
+/**
+ * The file content for one inline script of a prerendered shell. A script
+ * without a root-absolute URL stays as it is. Next's RSC payload pushes
+ * (`self.__next_f.push([1,"..."])`) name chunks and assets by URL: the file
+ * builds that string with the mount the entry set, so it pushes exactly the
+ * value rewriteShellForMount gave the inline script. Any other script with
+ * such a URL stops the build, since it could not follow the mount.
+ */
+export function stalwartShellScriptFile(body, buildId) {
+  if (!SHELL_URL_NEEDLES.some((needle) => body.includes(needle))) return body;
+  const push = /^self\.__next_f\.push\(\[1,("(?:[^"\\]|\\[\s\S])*")\]\)$/.exec(body);
+  let value = null;
+  if (push && !body.includes(MOUNT_MARK)) {
+    try {
+      value = JSON.parse(rewriteShellForMount(push[1], MOUNT_MARK, buildId, ""));
+    } catch {
+      value = null;
+    }
+  }
+  if (typeof value !== "string") {
+    throw new Error(`[lite] a shell's inline script holds a root-absolute URL the Stalwart target cannot point at the mount: ${body.slice(0, 120)}`);
+  }
+  const mount = `(self[${JSON.stringify(STALWART_MOUNT_GLOBAL)}]||"")`;
+  return `self.__next_f.push([1,${value.split(MOUNT_MARK).map(asciiStringLiteral).join(`+${mount}+`)}])`;
+}
+
+/**
+ * A prerendered shell of the Stalwart target with every inline script moved
+ * into a file under STALWART_SCRIPT_DIR, in the same place and order (a
+ * parser-blocking script runs where the inline one did), and the target's
+ * policy ahead of them. Files are named by their content, so one copy serves
+ * every shell that has the script. Data blocks stay inline: they never run.
+ * Returns the new HTML and the files to write, by path below out/.
+ */
+export function moveShellScriptsToFiles(html, { buildId }) {
+  const files = {};
+  const moved = html.replace(/<script\b([^>]*)>([\s\S]*?)<\/script\s*>/gi, (tag, attrs, body) => {
+    if (!runsInlineText(attrs)) return tag;
+    const content = stalwartShellScriptFile(body.replace(/\r\n?/g, "\n"), buildId);
+    const name = `${STALWART_SCRIPT_DIR}/${createHash("sha256").update(content, "utf8").digest("hex").slice(0, 20)}.js`;
+    files[name] = content;
+    // async and defer mean nothing on an inline script, but would on a file.
+    const kept = attrs.replace(/\s(?:async|defer)(?:\s*=\s*(?:"[^"]*"|'[^']*'|[^\s"'>]+))?(?=\s|$)/gi, "");
+    return `<script${kept} src="/${name}"></script>`;
+  });
+  return { html: withMetaCsp(moved, buildStalwartEntryCsp()), files };
+}
+
+/**
+ * boot.js, the first script of every shell the entry writes in. The entry
+ * puts the mount, client id and build id into its data- attributes; it sets
+ * the globals and the fetch shim again in case a browser gives the written
+ * document a fresh global.
+ */
+export function buildStalwartBootScript() {
+  return `(function (w, d) {
+  var s = d.currentScript;
+  if (!s) return;
+  var mount = s.getAttribute("data-mount") || "";
+  var buildId = s.getAttribute("data-build") || "";
+  w[${inlineJson(STALWART_MOUNT_GLOBAL)}] = mount;
+  w.__BULWARK_LITE_OAUTH_CLIENT_ID__ = s.getAttribute("data-client-id") || "";
+  w.TURBOPACK_CHUNK_BASE_PATH = mount + "/_next/";
+  (${installStalwartFetchShim.toString()})(w, mount, buildId, ${rewriteFlightForMount.toString()});
+})(window, document);
+`;
+}
+
 /**
  * The root index.html of the Stalwart bundle, the only document Stalwart
  * ever serves for a route. It reads the mount from the rewritten
@@ -1171,8 +1603,9 @@ export function buildStalwartEntry({ locales, shells, defaultLocale = "en", buil
   var LOCALES = ${inlineJson(locales)};
   var SHELLS = ${inlineJson(shells)};
   var FALLBACK = ${inlineJson(fallback)};
-  var MOUNT_GLOBAL = "__BULWARK_LITE_MOUNT__";
+  var MOUNT_GLOBAL = ${inlineJson(STALWART_MOUNT_GLOBAL)};
   var CLIENT_ID_GLOBAL = "__BULWARK_LITE_OAUTH_CLIENT_ID__";
+  var BOOT_FILE = ${inlineJson(STALWART_BOOT_FILE)};
   var ENTRY_MARKER = ${inlineJson(STALWART_ENTRY_MARKER)};
   var resolveStalwartBoot = ${resolveStalwartBoot.toString()};
   var rewriteShellForMount = ${rewriteShellForMount.toString()};
@@ -1186,10 +1619,10 @@ export function buildStalwartEntry({ locales, shells, defaultLocale = "en", buil
   } catch (e) {}
 
   // Stalwart sends no X-Frame-Options or frame-ancestors for an Application:
-  // inside another origin's frame the app would be open to clickjacking.
-  var foreignFrame = false;
-  try { foreignFrame = window.top !== window.self && window.top.location.origin !== location.origin; } catch (e) { foreignFrame = true; }
-  if (foreignFrame) return fail("Bulwark Webmail cannot be shown inside another site's page. Open it directly.");
+  // inside another origin's frame the app would be open to clickjacking. Every
+  // frame above counts, not only the top one.
+  var isForeignFrame = ${isForeignFrame.toString()};
+  if (isForeignFrame(window, "")) return fail(${inlineJson(FOREIGN_FRAME_MESSAGE)});
 
   function fail(message) {
     function show() {
@@ -1246,11 +1679,14 @@ export function buildStalwartEntry({ locales, shells, defaultLocale = "en", buil
   window.TURBOPACK_CHUNK_BASE_PATH = mount + "/_next/";
   installStalwartFetchShim(window, mount, BUILD_ID, rewriteFlightForMount);
 
-  // Repeated inside the written shell, in case a browser gives it a fresh global.
-  var bootScript = "<scr" + "ipt>(function(w){w[" + JSON.stringify(MOUNT_GLOBAL) + "]=" + JSON.stringify(mount) +
-    ";w[" + JSON.stringify(CLIENT_ID_GLOBAL) + "]=" + JSON.stringify(clientId).replace(/</g, "\\\\u003c") +
-    ";w.TURBOPACK_CHUNK_BASE_PATH=" + JSON.stringify(mount + "/_next/") +
-    ";(" + installStalwartFetchShim.toString() + ")(w," + JSON.stringify(mount) + "," + JSON.stringify(BUILD_ID) + "," + rewriteFlightForMount.toString() + ");})(window)</scr" + "ipt>";
+  // Repeated inside the written shell, in case a browser gives it a fresh
+  // global. A file, not inline: this document's policy runs no inline script
+  // but its own, and it stays on the document the shell is written into.
+  function attr(value) {
+    return String(value).replace(/&/g, "&amp;").replace(/"/g, "&quot;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+  var bootScript = '<scr' + 'ipt src="' + attr(mount + "/" + BOOT_FILE + "?v=" + encodeURIComponent(BUILD_ID)) +
+    '" data-mount="' + attr(mount) + '" data-client-id="' + attr(clientId) + '" data-build="' + attr(BUILD_ID) + '"></scr' + 'ipt>';
 
   fetch(mount + "/" + boot.shell + "?v=" + encodeURIComponent(BUILD_ID), { credentials: "same-origin" })
     .then(function (res) {
@@ -1270,11 +1706,13 @@ export function buildStalwartEntry({ locales, shells, defaultLocale = "en", buil
     });
 })();
 `;
+  // The one inline script of the bundle: its hash is the only inline script the policy allows.
+  const scriptTag = `<script>${script}</script>`;
   return `<!doctype html>
 <html lang="en" ${STALWART_ENTRY_MARKER}="">
 <head>
 <meta charset="utf-8" />
-<meta http-equiv="Content-Security-Policy" content="${buildStalwartEntryCsp()}" />
+<meta http-equiv="Content-Security-Policy" content="${buildStalwartEntryCsp(inlineScriptHashes(scriptTag))}" />
 ${STALWART_BASE_HREF_LITERAL} />
 ${STALWART_OAUTH_META_LITERAL} />
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
@@ -1287,13 +1725,23 @@ ${STALWART_OAUTH_META_LITERAL} />
   #bulwark-lite-boot { display: flex; min-height: 100vh; align-items: center; justify-content: center; padding: 1rem; box-sizing: border-box; text-align: center; }
   #bulwark-lite-boot p { max-width: 36rem; opacity: .8; line-height: 1.5; }
 </style>
-<script>${script}</script>
+${scriptTag}
 </head>
 <body>
 <div id="bulwark-lite-boot" aria-busy="true"><noscript><p>Bulwark Webmail needs JavaScript.</p></noscript></div>
 </body>
 </html>
 `;
+}
+
+/**
+ * The bundle manifest Stalwart 1.0 requires at the root of an Application
+ * zip (`stalwart-app.json`, checked before it unpacks anything): without it,
+ * it refuses the bundle with "Application bundle does not contain a manifest"
+ * and serves nothing. 0.16 serves the file like any other.
+ */
+export function buildStalwartAppManifest({ version }) {
+  return { id: "bulwark-webmail", version };
 }
 
 /** manifest.json with relative URLs: they resolve against the manifest's own (mounted) URL. */
@@ -1330,6 +1778,37 @@ export function stalwartEntryProblems(html) {
   for (const absolute of ['"/_next/static', '"/config.json', '"/policy.json']) {
     if (html.includes(absolute)) problems.push(`index.html references ${absolute.slice(1)} absolutely; it must follow the runtime mount`);
   }
+  problems.push(...stalwartPolicyProblems(html).map((p) => `index.html ${p}`));
+  return problems;
+}
+
+/**
+ * What is wrong with the <meta> policy of an HTML file of the Stalwart bundle
+ * (empty = fine): missing, open to any inline script, or missing the hash of
+ * one of the file's own inline scripts.
+ */
+function stalwartPolicyProblems(html) {
+  const policy = /<meta http-equiv="Content-Security-Policy" content="([^"]*)"/.exec(html)?.[1];
+  if (!policy) return ["carries no script policy"];
+  const scriptSrc = policy.split(";").map((d) => d.trim()).find((d) => d.startsWith("script-src ")) ?? "";
+  const problems = [];
+  if (!scriptSrc) problems.push("has a policy without script-src");
+  if (/'unsafe-inline'|'unsafe-eval'/.test(scriptSrc)) problems.push(`has a policy that lets any inline script run (${scriptSrc})`);
+  for (const hash of inlineScriptHashes(html)) {
+    if (!scriptSrc.includes(hash)) problems.push(`has an inline script its policy does not allow (${hash})`);
+  }
+  return problems;
+}
+
+/**
+ * Problems with a shell (any HTML file but the entry) of the Stalwart bundle
+ * (empty = fine). It must hold no inline script, since the entry's policy
+ * stays on the document the shell is written into, and must carry that policy
+ * itself for when it is opened by its own address.
+ */
+export function stalwartShellProblems(html) {
+  const problems = stalwartPolicyProblems(html);
+  if (inlineScriptHashes(html).length > 0) problems.push("has inline scripts; they belong in files under " + STALWART_SCRIPT_DIR);
   return problems;
 }
 
@@ -1474,7 +1953,8 @@ export function collectZipEntries(dir) {
 
 /** LITE-README.md for the Stalwart bundle. */
 export function buildStalwartReadme({ version, commit, locales, buildId, demoMode = false }) {
-  const url = `https://github.com/bulwarkmail/webmail/releases/download/v${version}/${STALWART_ZIP_NAME}`;
+  // Release tags carry no "v" prefix (since 1.3.0); a v-URL 404s.
+  const url = `https://github.com/bulwarkmail/webmail/releases/download/${version}/${STALWART_ZIP_NAME}`;
   const latestUrl = `https://github.com/bulwarkmail/webmail/releases/latest/download/${STALWART_ZIP_NAME}`;
   return `# Bulwark Lite ${version} (${commit}) for Stalwart
 
@@ -1485,7 +1965,7 @@ no server URL, no CORS, no second web server.
 
 Build: ${buildId}
 Locales: ${locales.join(", ")}
-Requires: Stalwart 0.16.0 or later (0.16.19 or later to use \`oauthClientId\`).
+Requires: Stalwart 0.16.6 or later (0.16.19 for \`oauthClientId\`), or 1.0.
 ${demoMode ? "\nDemo mode is ON in this build: the login page offers the built-in demo account.\n" : ""}
 ## Install
 
@@ -1498,7 +1978,7 @@ it) and \`actionUpdateApps\`. Any of these is equivalent:
 
 - Web admin: **Settings > Web Applications > Create**, description
   \`Bulwark Webmail\`, resource URL \`${url}\`, URL prefix \`/webmail\`; then run
-  the update-applications action (or restart Stalwart).
+  **Actions > Update applications** (or restart Stalwart).
 - CLI:
 
   \`\`\`bash
@@ -1543,16 +2023,26 @@ admin's own \`admin\` and \`account\`.
 
 The resource URL above names one release, so what Stalwart serves only
 changes when you change it: to update, point \`resourceUrl\` at the new
-release's tag and run \`UpdateApps\` (it always downloads again; a failed
-download keeps the previous bundle online). Every release also carries
+release's tag and run \`UpdateApps\`, which always downloads again.
+
+What a failed download does depends on the Stalwart version. On 0.16.23 the
+running bundle stays online, as on later 0.16 releases and on 1.0.
+Older 0.16 releases and the 1.0 pre-releases
+unmount the Application and drop the cached copy. The next restart,
+\`UpdateApps\` or reload of the Applications (the other nodes of a cluster
+reload them after \`UpdateApps\`) downloads \`resourceUrl\` again and mounts the
+bundle once that works. On every version, a restart after the cached copy
+has expired, with \`resourceUrl\` unreachable, leaves the Application
+unmounted. So check that \`resourceUrl\` downloads before running
+\`UpdateApps\` or restarting. Every release also carries
 \`${STALWART_ZIP_NAME}.sha256\`; check a download with
 \`sha256sum -c ${STALWART_ZIP_NAME}.sha256\` before you switch.
 
 The bundle runs as script on your Stalwart origin, next to the web admin.
 Stalwart checks no hash or signature when it downloads, so a floating URL
 such as \`${latestUrl}\` would run whatever the newest release holds, at the
-next restart or \`UpdateApps\` after \`autoUpdateFrequency\` (default 90
-days). Use it only if you accept that in exchange for automatic updates.
+next restart or \`UpdateApps\` after \`autoUpdateFrequency\` (on 1.0
+\`autoUpdateInterval\`, default 90 days). Use it only if you accept that in exchange for automatic updates.
 
 Open tabs move to the new build on their next navigation (one full page
 load); a freshly opened tab gets it immediately. Nothing stays stuck on old
@@ -1565,13 +2055,26 @@ build id.
 Passwords (and TOTP codes) go to Stalwart's \`/api/auth\` and are exchanged at
 \`/auth/token\` for an access token and a refresh token, all on the same
 origin. "Remember me" keeps the refresh token in localStorage, otherwise it
-lives with the tab.
+lives with the tab. Either way it is stored sealed (see Security below).
+
+Serve Stalwart over HTTPS. On a plain \`http://\` address other than
+\`localhost\`, browsers withhold the Web Crypto API this sign-in needs, so the
+webmail falls back to a password sign-in that lasts only as long as the tab:
+"Remember me" has no effect and single sign-on does not work.
 
 The OAuth client id is the Application's \`oauthClientId\` (Stalwart writes it
 into index.html) or \`bulwark-webmail\` when that field is empty. If your
 server requires registered OAuth clients, register that client id with the
 redirect URI \`https://<your stalwart host>/<prefix>/\` (for example
 \`https://mail.example.com/webmail/\`), once per prefix you mount.
+
+Stalwart 1.0 always requires registered clients. When it knows no client by
+the default name, the app registers one of its own and signs in with that:
+mail, contacts, calendars and files work, but the account's Stalwart
+settings (password, two-factor authentication, app passwords) do not, since
+1.0 only lets a first-party client manage those. For them, create an
+\`OAuthClient\` with client id \`bulwark-webmail\` (or the \`oauthClientId\`
+you set), \`firstParty\` on, and the redirect URI above.
 
 ### Single sign-on (OpenID Connect)
 
@@ -1601,12 +2104,44 @@ as well if your server requires registered clients. Per-domain directories
 are a Stalwart Enterprise feature; the community edition has one directory
 for every account.
 
+## Security
+
+Stalwart sends no security headers for an Application, so the bundle
+carries its own Content-Security-Policy: scripts load from this origin
+only, and no inline script runs but the entry document's own. The entry
+also refuses to run inside another site's frame.
+
+The webmail shares its origin with everything else this Stalwart serves,
+including every file users keep in its file storage (\`/dav/\`) and every
+attachment the download endpoint returns (\`/jmap/download/\`). Stalwart
+serves those with the type they were stored with, so an HTML file there
+opens as a page on the webmail's origin. Sign-in tokens are stored sealed
+with a key the browser keeps in IndexedDB and lets no script copy out: a
+script that reads web storage finds no token, and what is stored is of no
+use outside the browser profile. A script running on the origin can still
+use that key while the browser holds it. So put a reverse proxy in front of
+Stalwart that sends these headers for \`/dav/\` and \`/jmap/download/\`:
+
+\`\`\`
+Content-Security-Policy: sandbox
+X-Content-Type-Options: nosniff
+\`\`\`
+
+For the mount path itself the proxy may add \`X-Frame-Options: SAMEORIGIN\`,
+\`X-Content-Type-Options: nosniff\` and \`Referrer-Policy\`. A
+Content-Security-Policy header there must not limit \`script-src\`: it would
+refuse the entry document's own script.
+
+On a server several organisations share, the static zip on a host name of
+its own is the safer choice: there the webmail's origin serves nothing but
+the webmail.
+
 ## Branding and settings
 
 The bundle is read-only once Stalwart has unpacked it. To change the app
 name, turn "remember me" off or build any other variant, run the
-**Build Static Lite** workflow (or \`npm run build:lite -- --target=stalwart\`)
-with your settings, publish the resulting \`${STALWART_ZIP_NAME}\` at a URL
+**Build Static Lite** workflow (or, in a throwaway checkout,
+\`npm run build:lite -- --in-place --target=stalwart\`) with your settings, publish the resulting \`${STALWART_ZIP_NAME}\` at a URL
 you control, and use that URL as \`resourceUrl\`. \`config.json\` and
 \`policy.json\` inside the zip take the same keys as in the static-host build.
 
@@ -1621,9 +2156,10 @@ you control, and use that URL as \`resourceUrl\`. \`config.json\` and
 - \`manifest.json\` replaces \`manifest.webmanifest\` (Stalwart would serve the
   latter as \`application/octet-stream\`).
 
-Everything the static-host build leaves out (admin console, plugins,
-settings sync, OAuth/SSO via an external identity provider, web push, office
-editing, ICS subscriptions) is also missing here.
+Everything else the static-host build leaves out (admin console, plugins,
+settings sync, web push, office editing, ICS subscriptions) is also missing
+here. Single sign-on is the exception: it works in this bundle, as described
+above.
 `;
 }
 

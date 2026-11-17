@@ -2,7 +2,11 @@ import { create } from 'zustand';
 import { persist } from 'zustand/middleware';
 import type { ComposerDraftData } from '@/components/email/email-composer';
 import type { ComposePrefill } from '@/lib/plugin-compose-gate';
+import type { EmailWriteSource } from '@/stores/email-store';
 import type { SearchScope } from '@/lib/global-search/query-parser';
+import { useOfflineStore } from '@/lib/offline/state';
+import { openComposerInWindow } from '@/lib/popout/compose-in-window';
+import type { ComposePopoutPayload } from '@/lib/popout/compose-payload';
 
 export type ProTabKind =
   | 'mail' | 'calendar' | 'contacts' | 'files' | 'settings'
@@ -34,11 +38,14 @@ export interface ProReplyContext {
   to?: { email?: string; name?: string }[];
   cc?: { email?: string; name?: string }[];
   bcc?: { email?: string; name?: string }[];
+  deliveredTo?: string[];
   subject?: string;
   body?: string;
   htmlBody?: string;
   receivedAt?: string;
   accountId?: string;
+  /** The original carries the phishing mark. */
+  phishingMarked?: boolean;
   attachments?: Array<{
     blobId: string; name?: string; type: string; size: number;
     cid?: string; disposition?: string;
@@ -49,6 +56,10 @@ export interface ProReplyContext {
   quoteHeaderHtml?: string;
   quoteHeaderText?: string;
   quoteWrapInBlockquote?: boolean;
+  /** The original's label headers (lib/outgoing/classification.ts labelSourceHeaders). */
+  headers?: Record<string, string | string[]>;
+  /** The original's From for a forward as attachment, whose `from` stays empty. */
+  originalFrom?: { email?: string; name?: string }[];
 }
 
 export interface ProComposeTabData {
@@ -59,8 +70,26 @@ export interface ProComposeTabData {
   initialData?: ComposerDraftData | null;
   /** Fields a plugin filled in through onBeforeCompose; dropped on the first state save. */
   prefill?: ComposePrefill | null;
+  /** Files from a share or a launch, attached when the composer opens. */
+  initialFiles?: File[] | null;
   sourceEmailId?: string | null;
+  /** The login and account of that message, for its $answered / $forwarded flag. */
+  sourceEmailSource?: EmailWriteSource | null;
   title: string;
+}
+
+/** What a composer window starts from: the same as a compose tab. */
+function composePayloadOf(data: ProComposeTabData): ComposePopoutPayload {
+  return {
+    mode: data.mode,
+    replyTo: data.replyTo,
+    initialDraftText: data.initialDraftText,
+    initialData: data.initialData ?? null,
+    prefill: data.prefill ?? null,
+    ...(data.initialFiles?.length ? { initialFiles: data.initialFiles } : {}),
+    sourceEmailId: data.sourceEmailId ?? null,
+    sourceEmailSource: data.sourceEmailSource ?? null,
+  };
 }
 
 export interface ProEmailTabData {
@@ -69,18 +98,21 @@ export interface ProEmailTabData {
   mailboxId: string | null;
   title: string;
   /**
-   * Connected-account id (login) whose client fetches this email; unset = the
-   * active account. Set when a hit from another login is opened (global
-   * search) - bare email ids are ambiguous across logins (#847).
+   * Connected-account id (login) whose client fetches this email, with
+   * `accountId` the JMAP account there. Every opener names it - bare email
+   * ids are ambiguous across logins (#847). Unset only in a tab kept from a
+   * version that wrote none: it belongs to the only login there is, or to
+   * none (components/pro/pro-tab-login.ts).
    */
   clientAccountId?: string;
 }
 
 export interface ProFolderTabData {
   /**
-   * Connected-account id the folder belongs to (multi-account sidebar
-   * groups); null = the active account. Used to resolve the JMAP client the
-   * folder tab fetches through.
+   * Connected-account id (login) the folder belongs to, whose client the
+   * folder tab fetches through. Named when the tab is opened, the active
+   * login too. Null only in a tab kept from a version that wrote none for
+   * the active login (see ProEmailTabData.clientAccountId).
    */
   accountId: string | null;
   mailboxId: string;
@@ -109,6 +141,20 @@ export interface ProTab {
   searchData?: ProSearchTabData;
   /** Which pane this tab lives in. Defaults to 'main' for the single-pane case. */
   paneId: ProPaneId;
+}
+
+/**
+ * With the local store on, mail is encrypted on this device, and a subject in
+ * localStorage would give it away. The tab's body puts the title back when it
+ * has read the message.
+ */
+export const TITLE_UNTIL_LOADED = '…';
+
+function withoutSubjects(tabs: ProTab[]): ProTab[] {
+  if (useOfflineStore.getState().enabled.length === 0) return tabs;
+  return tabs.map((tab) => (tab.kind === 'email' && tab.emailData
+    ? { ...tab, title: TITLE_UNTIL_LOADED, emailData: { ...tab.emailData, title: TITLE_UNTIL_LOADED } }
+    : tab));
 }
 
 export interface OpenEmailTabOptions {
@@ -147,7 +193,10 @@ export interface ProTabCoreState {
 
 interface ProTabState extends ProTabCoreState {
   openTab: (kind: ProAppTabKind) => string;
+  /** A compose tab, or a window of its own with "Always write messages in a new window": then ''. */
   openComposeTab: (data: ProComposeTabData) => string;
+  /** A compose tab, whatever that setting says. */
+  openComposeTabHere: (data: ProComposeTabData) => string;
   openEmailTab: (data: ProEmailTabData, opts?: OpenEmailTabOptions) => string;
   /**
    * Open a mailbox in its own tab (sidebar folder dragged onto a tab strip
@@ -193,6 +242,11 @@ interface ProTabState extends ProTabCoreState {
   collapseSplit: () => void;
 
   updateTabTitle: (id: string, title: string) => void;
+  /**
+   * Writes `login` into a message or folder tab that names none (one kept
+   * from before tabs named their login). A tab that names one keeps it.
+   */
+  nameTabLogin: (id: string, login: string) => void;
   updateComposeDraft: (id: string, draft: ComposerDraftData) => void;
 }
 
@@ -225,6 +279,33 @@ export function registerProTabCloseInterceptor(id: string, fn: () => void): () =
   return () => {
     if (closeInterceptors.get(id) === fn) closeInterceptors.delete(id);
   };
+}
+
+/**
+ * The compose tab that was in front when the window narrowed below Pro's
+ * width. The standard mail page picks its draft up when it mounts, so what the
+ * user was typing stays on screen. Module state like the handoff of a deep
+ * link: it has no business surviving a reload.
+ */
+let handedOffComposeTabId: string | null = null;
+
+export function handOffComposeTab(id: string): void {
+  handedOffComposeTabId = id;
+}
+
+/**
+ * The handed-off tab's draft and the message it answers, closing the tab. Null
+ * when there is none, or it was never edited.
+ */
+export function takeHandedOffComposeDraft(): { draft: ComposerDraftData; sourceEmailId?: string; sourceEmailSource?: EmailWriteSource } | null {
+  const id = handedOffComposeTabId;
+  handedOffComposeTabId = null;
+  if (!id) return null;
+  const { tabs, closeTab } = useProTabStore.getState();
+  const data = tabs.find((tab) => tab.id === id)?.composeData;
+  if (!data?.initialData) return null;
+  closeTab(id);
+  return { draft: data.initialData, sourceEmailId: data.sourceEmailId ?? undefined, sourceEmailSource: data.sourceEmailSource ?? undefined };
 }
 
 function makeId(): string {
@@ -400,6 +481,14 @@ export const useProTabStore = create<ProTabState>()(
         },
 
         openComposeTab: (data) => {
+          // "Always write messages in a new window": the window instead of a tab, and the
+          // tab after all when the window doesn't show it.
+          const addTab = () => get().openComposeTabHere(data);
+          if (openComposerInWindow(composePayloadOf(data), { notShown: addTab })) return '';
+          return addTab();
+        },
+
+        openComposeTabHere: (data) => {
           const newTab: ProTab = {
             id: makeId(),
             kind: 'compose',
@@ -417,10 +506,12 @@ export const useProTabStore = create<ProTabState>()(
           const state = core(get());
 
           // Same email already open anywhere: focus it, never open twice.
+          // Of the same login: ids and account ids repeat across servers.
           const existing = state.tabs.find(
             (tab) => tab.kind === 'email'
               && tab.emailData?.emailId === data.emailId
               && tab.emailData?.accountId === data.accountId
+              && tab.emailData?.clientAccountId === data.clientAccountId
           );
           if (existing) {
             commit((s) => withTabActivated(s, existing));
@@ -659,7 +750,24 @@ export const useProTabStore = create<ProTabState>()(
 
         updateTabTitle: (id, title) => {
           set({
-            tabs: get().tabs.map((tab) => (tab.id === id ? { ...tab, title } : tab)),
+            tabs: get().tabs.map((tab) => (tab.id === id
+              ? { ...tab, title, ...(tab.emailData ? { emailData: { ...tab.emailData, title } } : {}) }
+              : tab)),
+          });
+        },
+
+        nameTabLogin: (id, login) => {
+          const tab = get().tabs.find((candidate) => candidate.id === id);
+          if (!tab || !login) return;
+          const unnamedEmail = tab.kind === 'email' && !!tab.emailData && !tab.emailData.clientAccountId;
+          const unnamedFolder = tab.kind === 'folder' && !!tab.folderData && !tab.folderData.accountId;
+          if (!unnamedEmail && !unnamedFolder) return;
+          set({
+            tabs: get().tabs.map((candidate) => {
+              if (candidate.id !== id) return candidate;
+              if (unnamedEmail) return { ...candidate, emailData: { ...candidate.emailData!, clientAccountId: login } };
+              return { ...candidate, folderData: { ...candidate.folderData!, accountId: login } };
+            }),
           });
         },
 
@@ -682,7 +790,7 @@ export const useProTabStore = create<ProTabState>()(
       // own draft-store already handles that. Persisted email tabs are fine to
       // restore (the tab body refetches the email by id).
       partialize: (state) => ({
-        tabs: state.tabs.filter((tab) => tab.kind !== 'compose'),
+        tabs: withoutSubjects(state.tabs.filter((tab) => tab.kind !== 'compose')),
         activeTabId: state.activeTabId,
         activeSplitTabId: state.activeSplitTabId,
         focusedPaneId: state.focusedPaneId,
@@ -729,3 +837,8 @@ export const useProTabStore = create<ProTabState>()(
     },
   ),
 );
+
+// Turned on just now: the stored copy loses its subjects at once, not at the next tab change.
+useOfflineStore.subscribe((state, prev) => {
+  if (state.enabled !== prev.enabled && state.enabled.length > 0) useProTabStore.setState({});
+});

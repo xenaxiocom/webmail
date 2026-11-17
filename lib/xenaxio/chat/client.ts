@@ -526,7 +526,7 @@ export class ChatClient {
       }
       for (const ev of data.ephemeral?.events ?? []) this.applyEphemeral(room, ev);
       for (const ev of data.account_data?.events ?? []) {
-        if (ev.type === "m.tag") room.tags = ((ev.content.tags ?? {}) as Room["tags"]) ?? {};
+        if (ev.type === "m.tag") room.tags = (ev.content.tags ?? {}) as Room["tags"];
         if (ev.type === MARKED_UNREAD || ev.type === MARKED_UNREAD_OLD) {
           const from = ev.content[READ_UP_TO];
           room.markedUnread = ev.content.unread === true ? { readUpTo: typeof from === "string" ? from : null } : null;

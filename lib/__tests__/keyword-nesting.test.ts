@@ -1,13 +1,17 @@
 import { describe, it, expect } from "vitest";
 import {
   MAX_KEYWORD_ID_LENGTH,
+  MAX_KEYWORD_LENGTH,
   buildKeywordTree,
+  chooseKeywordId,
   composeKeywordId,
   countKeywordNodes,
   filterKeywordTree,
+  generatedKeywordLevel,
   getParentKeywordId,
   hasChildKeywords,
   isKeywordDescendant,
+  isKeywordNameTaken,
   keywordLevels,
   normalizeKeywordLevel,
 } from "@/lib/keyword-nesting";
@@ -58,6 +62,96 @@ describe("composeKeywordId", () => {
   });
 });
 
+/** RFC 8621 keyword syntax plus the server's lowercase folding. */
+const KEYWORD_RE = /^[!-~]+$/;
+const isKeyword = (id: string) =>
+  KEYWORD_RE.test(`$label:${id}`) && !/[(){\]%*"\\]/.test(id) && id === id.toLowerCase();
+
+// #1613: a name without Latin letters or digits has no slug.
+describe("chooseKeywordId", () => {
+  it("uses the slug of the name when it has a free one", () => {
+    expect(chooseKeywordId(null, "Work", [])).toBe("work");
+    expect(chooseKeywordId("work", "Clients", ["work"])).toBe("work/clients");
+  });
+
+  it("gives a name with no slug of its own a valid keyword id", () => {
+    for (const name of ["Работа", "Εργασία", "عمل", "עבודה", "工作", "仕事", "업무"]) {
+      const id = chooseKeywordId(null, name, []);
+      expect(id).toMatch(/^tag-[0-9a-z]+$/);
+      expect(isKeyword(id)).toBe(true);
+    }
+  });
+
+  it("gives different names different ids, and the same name the same id", () => {
+    expect(chooseKeywordId(null, "Работа", [])).not.toBe(chooseKeywordId(null, "Счета", []));
+    expect(chooseKeywordId(null, "Работа", [])).toBe(chooseKeywordId(null, " работа ", []));
+  });
+
+  it("does not hand a second name the slug another tag already has", () => {
+    expect(chooseKeywordId(null, "Банк 1", [])).toBe("1");
+    const second = chooseKeywordId(null, "Счета 1", ["1"]);
+    expect(second).not.toBe("1");
+    expect(second).toBe(generatedKeywordLevel("Счета 1"));
+  });
+
+  it("compares taken ids without case", () => {
+    expect(chooseKeywordId(null, "Work", ["WORK"])).not.toBe("work");
+  });
+
+  it("counts on when even the generated id is taken", () => {
+    const level = generatedKeywordLevel("Работа");
+    expect(chooseKeywordId(null, "Работа", [level])).toBe(`${level}-2`);
+    expect(chooseKeywordId(null, "Работа", [level, `${level}-2`])).toBe(`${level}-3`);
+  });
+
+  it("nests a generated id under its parent", () => {
+    expect(chooseKeywordId("work", "Клиенты", ["work"])).toBe(`work/${generatedKeywordLevel("Клиенты")}`);
+  });
+
+  it("keeps the id of a renamed tag whose new name has no slug", () => {
+    expect(chooseKeywordId(null, "Красный", ["blue"], "red")).toBe("red");
+    expect(chooseKeywordId("work", "Клиенты", ["work"], "work/clients")).toBe("work/clients");
+  });
+
+  it("still gives a renamed tag the slug of a Latin name", () => {
+    expect(chooseKeywordId(null, "Crimson", ["blue"], "red")).toBe("crimson");
+  });
+
+  it("gives a renamed tag that moves to another parent a new id", () => {
+    expect(chooseKeywordId("home", "Клиенты", ["home"], "work/clients")).toBe(`home/${generatedKeywordLevel("Клиенты")}`);
+  });
+
+  it("returns nothing for an empty name", () => {
+    expect(chooseKeywordId(null, "   ", [])).toBe("");
+  });
+
+  // A colour change saves the same name: the slug that is free now must not
+  // replace the id the mail carries.
+  it("keeps the id of an edited tag whose name keeps its slug", () => {
+    const bills = generatedKeywordLevel("Счета 1");
+    expect(chooseKeywordId(null, "Счета 1", [], bills, "Счета 1")).toBe(bills);
+    expect(chooseKeywordId(null, "Work!", [], "from-plugin", "work")).toBe("from-plugin");
+    expect(chooseKeywordId("work", "CLIENTS", ["work"], "work/old", "Clients")).toBe("work/old");
+  });
+
+  it("gives an edited tag a new id when the name gets another slug or the parent changes", () => {
+    expect(chooseKeywordId(null, "Crimson", [], "from-plugin", "Red")).toBe("crimson");
+    expect(chooseKeywordId("home", "Clients", ["home"], "work/clients", "Clients")).toBe("home/clients");
+  });
+});
+
+describe("isKeywordNameTaken", () => {
+  it("finds the same name under the same parent, ignoring case and spaces", () => {
+    expect(isKeywordNameTaken(KEYWORDS, null, " work ")).toBe(true);
+    expect(isKeywordNameTaken(KEYWORDS, "work", "CLIENTS")).toBe(true);
+  });
+
+  it("does not count a name under another parent or the tag being renamed", () => {
+    expect(isKeywordNameTaken(KEYWORDS, null, "Clients")).toBe(false);
+    expect(isKeywordNameTaken(KEYWORDS, "work", "Clients", "work/clients")).toBe(false);
+  });
+});
+
 describe("keywordLevels", () => {
   it("splits an id into its levels", () => {
     expect(keywordLevels("work/clients/acme")).toEqual(["work", "clients", "acme"]);
@@ -96,9 +190,17 @@ describe("hasChildKeywords", () => {
 });
 
 describe("MAX_KEYWORD_ID_LENGTH", () => {
-  it("leaves room for the `$label:` prefix within the 255-character keyword limit", () => {
-    expect(MAX_KEYWORD_ID_LENGTH).toBe(248);
-    expect("$label:".length + MAX_KEYWORD_ID_LENGTH).toBe(255);
+  // Stalwart 1.0 refuses a keyword over 128 bytes; 0.16 cuts it to 128
+  // characters, which detaches it from its tag.
+  it("leaves room for the `$label:` prefix within Stalwart's 128-byte keyword limit", () => {
+    expect(MAX_KEYWORD_LENGTH).toBe(128);
+    expect(MAX_KEYWORD_ID_LENGTH).toBe(121);
+    expect("$label:".length + MAX_KEYWORD_ID_LENGTH).toBe(128);
+  });
+
+  it("counts bytes, which a composed id always has as many of as characters", () => {
+    const id = composeKeywordId("work/clients", "Ärger & Überstunden");
+    expect(new TextEncoder().encode(`$label:${id}`).length).toBe(`$label:${id}`.length);
   });
 });
 
@@ -141,6 +243,15 @@ describe("buildKeywordTree", () => {
 
 describe("filterKeywordTree", () => {
   const tree = buildKeywordTree(KEYWORDS);
+
+  it("hands back the same nodes where nothing under them was dropped", () => {
+    const all = filterKeywordTree(tree, () => true);
+    expect(all[0]).toBe(tree[0]);
+    const some = filterKeywordTree(tree, (node) => node.id !== "work/personal");
+    // Work lost a child, so it is a new node; Clients and Acme are the same.
+    expect(some[0]).not.toBe(tree[0]);
+    expect(some[0].children[0]).toBe(tree[0].children[0]);
+  });
 
   it("drops the nodes the predicate rejects", () => {
     const kept = filterKeywordTree(tree, (node) => node.id !== "work/personal");

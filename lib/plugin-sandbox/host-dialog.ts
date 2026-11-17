@@ -5,6 +5,8 @@
 // at a time. Prompts collect one or more (optionally masked) text fields so a
 // plugin never has to fall back to the sandbox-blocked `window.prompt`.
 
+import type { AnchorRect } from './dialog-anchor';
+
 export type DialogKind = 'confirm' | 'alert' | 'prompt' | 'custom';
 
 export interface PromptField {
@@ -26,6 +28,12 @@ export type DialogResult = boolean | Record<string, string> | null;
 
 export interface DialogRequest {
   id: string;
+  /**
+   * For `kind === 'custom'`: the plugin's frame fills the dialog, which is as
+   * tall as the window lets it be (at most 640 px), instead of growing with
+   * its content. For chats, whose input stays at the bottom.
+   */
+  fill?: boolean;
   pluginId: string;
   kind: DialogKind;
   title: string;
@@ -50,8 +58,57 @@ export interface DialogRequest {
   extraProps?: Record<string, unknown>;
   /** Optional width override in px for the dialog box (custom kind only). */
   width?: number;
+  /**
+   * Custom kind only: draw the dialog as a popover next to this place (the
+   * control whose activation led to it, see dialog-anchor.ts) instead of
+   * centred. Set by the host, never taken from the plugin.
+   */
+  anchor?: AnchorRect;
   /** Called when the dialog closes with its typed result (see DialogResult). */
   resolve: (result: unknown) => void;
+}
+
+/**
+ * The most a dialog shows of what a plugin hands it. Longer texts are cut,
+ * not refused, so a plugin that passes a long list keeps working; without a
+ * limit one call could keep the page busy for minutes.
+ */
+export const MAX_DIALOG_TITLE = 1000;
+export const MAX_DIALOG_MESSAGE = 20_000;
+/** A button's label, and a prompt field's name, label and placeholder. */
+export const MAX_DIALOG_LABEL = 500;
+export const MAX_PROMPT_FIELDS = 100;
+/** The width a custom dialog may ask for, in px. */
+export const MIN_DIALOG_WIDTH = 280;
+export const MAX_DIALOG_WIDTH = 1200;
+
+function cutText(value: unknown, max: number): string {
+  const text = typeof value === 'string' ? value : String(value ?? '');
+  return text.length > max ? text.slice(0, max) : text;
+}
+
+/** The request with its texts, fields and width brought within the limits above. */
+function withinLimits(req: Omit<DialogRequest, 'id'>): Omit<DialogRequest, 'id'> {
+  const out: Omit<DialogRequest, 'id'> = {
+    ...req,
+    title: cutText(req.title, MAX_DIALOG_TITLE),
+    message: cutText(req.message, MAX_DIALOG_MESSAGE),
+  };
+  if (req.confirmLabel !== undefined) out.confirmLabel = cutText(req.confirmLabel, MAX_DIALOG_LABEL);
+  if (req.cancelLabel !== undefined) out.cancelLabel = cutText(req.cancelLabel, MAX_DIALOG_LABEL);
+  if (req.fields) {
+    out.fields = req.fields.slice(0, MAX_PROMPT_FIELDS).map((field) => ({
+      name: cutText(field.name, MAX_DIALOG_LABEL),
+      label: cutText(field.label, MAX_DIALOG_LABEL),
+      type: field.type === 'password' ? 'password' : 'text',
+      placeholder: field.placeholder === undefined ? undefined : cutText(field.placeholder, MAX_DIALOG_LABEL),
+      required: field.required === true,
+    }));
+  }
+  if (req.width !== undefined) {
+    out.width = Number.isFinite(req.width) ? Math.min(MAX_DIALOG_WIDTH, Math.max(MIN_DIALOG_WIDTH, req.width)) : undefined;
+  }
+  return out;
 }
 
 const queue: DialogRequest[] = [];
@@ -77,6 +134,7 @@ export class DialogLimitError extends Error {}
  * Queue a dialog. A plugin gets one dialog at a time and a limited number
  * per minute: with neither limit, a plugin that opens dialogs in a loop
  * covers the whole app and the user can't reach Settings to turn it off.
+ * What one dialog holds is cut to the limits above.
  */
 export function enqueueDialog(req: Omit<DialogRequest, 'id'>): { id: string } {
   // One dialog per plugin, except that a plugin's own large dialog (custom)
@@ -93,7 +151,7 @@ export function enqueueDialog(req: Omit<DialogRequest, 'id'>): { id: string } {
   }
   recent.push(now);
   recentByPlugin.set(req.pluginId, recent);
-  const entry: DialogRequest = { ...req, id: uid() };
+  const entry: DialogRequest = { ...withinLimits(req), id: uid() };
   queue.push(entry);
   notify();
   return { id: entry.id };
@@ -155,6 +213,49 @@ export function cancelForPlugin(pluginId: string): void {
     }
   }
   if (changed) notify();
+}
+
+/** Calls waiting on a prompt the host can't see, per plugin (see holdForUser). */
+const userHolds = new Map<string, number>();
+
+/**
+ * The plugin is waiting on the user somewhere other than these dialogs, such as a
+ * smart card's PIN prompt from the OS. It counts as an open dialog for the hook timer
+ * until the returned function is called. Nothing is drawn for it.
+ */
+export function holdForUser(pluginId: string): () => void {
+  userHolds.set(pluginId, (userHolds.get(pluginId) ?? 0) + 1);
+  let released = false;
+  return () => {
+    if (released) return;
+    released = true;
+    const left = (userHolds.get(pluginId) ?? 1) - 1;
+    if (left > 0) userHolds.set(pluginId, left);
+    else userHolds.delete(pluginId);
+    notify();
+  };
+}
+
+/** Whether the plugin has a dialog showing or waiting in the queue, or a hold. */
+export function hasDialogFor(pluginId: string): boolean {
+  return userHolds.has(pluginId) || queue.some((d) => d.pluginId === pluginId);
+}
+
+/**
+ * Calls `cb` once the plugin has no dialog left in the queue (right away if it
+ * has none). Returns a function that drops the callback.
+ */
+export function whenNoDialogFor(pluginId: string, cb: () => void): () => void {
+  if (!hasDialogFor(pluginId)) {
+    cb();
+    return () => {};
+  }
+  const unsubscribe = subscribe(() => {
+    if (hasDialogFor(pluginId)) return;
+    unsubscribe();
+    cb();
+  });
+  return unsubscribe;
 }
 
 export function subscribe(listener: () => void): () => void {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { usePolicyStore } from '@/stores/policy-store';
 import { apiFetch } from '@/lib/browser-navigation';
 import type { PublicJmapServerEntry } from '@/lib/admin/jmap-servers';
@@ -8,15 +8,19 @@ import { IS_LITE, IS_LITE_STALWART, LITE_CONFIG_PATH, withLiteBuildId } from '@/
 import { applyLiteConfig, liteStalwartDefaults } from '@/lib/lite-config';
 import { isConfigData } from '@/lib/config-validation';
 import { withPortalLogo } from '@/lib/xenaxio/portal-config';
+import { setNoThirdPartyTraffic } from '@/lib/third-party-mode';
+import { configureErrorReporting, type ClientSettings } from '@/lib/error-reporting/client';
 
 export interface ConfigData {
   appName: string;
   jmapServerUrl: string;
   oauthEnabled: boolean;
   oauthOnly: boolean;
+  oauthPasswordFallbackEnabled: boolean;
   oauthClientId: string;
   oauthIssuerUrl: string;
   oauthScopes: string;
+  oauthResource: string;
   rememberMeEnabled: boolean;
   settingsSyncEnabled: boolean;
   stalwartFeaturesEnabled: boolean;
@@ -31,13 +35,17 @@ export interface ConfigData {
   loginImprintUrl: string;
   loginPrivacyPolicyUrl: string;
   loginWebsiteUrl: string;
+  loginUsernamePlaceholder: string;
   loginLogoMaxHeight: string;
   loginLogoMaxWidth: string;
   loginShowHeading: boolean;
   loginShowSubtitle: boolean;
   loginShowTotp: boolean;
   loginShowTokenLogin: boolean;
+  desktopBrowserSignIn: boolean;
   loginShowRememberMe: boolean;
+  /** An unticked "Remember me" lasts until the browser closes (BROWSER_SESSION_SIGN_IN, with SESSION_SECRET). */
+  browserSessionSignIn: boolean;
   loginShowVersion: boolean;
   demoMode: boolean;
   autoSsoEnabled: boolean;
@@ -47,6 +55,21 @@ export interface ConfigData {
   embeddedMode: boolean;
   parentOrigin: string;
   sourceCodeUrl: string;
+  /** Accessibility and help links (lib/help-links.ts); '' hides a link. */
+  accessibilityStatementUrl: string;
+  accessibilityFeedbackUrl: string;
+  helpUrl: string;
+  easyReadUrl: string;
+  signLanguageUrl: string;
+  /** The mail server's own account page (2FA, app passwords) and its link text (#1570); '' hides it. */
+  accountManagementUrl: string;
+  accountManagementLabel: string;
+  /** Stay off every built-in outside host (#903; lib/outgoing-hosts.ts). */
+  noThirdPartyTraffic: boolean;
+  /** Lite only: whether sign-out revokes the refresh token (#1388). The server build decides in its token route. */
+  oauthRevokeOnSignOut?: boolean;
+  /** Server build only; Lite reads it from policy.json (stores/policy-store.ts). */
+  errorReporting?: ClientSettings;
 }
 
 interface AppConfig extends ConfigData {
@@ -63,17 +86,20 @@ let configPromise: Promise<ConfigData> | null = null;
  * (custom endpoint allowed) so an unedited download still lets people sign in.
  */
 async function fetchLiteConfig(): Promise<ConfigData> {
-  // On Stalwart the bundle is read-only and served from the JMAP origin:
-  // config.json ships inside the zip (build-id URL, immutable cache) and an
-  // empty server URL means "this origin".
+  // On Stalwart the bundle is served from the JMAP origin: config.json ships
+  // inside the zip and an empty server URL means "this origin". Stalwart
+  // marks the file immutable, so the browser is told to ask again: an admin
+  // may edit the zip without a new build id (#1563).
   const defaults = IS_LITE_STALWART ? liteStalwartDefaults() : undefined;
   try {
-    const res = await apiFetch(withLiteBuildId(LITE_CONFIG_PATH), IS_LITE_STALWART ? undefined : { cache: 'no-store' });
+    const res = await apiFetch(withLiteBuildId(LITE_CONFIG_PATH), { cache: IS_LITE_STALWART ? 'no-cache' : 'no-store' });
     if (!res.ok) throw new Error(`config.json answered ${res.status}`);
     return applyLiteConfig(await res.json(), defaults);
   } catch (err) {
-    console.warn('[lite] config.json missing or invalid, using defaults:', err);
-    return applyLiteConfig({}, defaults);
+    // Fail closed (#903): without a readable config.json nobody said outside
+    // hosts may be used, so the no-third-party switches stay on.
+    console.warn('[lite] config.json missing or invalid, using defaults with no third-party traffic:', err);
+    return applyLiteConfig({ noThirdPartyTraffic: true }, defaults);
   }
 }
 
@@ -109,6 +135,11 @@ async function fetchServerConfig(): Promise<ConfigData> {
   throw lastError;
 }
 
+/** The config once fetched (it is fetched at app start), for code outside React. */
+export function getCachedConfig(): ConfigData | null {
+  return configCache;
+}
+
 export async function fetchConfig(): Promise<ConfigData> {
   // Return cached config if available
   if (configCache) {
@@ -126,6 +157,9 @@ export async function fetchConfig(): Promise<ConfigData> {
     .then(withPortalLogo)
     .then((data) => {
       configCache = data;
+      setNoThirdPartyTraffic(data.noThirdPartyTraffic === true);
+      // Lite configures error reporting from policy.json instead.
+      if (!IS_LITE) configureErrorReporting(data.errorReporting ?? null);
       // Fetch admin policy alongside config (non-blocking)
       usePolicyStore.getState().fetchPolicy();
       return data;
@@ -138,6 +172,75 @@ export async function fetchConfig(): Promise<ConfigData> {
 }
 
 /**
+ * The hook's state for fetched config: one object per config, shared by
+ * every component that reads it. Each one used to build its own copy in an
+ * effect after mounting, which drew it a second time (every avatar of every
+ * list row, right after the rows came).
+ */
+const configStates = new WeakMap<ConfigData, AppConfig>();
+function configState(data: ConfigData): AppConfig {
+  let state = configStates.get(data);
+  if (!state) {
+    state = {
+      appName: data.appName,
+      jmapServerUrl: data.jmapServerUrl,
+      oauthEnabled: data.oauthEnabled,
+      oauthOnly: data.oauthOnly,
+      oauthPasswordFallbackEnabled: data.oauthPasswordFallbackEnabled,
+      oauthClientId: data.oauthClientId,
+      oauthIssuerUrl: data.oauthIssuerUrl,
+      oauthScopes: data.oauthScopes,
+      oauthResource: data.oauthResource,
+      rememberMeEnabled: data.rememberMeEnabled,
+      settingsSyncEnabled: data.settingsSyncEnabled,
+      stalwartFeaturesEnabled: data.stalwartFeaturesEnabled,
+      stalwartJmapPassthroughEnabled: data.stalwartJmapPassthroughEnabled,
+      devMode: data.devMode,
+      faviconUrl: data.faviconUrl,
+      appLogoLightUrl: data.appLogoLightUrl,
+      appLogoDarkUrl: data.appLogoDarkUrl,
+      loginLogoLightUrl: data.loginLogoLightUrl,
+      loginLogoDarkUrl: data.loginLogoDarkUrl,
+      loginCompanyName: data.loginCompanyName,
+      loginImprintUrl: data.loginImprintUrl,
+      loginPrivacyPolicyUrl: data.loginPrivacyPolicyUrl,
+      loginWebsiteUrl: data.loginWebsiteUrl,
+      loginUsernamePlaceholder: data.loginUsernamePlaceholder,
+      loginLogoMaxHeight: data.loginLogoMaxHeight,
+      loginLogoMaxWidth: data.loginLogoMaxWidth,
+      loginShowHeading: data.loginShowHeading,
+      loginShowSubtitle: data.loginShowSubtitle,
+      loginShowTotp: data.loginShowTotp,
+      loginShowTokenLogin: data.loginShowTokenLogin,
+      desktopBrowserSignIn: data.desktopBrowserSignIn,
+      loginShowRememberMe: data.loginShowRememberMe,
+      browserSessionSignIn: data.browserSessionSignIn,
+      loginShowVersion: data.loginShowVersion,
+      demoMode: data.demoMode,
+      autoSsoEnabled: data.autoSsoEnabled,
+      allowCustomJmapEndpoint: data.allowCustomJmapEndpoint,
+      jmapServers: data.jmapServers || [],
+      jmapServerAutoPickByDomain: data.jmapServerAutoPickByDomain || false,
+      embeddedMode: data.embeddedMode,
+      parentOrigin: data.parentOrigin,
+      sourceCodeUrl: data.sourceCodeUrl,
+      accessibilityStatementUrl: data.accessibilityStatementUrl,
+      accessibilityFeedbackUrl: data.accessibilityFeedbackUrl,
+      helpUrl: data.helpUrl,
+      easyReadUrl: data.easyReadUrl,
+      signLanguageUrl: data.signLanguageUrl,
+      accountManagementUrl: data.accountManagementUrl,
+      accountManagementLabel: data.accountManagementLabel,
+      noThirdPartyTraffic: data.noThirdPartyTraffic,
+      isLoading: false,
+      error: null,
+    };
+    configStates.set(data, state);
+  }
+  return state;
+}
+
+/**
  * Hook to fetch runtime configuration
  *
  * Fetches app configuration from /api/config endpoint, which reads
@@ -146,14 +249,18 @@ export async function fetchConfig(): Promise<ConfigData> {
  * The config is cached after first fetch to avoid unnecessary requests.
  */
 export function useConfig(): AppConfig {
-  const [config, setConfig] = useState<AppConfig>({
+  // Already fetched: its state from the first render, and nothing to set after mounting.
+  const fromCache = useRef(configCache);
+  const [config, setConfig] = useState<AppConfig>(() => fromCache.current ? configState(fromCache.current) : {
     appName: configCache?.appName || 'Webmail',
     jmapServerUrl: configCache?.jmapServerUrl || '',
     oauthEnabled: configCache?.oauthEnabled || false,
     oauthOnly: configCache?.oauthOnly || false,
+    oauthPasswordFallbackEnabled: configCache?.oauthPasswordFallbackEnabled || false,
     oauthClientId: configCache?.oauthClientId || '',
     oauthIssuerUrl: configCache?.oauthIssuerUrl || '',
     oauthScopes: configCache?.oauthScopes || '',
+    oauthResource: configCache?.oauthResource || '',
     rememberMeEnabled: configCache?.rememberMeEnabled || false,
     settingsSyncEnabled: configCache?.settingsSyncEnabled || false,
     stalwartFeaturesEnabled: configCache?.stalwartFeaturesEnabled ?? true,
@@ -168,13 +275,16 @@ export function useConfig(): AppConfig {
     loginImprintUrl: configCache?.loginImprintUrl || '',
     loginPrivacyPolicyUrl: configCache?.loginPrivacyPolicyUrl || '',
     loginWebsiteUrl: configCache?.loginWebsiteUrl || '',
+    loginUsernamePlaceholder: configCache?.loginUsernamePlaceholder || '',
     loginLogoMaxHeight: configCache?.loginLogoMaxHeight || '',
     loginLogoMaxWidth: configCache?.loginLogoMaxWidth || '',
     loginShowHeading: configCache?.loginShowHeading ?? true,
     loginShowSubtitle: configCache?.loginShowSubtitle ?? true,
     loginShowTotp: configCache?.loginShowTotp ?? true,
     loginShowTokenLogin: configCache?.loginShowTokenLogin ?? false,
+    desktopBrowserSignIn: configCache?.desktopBrowserSignIn ?? true,
     loginShowRememberMe: configCache?.loginShowRememberMe ?? false,
+    browserSessionSignIn: configCache?.browserSessionSignIn ?? false,
     loginShowVersion: configCache?.loginShowVersion ?? true,
     demoMode: configCache?.demoMode || false,
     autoSsoEnabled: configCache?.autoSsoEnabled || false,
@@ -184,6 +294,14 @@ export function useConfig(): AppConfig {
     embeddedMode: configCache?.embeddedMode || false,
     parentOrigin: configCache?.parentOrigin || '',
     sourceCodeUrl: configCache?.sourceCodeUrl || '',
+    accessibilityStatementUrl: configCache?.accessibilityStatementUrl || '',
+    accessibilityFeedbackUrl: configCache?.accessibilityFeedbackUrl || '',
+    helpUrl: configCache?.helpUrl || '',
+    easyReadUrl: configCache?.easyReadUrl || '',
+    signLanguageUrl: configCache?.signLanguageUrl || '',
+    accountManagementUrl: configCache?.accountManagementUrl || '',
+    accountManagementLabel: configCache?.accountManagementLabel || '',
+    noThirdPartyTraffic: configCache?.noThirdPartyTraffic ?? false,
     isLoading: !configCache,
     error: null,
   });
@@ -191,93 +309,13 @@ export function useConfig(): AppConfig {
   useEffect(() => {
     // If already cached, no need to fetch
     if (configCache) {
-      setConfig({
-        appName: configCache.appName,
-        jmapServerUrl: configCache.jmapServerUrl,
-        oauthEnabled: configCache.oauthEnabled,
-        oauthOnly: configCache.oauthOnly,
-        oauthClientId: configCache.oauthClientId,
-        oauthIssuerUrl: configCache.oauthIssuerUrl,
-        oauthScopes: configCache.oauthScopes,
-        rememberMeEnabled: configCache.rememberMeEnabled,
-        settingsSyncEnabled: configCache.settingsSyncEnabled,
-        stalwartFeaturesEnabled: configCache.stalwartFeaturesEnabled,
-        stalwartJmapPassthroughEnabled: configCache.stalwartJmapPassthroughEnabled,
-        devMode: configCache.devMode,
-        faviconUrl: configCache.faviconUrl,
-        appLogoLightUrl: configCache.appLogoLightUrl,
-        appLogoDarkUrl: configCache.appLogoDarkUrl,
-        loginLogoLightUrl: configCache.loginLogoLightUrl,
-        loginLogoDarkUrl: configCache.loginLogoDarkUrl,
-        loginCompanyName: configCache.loginCompanyName,
-        loginImprintUrl: configCache.loginImprintUrl,
-        loginPrivacyPolicyUrl: configCache.loginPrivacyPolicyUrl,
-        loginWebsiteUrl: configCache.loginWebsiteUrl,
-        loginLogoMaxHeight: configCache.loginLogoMaxHeight,
-        loginLogoMaxWidth: configCache.loginLogoMaxWidth,
-        loginShowHeading: configCache.loginShowHeading,
-        loginShowSubtitle: configCache.loginShowSubtitle,
-        loginShowTotp: configCache.loginShowTotp,
-        loginShowTokenLogin: configCache.loginShowTokenLogin,
-        loginShowRememberMe: configCache.loginShowRememberMe,
-        loginShowVersion: configCache.loginShowVersion,
-        demoMode: configCache.demoMode,
-        autoSsoEnabled: configCache.autoSsoEnabled,
-        allowCustomJmapEndpoint: configCache.allowCustomJmapEndpoint,
-        jmapServers: configCache.jmapServers || [],
-        jmapServerAutoPickByDomain: configCache.jmapServerAutoPickByDomain || false,
-        embeddedMode: configCache.embeddedMode,
-        parentOrigin: configCache.parentOrigin,
-        sourceCodeUrl: configCache.sourceCodeUrl,
-        isLoading: false,
-        error: null,
-      });
+      if (fromCache.current !== configCache) setConfig(configState(configCache));
       return;
     }
 
     fetchConfig()
       .then((data) => {
-        setConfig({
-          appName: data.appName,
-          jmapServerUrl: data.jmapServerUrl,
-          oauthEnabled: data.oauthEnabled,
-          oauthOnly: data.oauthOnly,
-          oauthClientId: data.oauthClientId,
-          oauthIssuerUrl: data.oauthIssuerUrl,
-          oauthScopes: data.oauthScopes,
-          rememberMeEnabled: data.rememberMeEnabled,
-          settingsSyncEnabled: data.settingsSyncEnabled,
-          stalwartFeaturesEnabled: data.stalwartFeaturesEnabled,
-          stalwartJmapPassthroughEnabled: data.stalwartJmapPassthroughEnabled,
-          devMode: data.devMode,
-          faviconUrl: data.faviconUrl,
-          appLogoLightUrl: data.appLogoLightUrl,
-          appLogoDarkUrl: data.appLogoDarkUrl,
-          loginLogoLightUrl: data.loginLogoLightUrl,
-          loginLogoDarkUrl: data.loginLogoDarkUrl,
-          loginCompanyName: data.loginCompanyName,
-          loginImprintUrl: data.loginImprintUrl,
-          loginPrivacyPolicyUrl: data.loginPrivacyPolicyUrl,
-          loginWebsiteUrl: data.loginWebsiteUrl,
-          loginLogoMaxHeight: data.loginLogoMaxHeight,
-          loginLogoMaxWidth: data.loginLogoMaxWidth,
-          loginShowHeading: data.loginShowHeading,
-          loginShowSubtitle: data.loginShowSubtitle,
-          loginShowTotp: data.loginShowTotp,
-          loginShowTokenLogin: data.loginShowTokenLogin,
-          loginShowRememberMe: data.loginShowRememberMe,
-          loginShowVersion: data.loginShowVersion,
-          demoMode: data.demoMode,
-          autoSsoEnabled: data.autoSsoEnabled,
-          allowCustomJmapEndpoint: data.allowCustomJmapEndpoint,
-          jmapServers: data.jmapServers || [],
-          jmapServerAutoPickByDomain: data.jmapServerAutoPickByDomain || false,
-          embeddedMode: data.embeddedMode,
-          parentOrigin: data.parentOrigin,
-          sourceCodeUrl: data.sourceCodeUrl,
-          isLoading: false,
-          error: null,
-        });
+        setConfig(configState(data));
       })
       .catch((err) => {
         setConfig((prev) => ({
@@ -289,4 +327,14 @@ export function useConfig(): AppConfig {
   }, []);
 
   return config;
+}
+
+// The sign-in form and the app's first screen wait for the config. Asked for
+// as soon as this module runs, it is on its way while the page's other
+// modules run and the page hydrates, instead of from the first effect after
+// that. Not in tests, which set up fetch per case.
+if (typeof window !== 'undefined' && process.env.NODE_ENV === 'production') {
+  void fetchConfig().catch(() => {
+    // useConfig asks again.
+  });
 }

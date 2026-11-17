@@ -8,7 +8,8 @@
 import { IconMessageCircle } from "@tabler/icons-react";
 import { useLocale } from "next-intl";
 import { ProfileBanner, ProfileDetails, ProfileFrame, ProfileRole, useReducedMotion } from "@/components/xenaxio/chat/profile";
-import { generateAvatarColor, getInitials } from "@/lib/account-utils";
+import { generateAvatarColor } from "@/lib/account-utils";
+import { avatarInitials } from "@/components/ui/avatar";
 import { withBasePath } from "@/lib/browser-navigation";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { objectPosition } from "@/lib/xenaxio/media";
@@ -32,7 +33,7 @@ function Picture({ person, size }: { person: CompanyPerson; size: "md" | "lg" })
         {src ? (
           <img src={withBasePath(src)} alt="" className="h-full w-full object-cover" style={{ objectPosition: src === animation?.url ? objectPosition(animation) : undefined }} />
         ) : (
-          getInitials(person.displayName, person.email)
+          avatarInitials(person.displayName, person.email)
         )}
       </span>
     </ProfileFrame>

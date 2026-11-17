@@ -20,7 +20,8 @@ const show = (client: ChatClient, panel: Parameters<typeof ThreadSplit>[0]["pane
 describe("thread split (step 114)", () => {
   beforeEach(() => {
     wide = true;
-    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({ matches: query.includes("1024") ? wide : false, media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false }) as MediaQueryList);
+    // The hook keeps one MediaQueryList per query for the page's life: `matches` is read live.
+    vi.spyOn(window, "matchMedia").mockImplementation((query: string) => ({ get matches() { return query.includes("1024") ? wide : false; }, media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false }) as MediaQueryList);
     vi.spyOn(HTMLElement.prototype, "getBoundingClientRect").mockReturnValue({ width: 1000, height: 800, x: 0, y: 0, top: 0, left: 0, right: 1000, bottom: 800, toJSON: () => ({}) } as DOMRect);
   });
   afterEach(() => vi.restoreAllMocks());
@@ -34,19 +35,22 @@ describe("thread split (step 114)", () => {
     expect(own.container.querySelector("[data-thread-width]")?.getAttribute("data-thread-width")).toBe("65");
   });
 
-  it("the divider changes the width and saves it for the room; a double click goes back to half and half", () => {
+  it("the divider changes the width and saves it for the room; a double click goes back to half and half", async () => {
     const client = fakeClient();
     const { container } = show(client, { kind: "thread", roomId: ROOM, rootId: "$p1" });
     const divider = screen.getByTestId("chat-thread-resize");
     // Arrow left: the divider moves left, the thread gets wider (10 px of 1000).
     fireEvent.keyDown(divider, { key: "ArrowLeft" });
+    // The handle ends a keyboard step after the new size has rendered (a microtask).
+    await Promise.resolve();
     expect(client.setThreadWidth).toHaveBeenLastCalledWith(ROOM, 51);
-    // A drag 200 px to the right: the thread narrows by 20 %.
+    // A drag 200 px to the right: the thread narrows by 20 points.
     fireEvent.pointerDown(divider, { button: 0, pointerId: 1, clientX: 500 });
     fireEvent.pointerMove(document, { pointerId: 1, clientX: 700, buttons: 1 });
-    expect(container.querySelector("[data-thread-width]")?.getAttribute("data-thread-width")).toBe("30");
+    // From the 51 % the arrow left it at (a drag starts from the size the pane has now).
+    expect(container.querySelector("[data-thread-width]")?.getAttribute("data-thread-width")).toBe("31");
     fireEvent.pointerUp(document, { pointerId: 1, clientX: 700 });
-    expect(client.setThreadWidth).toHaveBeenLastCalledWith(ROOM, 30);
+    expect(client.setThreadWidth).toHaveBeenLastCalledWith(ROOM, 31);
     fireEvent.doubleClick(divider);
     expect(client.setThreadWidth).toHaveBeenLastCalledWith(ROOM, null);
   });

@@ -1,9 +1,10 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { Mail, UserPlus, BookUser } from "@/components/icons";
+import { Mail, UserPlus, BookUser, Printer } from "@/components/icons";
 import { Avatar } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
+import { ToolbarButton } from "@/components/ui/toolbar";
 import type { DirectoryEntry } from "@/stores/contact-store";
 import { ColleagueCardDetails, ColleagueCardHeader, RoomsMessageLink } from "@/components/xenaxio/colleague-card";
 import { useColleague } from "@/lib/xenaxio/people";
@@ -12,13 +13,16 @@ interface DirectoryEntryDetailProps {
   entry: DirectoryEntry | null;
   onCompose: (entry: DirectoryEntry) => void;
   onAddToContacts: (entry: DirectoryEntry) => void;
+  /** Print the entry on a sheet of its own. */
+  onPrint?: (entry: DirectoryEntry) => void;
 }
 
 /** Read-only view of one directory entry. */
-export function DirectoryEntryDetail({ entry, onCompose, onAddToContacts }: DirectoryEntryDetailProps) {
+export function DirectoryEntryDetail({ entry, onCompose, onAddToContacts, onPrint }: DirectoryEntryDetailProps) {
   const t = useTranslations("contacts.directory");
   // xenaxio (step 107): a colleague's profile card (banner, job title, contacts) as in Rooms.
   const colleague = useColleague(entry?.email);
+  const tCommon = useTranslations("common");
 
   if (!entry) {
     return (
@@ -45,20 +49,25 @@ export function DirectoryEntryDetail({ entry, onCompose, onAddToContacts }: Dire
         </div>
           </>
         )}
-        <div className={colleague ? "flex flex-wrap gap-2 px-4" : "flex flex-wrap justify-center gap-2"}>
-          <Button size="sm" onClick={() => onCompose(entry)}>
-            <Mail className="w-4 h-4 me-1.5" />
+        <div className={colleague ? "flex flex-wrap items-center gap-1.5 px-4" : "flex flex-wrap items-center justify-center gap-1.5"}>
+          <Button size="xs" className="gap-1.5" onClick={() => onCompose(entry)}>
+            <Mail />
             {t("write_email")}
           </Button>
-          <Button size="sm" variant="outline" onClick={() => onAddToContacts(entry)}>
-            <UserPlus className="w-4 h-4 me-1.5" />
+          <Button size="xs" variant="outline" className="gap-1.5" onClick={() => onAddToContacts(entry)}>
+            <UserPlus />
             {t("add_to_contacts")}
           </Button>
           {colleague && (
             <RoomsMessageLink
               person={colleague}
-              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-3 text-sm font-medium hover:bg-accent"
+              className="inline-flex h-8 items-center gap-1.5 rounded-md border border-input px-2.5 text-sm font-medium hover:bg-accent"
             />
+          )}
+          {onPrint && (
+            <ToolbarButton label={tCommon("print")} onClick={() => onPrint(entry)}>
+              <Printer />
+            </ToolbarButton>
           )}
         </div>
       </div>

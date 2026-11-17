@@ -38,7 +38,7 @@ export async function pushSettingsToPlatform(job: SettingsPush): Promise<Respons
     method: "POST",
     credentials: "same-origin",
     headers: { Accept: "application/json", "Content-Type": "application/json", "x-xenaxio-csrf": "1" },
-    body: JSON.stringify({ ...job, settings }),
+    body: JSON.stringify({ username: job.username, serverUrl: job.serverUrl, settings }),
   });
 }
 

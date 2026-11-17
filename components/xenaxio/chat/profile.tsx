@@ -37,7 +37,8 @@ import {
 } from "@tabler/icons-react";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { withBasePath } from "@/lib/browser-navigation";
-import { generateAvatarColor, getInitials } from "@/lib/account-utils";
+import { generateAvatarColor } from "@/lib/account-utils";
+import { avatarInitials } from "@/components/ui/avatar";
 import { type AvatarAnimation, errorText, XenaxioApiError, xenaxio } from "@/lib/xenaxio/api";
 import { useXenaxioAvatarStore } from "@/lib/xenaxio/avatars";
 import { CENTER, type Focus, objectPosition } from "@/lib/xenaxio/media";
@@ -142,7 +143,7 @@ export function LargeAvatar({
         {src ? (
           <img src={withBasePath(src)} alt="" className="h-full w-full object-cover" style={{ objectPosition: src === animation?.url ? objectPosition(animation) : undefined }} />
         ) : (
-          getInitials(name, email ?? "")
+          avatarInitials(name, email ?? "")
         )}
       </span>
       {presence && (

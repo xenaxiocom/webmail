@@ -5,12 +5,13 @@ import { useTranslations } from "next-intl";
 import { X, Download, Share2, Star, StarOff, FolderOpen, Eye, SquarePen, Files, Link as LinkIcon } from "@/components/icons";
 import { useXT } from "@/lib/xenaxio/i18n";
 import { Button } from "@/components/ui/button";
-import { cn, formatFileSize } from "@/lib/utils";
+import { cn } from "@/lib/utils";
 import type { FileResource } from "@/stores/file-store";
 import type { FileResourceView } from "@/lib/plugin-types";
 import { PluginSlot } from "@/components/plugins/plugin-slot";
+import { FilesSyncDetailsRow, ShowInFolderButton } from "@/components/files-sync/files-sync-item";
 import {
-  ResourceIcon, Thumbnail, canShowThumbnail, formatFullDate, type IconOptions,
+  FileSize, ResourceIcon, Thumbnail, canShowThumbnail, formatFullDate, type IconOptions,
 } from "@/components/files/file-item-parts";
 import { AudioDetails } from "@/components/xenaxio/files-audio";
 import { XENAXIO_BFF } from "@/lib/xenaxio/bff";
@@ -34,7 +35,8 @@ interface FileDetailsPanelProps {
   onClose: () => void;
   onOpen: () => void;
   onEdit: () => void;
-  onDownload: () => void;
+  /** Left out when a device policy turned downloads off. */
+  onDownload?: () => void;
   onShare: () => void;
   /** xenaxio step 116: "Copy link" for the selected file or folder. */
   onCopyLink?: () => void;
@@ -46,13 +48,14 @@ interface FileDetailsPanelProps {
 
 function kindOf(resource: FileResource, t: (key: string, values?: Record<string, string>) => string): string {
   if (resource.isDirectory) return t("folder");
+  if (resource.isSymlink) return t("symlink");
   const dot = resource.name.lastIndexOf(".");
   const ext = dot > 0 ? resource.name.slice(dot + 1).toUpperCase() : "";
   return ext ? t("file_kind", { ext }) : (resource.contentType || t("file"));
 }
 
 function totalSize(items: FileResource[]): number {
-  return items.reduce((sum, r) => sum + (r.isDirectory ? 0 : r.contentLength), 0);
+  return items.reduce((sum, r) => sum + (r.isDirectory || r.isSymlink ? 0 : r.contentLength), 0);
 }
 
 export function FileDetailsPanel({
@@ -61,10 +64,12 @@ export function FileDetailsPanel({
 }: FileDetailsPanelProps) {
   const xt = useXT();
   const t = useTranslations("files");
+  const tMenu = useTranslations("menuAudit");
   const pluginProps = useMemo(() => (pluginFile ? { file: pluginFile } : null), [pluginFile]);
 
   const header = (
-    <div className="flex items-center justify-between px-4 h-11 border-b border-border flex-shrink-0">
+    // h-14 like the other side panels' headers (the contact panel, the plugin panels).
+    <div className="flex items-center justify-between px-4 h-14 box-content border-b border-border flex-shrink-0" data-details-header="">
       <h2 className="text-sm font-semibold">{t("details")}</h2>
       <Button variant="ghost" size="icon" className="h-7 w-7 -me-1.5" onClick={onClose} aria-label={t("close_details")}>
         <X className="w-4 h-4" />
@@ -88,7 +93,7 @@ export function FileDetailsPanel({
         <div className="aspect-[4/3] rounded-lg bg-muted/50 flex items-center justify-center">
           {selection.length > 1
             ? <Files className="w-14 h-14 text-muted-foreground" />
-            : <FolderOpen className="w-14 h-14 text-blue-500" />}
+            : <FolderOpen className="w-14 h-14 text-primary" />}
         </div>
         <div>
           <p className="font-medium break-words">
@@ -97,7 +102,7 @@ export function FileDetailsPanel({
           <p className="text-sm text-muted-foreground">{t("folder_summary", { folders, files })}</p>
         </div>
         <dl className="space-y-3 text-sm">
-          <Row label={t("size")} value={formatFileSize(totalSize(items))} />
+          <Row label={t("size")} value={<FileSize bytes={totalSize(items)} />} />
           {selection.length <= 1 && <Row label={t("path")} value={path} mono />}
         </dl>
         {selection.length <= 1 && (
@@ -147,14 +152,14 @@ export function FileDetailsPanel({
             <Eye className="w-4 h-4" />{t("preview")}
           </Button>
         ) : null}
-        {!resource.isDirectory && (
+        {!resource.isDirectory && !resource.isSymlink && onDownload && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onDownload}>
             <Download className="w-4 h-4" />{t("download")}
           </Button>
         )}
         {canShare && (
           <Button size="sm" variant="outline" className="h-8 gap-1.5" onClick={onShare}>
-            <Share2 className="w-4 h-4" />{t("share")}
+            <Share2 className="w-4 h-4" />{tMenu("files_share_button")}
           </Button>
         )}
         {onCopyLink && (
@@ -168,20 +173,25 @@ export function FileDetailsPanel({
             {isStarred ? t("unstar") : t("star")}
           </Button>
         )}
+        <ShowInFolderButton nodeId={resource.id} />
       </div>
       <dl className="space-y-3 text-sm">
-        <Row label={t("type")} value={resource.isDirectory ? t("folder") : (resource.contentType || kindOf(resource, t))} />
-        {!resource.isDirectory && <Row label={t("size")} value={formatFileSize(resource.contentLength)} />}
+        <Row
+          label={t("type")}
+          value={resource.isDirectory || resource.isSymlink ? kindOf(resource, t) : (resource.contentType || kindOf(resource, t))}
+        />
+        {!resource.isDirectory && !resource.isSymlink && <Row label={t("size")} value={<FileSize bytes={resource.contentLength} />} />}
         {resource.lastModified && <Row label={t("modified")} value={formatFullDate(resource.lastModified)} />}
         <Row label={t("sharing")} value={sharing} />
         <Row label={t("path")} value={path} mono />
+        <FilesSyncDetailsRow nodeId={resource.id} />
       </dl>
       {pluginProps && <PluginSlot name="file-preview-section" className="w-full" extraProps={pluginProps} />}
     </div>,
   );
 }
 
-function Row({ label, value, mono }: { label: string; value: string; mono?: boolean }) {
+function Row({ label, value, mono }: { label: string; value: React.ReactNode; mono?: boolean }) {
   return (
     <div>
       <dt className="text-xs text-muted-foreground">{label}</dt>

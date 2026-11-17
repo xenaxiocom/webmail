@@ -886,7 +886,7 @@ export function AssistantPanel() {
     // would sit under the iOS status bar and hide the close button.
     <aside
       data-xenaxio-glass=""
-      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] text-foreground shadow-xl sm:w-[400px]"
+      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background pt-[var(--app-top-inset)] pr-[env(safe-area-inset-right)] text-foreground shadow-xl sm:w-[400px]"
       aria-label={t("assistant.title")}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("Files")) return;

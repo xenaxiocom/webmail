@@ -1,5 +1,6 @@
 "use client";
 
+import { MoveButtons } from "@/components/ui/move-buttons";
 import React, { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "@/stores/toast-store";
@@ -16,31 +17,57 @@ import { useEmailStore } from "@/stores/email-store";
 import { useFilterStore } from "@/stores/filter-store";
 import { SettingsSection, SettingItem, ToggleSwitch, Select, AdvancedOnly } from './settings-section';
 import { Plus, Pencil, Trash2, GripVertical, Check, X, Loader2, Search } from "@/components/icons";
+import { Button } from "@/components/ui/button";
+import { IconButton } from "@/components/ui/icon-button";
 import { cn } from "@/lib/utils";
 import { KEYWORD_PREFIX } from "@/lib/thread-utils";
 import { findUnrecognizedKeywords, type UnrecognizedKeyword } from "@/lib/keyword-discovery";
 import {
   buildKeywordTree,
-  composeKeywordId,
+  chooseKeywordId,
   getParentKeywordId,
   hasChildKeywords,
   isKeywordDescendant,
-  keywordLevels,
+  isKeywordNameTaken,
   type KeywordNode,
   MAX_KEYWORD_ID_LENGTH,
 } from "@/lib/keyword-nesting";
-import { formatKeyword, keywordRenderings } from "@/lib/keyword-format";
-import { useShortenedText } from "@/hooks/use-shortened-text";
+import { formatKeyword } from "@/lib/keyword-format";
 import { TagBadge } from "@/components/email/tag-badge";
+import { isHexTagColor, parseHexColor } from "@/lib/tag-hex-color";
 
-/** Lighter, base and darker shade of each hue, one row per shade. */
-function KeywordColorPicker({
+/**
+ * Lighter, base and darker shade of each hue, one row per shade. With
+ * `allowCustom`, a row under them takes any colour as a code or from the
+ * browser's colour dialog.
+ */
+export function KeywordColorPicker({
   value,
   onChange,
+  allowCustom = false,
+  onInvalidChange,
+  onCodeKeyDown,
 }: {
   value: string;
   onChange: (color: string) => void;
+  allowCustom?: boolean;
+  /** Whether the code field holds something that isn't a colour code, so the form can refuse to save. */
+  onInvalidChange?: (invalid: boolean) => void;
+  /** Keys in the code field, so Enter and Escape act as in the form's name field. */
+  onCodeKeyDown?: (e: React.KeyboardEvent<HTMLInputElement>) => void;
 }) {
+  const t = useTranslations("settings.keywords");
+  const isHex = isHexTagColor(value);
+  // What the user typed, kept as typed until blur; empty for a palette colour.
+  const [code, setCode] = useState(isHex ? value : "");
+  // A native colour input can't be empty, so it keeps its last colour.
+  const [nativeValue, setNativeValue] = useState(isHex ? value : "#000000");
+  const invalid = code.trim().length > 0 && parseHexColor(code) === null;
+
+  useEffect(() => {
+    onInvalidChange?.(invalid);
+  }, [invalid, onInvalidChange]);
+
   return (
     <div className="space-y-1.5">
       {KEYWORD_PALETTE_ROWS.map((row, index) => (
@@ -49,9 +76,12 @@ function KeywordColorPicker({
             <button
               key={colorKey}
               type="button"
-              onClick={() => onChange(colorKey)}
+              onClick={() => {
+                setCode("");
+                onChange(colorKey);
+              }}
               className={cn(
-                "w-6 h-6 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+                "w-6 h-6 rounded-full transition-transform hover:scale-110 focus-visible:outline-hidden",
                 KEYWORD_PALETTE[colorKey].dot,
                 value === colorKey && "ring-2 ring-offset-2 ring-offset-background ring-foreground"
               )}
@@ -60,6 +90,56 @@ function KeywordColorPicker({
           ))}
         </div>
       ))}
+      {allowCustom && (
+        <div className="pt-1">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-xs text-muted-foreground">{t("custom_color")}</span>
+            <input
+              type="color"
+              aria-label={t("pick_custom_color")}
+              data-testid="tag-color-native"
+              value={isHex ? value : nativeValue}
+              onChange={(e) => {
+                const hex = parseHexColor(e.target.value);
+                if (!hex) return;
+                setNativeValue(hex);
+                setCode(hex);
+                onChange(hex);
+              }}
+              className="h-8 w-10 shrink-0 cursor-pointer rounded-md border border-border bg-background p-0.5"
+            />
+            <input
+              type="text"
+              aria-label={t("color_code")}
+              aria-invalid={invalid || undefined}
+              data-testid="tag-color-hex"
+              placeholder="#1a73e8"
+              spellCheck={false}
+              autoComplete="off"
+              maxLength={7}
+              value={code}
+              onChange={(e) => {
+                setCode(e.target.value);
+                const hex = parseHexColor(e.target.value);
+                if (hex) {
+                  setNativeValue(hex);
+                  onChange(hex);
+                }
+              }}
+              onBlur={() => {
+                const hex = parseHexColor(code);
+                if (hex) setCode(hex);
+              }}
+              onKeyDown={onCodeKeyDown}
+              className={cn(
+                "w-28 px-2.5 py-1.5 text-sm font-mono rounded-md border bg-background focus:outline-hidden",
+                invalid ? "border-destructive" : "border-border",
+              )}
+            />
+          </div>
+          {invalid && <p className="text-xs text-destructive mt-1">{t("invalid_color")}</p>}
+        </div>
+      )}
     </div>
   );
 }
@@ -67,7 +147,6 @@ function KeywordColorPicker({
 function KeywordRow({
   keyword,
   keywords,
-  nestedTags,
   onEdit,
   onDelete,
   onVisibilityChange,
@@ -77,10 +156,12 @@ function KeywordRow({
   onDragEnd,
   isDragOver,
   isDragging,
+  index,
+  count,
+  onMove,
 }: {
   keyword: KeywordDefinition;
   keywords: KeywordDefinition[];
-  nestedTags: boolean;
   onEdit: () => void;
   onDelete: () => void;
   onVisibilityChange: (visibility: KeywordVisibility) => void;
@@ -90,13 +171,16 @@ function KeywordRow({
   onDragEnd: () => void;
   isDragOver: boolean;
   isDragging: boolean;
+  index: number;
+  count: number;
+  onMove: (from: number, to: number) => void;
 }) {
   const t = useTranslations("settings.keywords");
   const hasChildren = hasChildKeywords(keyword.id, keywords);
-  // Measured with the prefix attached, since that is what occupies the column.
-  const keywordCandidates = (nestedTags ? keywordRenderings(keywordLevels(keyword.id)) : [keyword.id])
-    .map((rendering) => KEYWORD_PREFIX + rendering);
-  const [keywordRef, shortenedKeyword] = useShortenedText(keywordCandidates);
+  const tagLabel = keyword.label || keyword.id;
+  // The keyword the server stores is a detail for people who asked for the
+  // advanced settings: a tooltip on the tag, not a line of its own.
+  const showAdvanced = useSettingsStore((s) => s.showAdvancedSettings);
   const visibilityOptions = [
     { value: "show", label: t("visibility.show") },
     { value: "unread", label: t("visibility.unread") },
@@ -111,22 +195,19 @@ function KeywordRow({
       onDrop={onDrop}
       onDragEnd={onDragEnd}
       className={cn(
-        "flex items-center gap-3 py-2.5 px-3 rounded-md border bg-background group transition-opacity",
+        "flex flex-wrap items-center gap-x-3 gap-y-2 py-2.5 px-3 rounded-md border bg-background group transition-opacity sm:flex-nowrap",
         isDragging ? "opacity-40" : "opacity-100",
         isDragOver ? "border-primary" : "border-border"
       )}
     >
-      <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-50 cursor-grab" />
-      <div className="flex min-w-0 flex-1">
+      <GripVertical className="w-4 h-4 text-muted-foreground opacity-0 group-hover:opacity-50 cursor-grab max-sm:hidden" />
+      {/* On a phone the name gets a line of its own, the controls wrap under it. */}
+      <div
+        className="flex min-w-0 flex-1 max-sm:basis-full"
+        title={showAdvanced ? KEYWORD_PREFIX + keyword.id : undefined}
+      >
         <TagBadge tagId={keyword.id} variant="badge" className="text-xs" />
       </div>
-      <span
-        ref={keywordRef}
-        className="hidden md:block min-w-0 max-w-52 truncate text-xs text-muted-foreground font-mono"
-        title={KEYWORD_PREFIX + keyword.id}
-      >
-        {shortenedKeyword}
-      </span>
       <Select
         value={getKeywordVisibility(keyword)}
         onChange={(value) => onVisibilityChange(value as KeywordVisibility)}
@@ -134,24 +215,21 @@ function KeywordRow({
         ariaLabel={t("visibility_field")}
         className="text-xs py-1"
       />
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="p-1.5 rounded-md hover:bg-muted text-muted-foreground hover:text-foreground transition-colors"
-          title={t("edit")}
-        >
-          <Pencil className="w-3.5 h-3.5" />
-        </button>
-        <button
-          type="button"
+      {/* The order without dragging; always shown, not only on hover. */}
+      <MoveButtons index={index} count={count} name={tagLabel} onMove={onMove} />
+      <div className="flex items-center gap-0.5 opacity-0 group-hover:opacity-100 focus-within:opacity-100 pointer-coarse:opacity-100 transition-opacity">
+        <IconButton label={t("edit_tag", { name: tagLabel })} title={t("edit")} onClick={onEdit} className="text-muted-foreground">
+          <Pencil />
+        </IconButton>
+        <IconButton
+          label={t("delete_tag", { name: tagLabel })}
+          title={hasChildren ? t("has_children_delete") : t("delete")}
           onClick={onDelete}
           disabled={hasChildren}
-          className="p-1.5 rounded-md hover:bg-destructive/10 text-muted-foreground hover:text-destructive transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground"
-          title={hasChildren ? t("has_children_delete") : t("delete")}
+          className="text-muted-foreground hover:text-destructive hover:bg-destructive/10"
         >
-          <Trash2 className="w-3.5 h-3.5" />
-        </button>
+          <Trash2 />
+        </IconButton>
       </div>
     </div>
   );
@@ -184,10 +262,23 @@ function KeywordEditForm({
   // tag that has children and allow the color to change.
   const isLocked = !!initial && hasChildKeywords(initial.id, keywords);
 
-  const normalizedId = isLocked && initial ? initial.id : composeKeywordId(parentId || null, label);
-  const isDuplicate = normalizedId.length > 0 && existingIds.includes(normalizedId);
-  const isTooLong = normalizedId.length > MAX_KEYWORD_ID_LENGTH;
-  const isValid = normalizedId.length > 0 && label.trim().length > 0 && !isDuplicate && !isTooLong;
+  // A name with no slug of its own (Cyrillic, Greek, CJK...) or one whose
+  // slug another tag has still gets an id; only the same name twice under
+  // one parent is refused, and only when the name or parent changes, so two
+  // same-named tags from before can still get a new colour.
+  // An edit that keeps the parent and the slug of the name (a colour, case
+  // or punctuation change) keeps the id, so no mail or filter is rewritten.
+  const normalizedId = isLocked && initial
+    ? initial.id
+    : chooseKeywordId(parentId || null, label, existingIds, initial?.id, initial ? initial.label ?? "" : undefined);
+  const keepsPlace = !!initial && label.trim() === (initial.label ?? "").trim() && (parentId || null) === getParentKeywordId(initial.id);
+  const isDuplicate = !isLocked && !keepsPlace && isKeywordNameTaken(keywords, parentId || null, label, initial?.id);
+  // Only a new or changed id has to fit: a longer one that predates the limit
+  // is already on the messages, and an edit that keeps it, such as a colour
+  // change, leaves it as it is.
+  const isTooLong = normalizedId.length > MAX_KEYWORD_ID_LENGTH && normalizedId !== initial?.id;
+  const [colorInvalid, setColorInvalid] = useState(false);
+  const isValid = normalizedId.length > 0 && label.trim().length > 0 && !isDuplicate && !isTooLong && !colorInvalid;
 
   // Every tag is a candidate parent except the one being edited and anything
   // already below it, which would detach the branch from its own root.
@@ -208,6 +299,16 @@ function KeywordEditForm({
       return;
     }
     onSave({ id: normalizedId, label: label.trim(), color });
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
+    if (e.key === "Enter") handleSave();
+    // Like folders, calendars and address books: Escape cancels.
+    if (e.key === "Escape") {
+      e.preventDefault();
+      e.stopPropagation();
+      onCancel();
+    }
   };
 
   return (
@@ -232,15 +333,16 @@ function KeywordEditForm({
           {t("label_field")}
         </label>
         <input
+          aria-label={t("label_field")}
           type="text"
           value={label}
           onChange={(e) => setLabel(e.target.value)}
           disabled={isLocked}
-          className="w-full px-2.5 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring disabled:opacity-60"
+          className="w-full px-2.5 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-hidden disabled:opacity-60"
           placeholder={t("label_placeholder")}
           autoFocus
           maxLength={30}
-          onKeyDown={(e) => e.key === "Enter" && handleSave()}
+          onKeyDown={handleKeyDown}
         />
         {nestedTags && normalizedId.length > 0 && (
           <p className="text-xs text-muted-foreground font-mono mt-1 break-all">
@@ -251,7 +353,7 @@ function KeywordEditForm({
           <p className="text-xs text-muted-foreground mt-1">{t("has_children_locked")}</p>
         )}
         {isDuplicate && (
-          <p className="text-xs text-destructive mt-1">{t("id_exists")}</p>
+          <p className="text-xs text-destructive mt-1">{t("name_exists")}</p>
         )}
         {isTooLong && (
           <p className="text-xs text-destructive mt-1">
@@ -263,7 +365,13 @@ function KeywordEditForm({
         <label className="text-xs font-medium text-muted-foreground mb-1.5 block">
           {t("color_field")}
         </label>
-        <KeywordColorPicker value={color} onChange={setColor} />
+        <KeywordColorPicker
+          value={color}
+          onChange={setColor}
+          allowCustom
+          onInvalidChange={setColorInvalid}
+          onCodeKeyDown={handleKeyDown}
+        />
       </div>
       <div className="flex items-center gap-2 justify-end">
         <button
@@ -317,7 +425,7 @@ function UnrecognizedKeywordRow({
           type="button"
           onClick={() => setPickingColor((open) => !open)}
           className={cn(
-            "w-5 h-5 shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2",
+            "w-5 h-5 shrink-0 rounded-full transition-transform hover:scale-110 focus-visible:outline-hidden",
             KEYWORD_PALETTE[draft.color]?.dot ?? KEYWORD_PALETTE.gray.dot,
           )}
           aria-label={t("color_field")}
@@ -327,7 +435,7 @@ function UnrecognizedKeywordRow({
           type="text"
           value={draft.label}
           onChange={(e) => onChange({ ...draft, label: e.target.value })}
-          className="min-w-0 flex-1 px-2.5 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-none focus:ring-2 focus:ring-ring"
+          className="min-w-0 flex-1 px-2.5 py-1.5 text-sm rounded-md border border-border bg-background focus:outline-hidden"
           placeholder={t("label_placeholder")}
           maxLength={30}
           aria-label={t("label_field")}
@@ -520,6 +628,7 @@ function UnrecognizedKeywords() {
 
 export function KeywordSettings() {
   const t = useTranslations("settings.keywords");
+  const tNotifications = useTranslations("notifications");
   const { emailKeywords, nestedTags, addKeyword, updateKeyword, renameKeyword, removeKeyword, reorderKeywords, updateSetting } =
     useSettingsStore();
   const { client } = useAuthStore();
@@ -542,16 +651,16 @@ export function KeywordSettings() {
     if (index !== dragOverIndex) setDragOverIndex(index);
   };
 
-  const handleDrop = (index: number) => {
-    if (dragIndex === null || dragIndex === index) {
-      setDragIndex(null);
-      setDragOverIndex(null);
-      return;
-    }
+  const moveKeyword = (from: number, to: number) => {
+    if (from === to || to < 0 || to >= emailKeywords.length) return;
     const reordered = [...emailKeywords];
-    const [moved] = reordered.splice(dragIndex, 1);
-    reordered.splice(index, 0, moved);
+    const [moved] = reordered.splice(from, 1);
+    reordered.splice(to, 0, moved);
     reorderKeywords(reordered);
+  };
+
+  const handleDrop = (index: number) => {
+    if (dragIndex !== null) moveKeyword(dragIndex, index);
     setDragIndex(null);
     setDragOverIndex(null);
   };
@@ -631,8 +740,25 @@ export function KeywordSettings() {
     setEditingId(null);
   };
 
+  // A tag can be put back as it was, so it goes at once with an Undo (R3).
   const handleDelete = (id: string) => {
+    const before = useSettingsStore.getState().emailKeywords;
+    const index = before.findIndex((k) => k.id === id);
+    const removed = before[index];
+    if (!removed) return;
     removeKeyword(id);
+    toast.success(t("deleted"), {
+      action: {
+        label: tNotifications("rule_undo"),
+        onClick: () => {
+          const now = useSettingsStore.getState().emailKeywords;
+          if (now.some((k) => k.id === id)) return;
+          const restored = [...now];
+          restored.splice(Math.min(index, restored.length), 0, removed);
+          reorderKeywords(restored);
+        },
+      },
+    });
   };
 
   const handleVisibilityChange = (id: string, visibility: KeywordVisibility) => {
@@ -655,6 +781,9 @@ export function KeywordSettings() {
             {t("migrating")}
           </div>
         )}
+        {emailKeywords.length === 0 && !isAdding && (
+          <p className="text-sm text-muted-foreground">{t("empty")}</p>
+        )}
         {emailKeywords.map((keyword, index) =>
           editingId === keyword.id ? (
             <KeywordEditForm
@@ -671,7 +800,6 @@ export function KeywordSettings() {
               key={keyword.id}
               keyword={keyword}
               keywords={emailKeywords}
-              nestedTags={nestedTags}
               onEdit={() => {
                 setEditingId(keyword.id);
                 setIsAdding(false);
@@ -684,6 +812,9 @@ export function KeywordSettings() {
               onDragEnd={handleDragEnd}
               isDragOver={dragOverIndex === index && dragIndex !== index}
               isDragging={dragIndex === index}
+              index={index}
+              count={emailKeywords.length}
+              onMove={moveKeyword}
             />
           )
         )}
@@ -698,17 +829,18 @@ export function KeywordSettings() {
           />
         ) : (
           <div className="flex items-center gap-2 pt-1">
-            <button
-              type="button"
+            <Button
+              variant="outline"
+              size="sm"
               onClick={() => {
                 setIsAdding(true);
                 setEditingId(null);
               }}
-              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-md border border-dashed border-border hover:border-primary hover:bg-accent transition-colors text-muted-foreground hover:text-foreground"
+              className="border-dashed text-muted-foreground hover:text-foreground"
             >
-              <Plus className="w-3.5 h-3.5" />
+              <Plus />
               {t("add_keyword")}
-            </button>
+            </Button>
           </div>
         )}
       </div>

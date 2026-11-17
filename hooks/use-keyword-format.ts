@@ -9,6 +9,9 @@ import {
 } from "@/stores/settings-store";
 import { formatKeyword, formatKeywordLabels, keywordRenderings } from "@/lib/keyword-format";
 import { suggestKeywordColor } from "@/lib/keyword-discovery";
+import { useAccountTags, type TagScope } from "@/hooks/use-account-tags";
+import { CVD_CLASSES, cvdHue } from "@/lib/cvd-palette";
+import { hexKeywordColor, isHexTagColor } from "@/lib/tag-hex-color";
 
 /**
  * Names and colours tags for the screen, bound to the user's tag settings.
@@ -18,10 +21,15 @@ import { suggestKeywordColor } from "@/lib/keyword-discovery";
  * someone who never asked for nesting. Subscribing to them also keeps tags in
  * step the moment either changes: reading the store inside the formatter would
  * leave every list stale until something else happened to re-render it.
+ *
+ * The definitions are those of the account in `scope` (useAccountTags): a
+ * group account's shared tags, otherwise the user's own. Without `scope`
+ * the TagScopeContext around the caller decides.
  */
-export function useKeywordFormat() {
-  const keywords = useSettingsStore((state) => state.emailKeywords);
+export function useKeywordFormat(scope?: TagScope | null) {
+  const keywords = useAccountTags(scope).definitions;
   const nested = useSettingsStore((state) => state.nestedTags);
+  const colorBlindPalette = useSettingsStore((state) => state.colorBlindPalette);
 
   return useMemo(
     () => ({
@@ -43,11 +51,19 @@ export function useKeywordFormat() {
        * undifferentiated colour. The hue is a pure function of the id, so it is
        * stable across reloads and devices, and it degrades to grey only when
        * the proposal names a colour the palette does not hold.
+       *
+       * A custom `#rrggbb` is drawn through generated classes (lib/tag-hex-color.ts).
        */
       tagColor: (id: string): KeywordColor => {
-        const color = keywords.find((keyword) => keyword.id === id)?.color;
-        if (color && KEYWORD_PALETTE[color]) return KEYWORD_PALETTE[color];
-        return KEYWORD_PALETTE[suggestKeywordColor(id)] ?? KEYWORD_PALETTE[FALLBACK_KEYWORD_COLOR];
+        const stored = keywords.find((keyword) => keyword.id === id)?.color;
+        const suggested = suggestKeywordColor(id);
+        const color = stored && (KEYWORD_PALETTE[stored] || isHexTagColor(stored))
+          ? stored
+          : KEYWORD_PALETTE[suggested] ? suggested : FALLBACK_KEYWORD_COLOR;
+        // Colour-blind-safe colours: the same tag, drawn in the palette
+        // colour nearest its own (lib/cvd-palette.ts). The stored colour stays.
+        if (colorBlindPalette) return CVD_CLASSES[cvdHue(color) ?? "grey"];
+        return KEYWORD_PALETTE[color] ?? hexKeywordColor(color);
       },
 
       /**
@@ -69,6 +85,6 @@ export function useKeywordFormat() {
         );
       },
     }),
-    [keywords, nested],
+    [keywords, nested, colorBlindPalette],
   );
 }

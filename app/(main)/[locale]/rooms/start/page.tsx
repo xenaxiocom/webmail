@@ -33,7 +33,7 @@ function StartForm() {
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  useDocumentTitle(t("rooms.start_title"), { withAccount: false });
+  useDocumentTitle(t("rooms.start_title"), { showAccount: false });
 
   useEffect(() => {
     if (!token) return setStatus("unknown");

@@ -15,6 +15,7 @@ import {
   X,
 } from "@/components/icons";
 import { Button } from "@/components/ui/button";
+import { avatarInitials } from "@/components/ui/avatar";
 import { useFocusTrap } from "@/hooks/use-focus-trap";
 import { cn } from "@/lib/utils";
 
@@ -36,6 +37,14 @@ const MAX_STEP_MS = 50;
 const EXIT_MS = 400;
 const POP_MS = 700;
 const FLASH_MS = 280;
+// The inbox tints at most three times a second, however fast the catches
+// and misses come (WCAG 2.3.1, three flashes).
+export const FLASH_MIN_GAP_MS = 334;
+
+/** Whether the inbox may flash again, `now` ms after the last flash began at `last`. */
+export function mayFlash(last: number, now: number): boolean {
+  return now - last >= FLASH_MIN_GAP_MS;
+}
 const COMBO_STEP = 5;
 const COMBO_MAX = 3;
 const BLOCKED_PENALTY = 15;
@@ -117,15 +126,6 @@ function comboFor(streak: number): number {
   return Math.min(COMBO_MAX, 1 + Math.floor(streak / COMBO_STEP));
 }
 
-function initials(name: string): string {
-  return name
-    .split(/\s+/)
-    .slice(0, 2)
-    .map((part) => part.charAt(0))
-    .join("")
-    .toUpperCase();
-}
-
 function readBest(): number {
   try {
     const value = Number(localStorage.getItem(BEST_KEY));
@@ -149,6 +149,7 @@ function freshGame() {
     nextId: 0,
     nextPopId: 0,
     flashToken: 0,
+    lastFlashAt: -Infinity,
     elapsed: 0,
     spawnIn: 250,
     last: 0,
@@ -248,6 +249,9 @@ export function SpamSiegeGame({ onClose }: { onClose: () => void }) {
 
   const flashInbox = useCallback(
     (kind: "good" | "bad") => {
+      const now = performance.now();
+      if (!mayFlash(game.current.lastFlashAt, now)) return;
+      game.current.lastFlashAt = now;
       const token = ++game.current.flashToken;
       setFlash(kind);
       later(() => {
@@ -720,10 +724,10 @@ function MailCard({
     >
       {kind === "legit" ? (
         <span
-          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-semibold text-white"
+          className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[0.625rem] font-semibold text-white"
           style={{ backgroundColor: tone }}
         >
-          {initials(sender.name)}
+          {avatarInitials(sender.name, sender.address)}
         </span>
       ) : (
         <span
@@ -737,7 +741,7 @@ function MailCard({
       )}
       <div className="min-w-0 flex-1 leading-tight">
         <p className="truncate text-xs font-semibold text-foreground">{sender.name}</p>
-        <p className="truncate text-[11px] text-muted-foreground">{sender.address}</p>
+        <p className="truncate text-[0.6875rem] text-muted-foreground">{sender.address}</p>
       </div>
     </div>
   );

@@ -120,6 +120,47 @@ describe('plugin history', () => {
     expect(await registry.getPluginBundle('demo')).toBe('v1()');
     expect((await history.listHistory('plugin', 'demo')).map((e) => e.version)).toEqual(['1.1.0']);
   });
+
+  it("keeps a version's changelog with its copy and lists it for the admin", async () => {
+    const registry = await import('../plugin-registry');
+    const history = await import('../extension-history');
+    await registry.savePlugin({ ...PLUGIN, changelog: '- First' }, 'v1()');
+    await registry.savePlugin({ ...PLUGIN, version: '1.1.0' }, 'v2()');
+    await registry.savePlugin({ ...PLUGIN, version: '1.2.0', changelog: '- Third' }, 'v3()');
+
+    const kept = await history.listHistory('plugin', 'demo');
+    const { previousVersions, previousChangelogs } = history.keptVersions(kept);
+    expect([...previousVersions].sort()).toEqual(['1.0.0', '1.1.0']);
+    expect(previousChangelogs).toEqual({ '1.0.0': '- First' });
+    expect((await history.readHistoryEntry('plugin', 'demo', '1.0.0')).entry.changelog).toBe('- First');
+  });
+});
+
+describe('whether the directory had withdrawn a kept version', () => {
+  it('lists what the install recorded, and calls a copy kept before that unknown', async () => {
+    const registry = await import('../plugin-registry');
+    const history = await import('../extension-history');
+    const withdrawn = { yanked: { at: '2026-10-01T00:00:00.000Z', reason: 'breaks replies' } };
+    await registry.savePlugin({ ...PLUGIN, version: '1.0.0', ...withdrawn } as typeof PLUGIN, 'v1()');
+    await registry.savePlugin({ ...PLUGIN, version: '1.1.0', yanked: null } as typeof PLUGIN, 'v2()');
+    // Saved like an install before the record existed: no `yanked` at all.
+    await registry.savePlugin({ ...PLUGIN, version: '1.2.0' }, 'v3()');
+    await registry.savePlugin({ ...PLUGIN, version: '1.3.0' }, 'v4()');
+
+    const kept = await history.listHistory('plugin', 'demo');
+    const by = Object.fromEntries(kept.map((e) => [e.version, e.withdrawn]));
+    expect(by).toEqual({ '1.0.0': { reason: 'breaks replies' }, '1.1.0': undefined, '1.2.0': 'unknown' });
+    expect(history.keptVersions(kept).previousWithdrawn).toEqual({ '1.0.0': { reason: 'breaks replies' }, '1.2.0': 'unknown' });
+  });
+
+  it('says nothing about an uploaded copy, which the directory never had', async () => {
+    const registry = await import('../plugin-registry');
+    const history = await import('../extension-history');
+    const upload = { ...PLUGIN, source: { kind: 'upload' as const } };
+    await registry.savePlugin(upload, 'v1()');
+    await registry.savePlugin({ ...upload, version: '1.1.0' }, 'v2()');
+    expect((await history.listHistory('plugin', 'demo'))[0].withdrawn).toBeUndefined();
+  });
 });
 
 describe('theme history', () => {

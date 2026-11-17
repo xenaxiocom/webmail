@@ -2,59 +2,91 @@
 // on `plugin.permissions` BEFORE doing the underlying work, and only returns
 // structured-cloneable data back to the iframe.
 
-import type { InstalledPlugin, Permission } from '../plugin-types';
+import type { AppInfoView, InstalledPlugin, Permission } from '../plugin-types';
+import { labelRawSend } from '@/lib/outgoing/classification-raw';
+import { completesComposeTakeover } from '@/lib/outgoing/compose-takeover';
+import { getOutboxHooks } from '@/lib/offline/outbox-hooks';
+import { fetchConfig } from '@/hooks/use-config';
+import { IS_LITE } from '../lite';
+import { downloadAllowed, saveBlobAs } from '../download-guard';
+import '../device-policy';
+import { doAppGetSettings, doAppSearchSettings } from './host-api-app';
 import { mayOfferSlot, pluginHasPermission } from './permissions';
+import { doGetCheckText, doRecheck, doRegisterChecker, doSetAnnotations, doUnregisterChecker, doUpdateChecker } from './host-api-checker';
 import { proxyAccounts, proxyCancel, proxyConnect, proxyDisconnect, proxyFetch, type StreamSink } from './proxy-client';
 import { checkActions, isActionSurface, setPluginActions } from './actions';
 import { checkDayLabels, setDayLabels } from './day-labels';
+import { registerPrintTheme, unregisterPrintTheme } from './print-themes';
 import { refreshRowBadges } from './row-badges';
+import { checkListFilters, setPluginListFilters } from './list-filters';
 import { checkPages, setPluginPages } from './pages';
-import { toast as appToast } from '@/stores/toast-store';
+import { dismissPluginToast, showPluginProgressToast, showPluginToast } from './host-api-toasts';
 import { useAuthStore } from '@/stores/auth-store';
 import { useAccountStore } from '@/stores/account-store';
+import { returnToOwnAccount } from '@/lib/impersonation/return-client';
+import { isPopoutWindow } from '@/lib/popout/window-role';
 import { claimLegacyPluginStorage, pluginStoragePrefix } from './storage-scope';
 import { useIdentityStore } from '@/stores/identity-store';
-import { useEmailStore } from '@/stores/email-store';
+import { resolveEmailBlobContext, useEmailStore } from '@/stores/email-store';
+import { keywordPointer } from '../jmap/patch-pointer';
 import { useFilterStore } from '@/stores/filter-store';
 import { useMessageListTabsStore } from '@/stores/message-list-tabs-store';
 import {
   KEYWORD_PALETTE,
+  emailKeywordsChosenPatch,
   useSettingsStore,
   type KeywordDefinition,
   type KeywordVisibility,
 } from '@/stores/settings-store';
 import type { MessageListTabsConfig } from '../plugin-types';
 import { apiFetch, getPathPrefix, withBasePath } from '../browser-navigation';
-import { createOAuthState } from '../plugin-oauth';
+import { createOAuthState, isPluginSignIn } from '../plugin-oauth';
+import { openPluginSignInInApp } from '../desktop/browser-sign-in';
 import { reportUploadProgress } from '../upload-progress';
 import { DEFAULT_KEYWORD_SCAN_LIMIT } from '../jmap/client';
+import { isServerSetKeyword } from '../jmap/server-keywords';
 import { suggestKeywordColor } from '../keyword-discovery';
-import { MAX_KEYWORD_LENGTH } from '../keyword-nesting';
-import { KEYWORD_PREFIX } from '../thread-utils';
-import { DEFAULT_SEARCH_FILTERS, normalizePluginFilter } from '../jmap/search-utils';
+import { isValidKeywordDefinitionId, MAX_KEYWORD_LABEL_LENGTH } from '../keyword-nesting';
+import { emailKeyFor } from '../thread-utils';
+import { DEFAULT_SEARCH_FILTERS, isFilterEmpty, normalizePluginFilter } from '../jmap/search-utils';
 import { awaitDialog, awaitPrompt, awaitCustomDialog, type PromptField } from './host-dialog';
+import { triggerAnchor } from './dialog-anchor';
 import { fileStorage } from '../plugin-storage';
 import { generateUUID } from '../utils';
-import { AddressBook, ContactCard, Identity } from '../jmap/types';
+import { AddressBook, ContactCard, Email, Identity } from '../jmap/types';
 import { EncryptionAtRestConfig, PublicKeyInfo, PublicKeyInput, useAccountSecurityStore } from '@/stores/account-security-store';
 import {
   doCalendarCreateEvent, doCalendarDeleteEvent, doCalendarGetEvent, doCalendarGetEvents,
   doCalendarListCalendars, doCalendarUpdateEvent, doTasksCreate, doTasksDelete, doTasksGet,
-  doTasksList, doTasksSetComplete, doTasksUpdate,
+  doTasksAcknowledgeAlert, doTasksList, doTasksSetComplete, doTasksUpdate,
 } from './host-api-calendar';
 import {
   doIdentitiesUpdate, doTemplatesCreate, doTemplatesDelete, doTemplatesGet, doTemplatesList,
   doTemplatesUpdate, doVacationGet, doVacationSet,
 } from './host-api-settings';
 import {
-  doEmailArchive, doEmailGet, doEmailGetAttachment, doEmailGetRaw, doEmailList, doEmailMove, doMailboxesList,
+  doEmailArchive, doEmailGet, doEmailGetAttachment, doEmailGetRaw, doEmailList, doEmailMove, doEmailSearch, doMailboxesList,
 } from './host-api-mail';
 import { MAX_PLUGIN_FETCH_BYTES, readFileName, readMediaType, sessionClient } from './host-api-input';
 import { doComposeOpen, doComposeReply, doDraftsCreate } from './host-api-compose';
+import { doEmailForward } from './host-api-forward';
+import { doUiPrint } from './host-api-print';
+import { doUiOpenFile } from './host-api-file-viewer';
 import { doNotificationsShow } from './host-api-notify';
+import { doAccountDataGet, doAccountDataSet, doUserFindPeople, doUserGetMailAccounts, doUserGetSelf } from './host-api-account';
 import { setSectionTitle } from './section-titles';
+import { setSidePanel } from './side-panels';
 import { requestPanel } from './panel-requests';
-import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerReplaceBody, doComposerReplaceSelection } from './host-api-composer';
+import { requestPageNavigation } from './page-navigation';
+import { requestCalendarView } from './calendar-navigation';
+import { requestOpenTask } from './open-task';
+import { requestOpenEmail } from './open-email';
+import { doComposerAttach, doComposerGetBody, doComposerGetSelection, doComposerGetSnapshot, doComposerReadAttachment, doComposerReplaceBody, doComposerReplaceSelection, doComposerSetSubject } from './host-api-composer';
+import { wkdAllowed } from '../outgoing-hosts';
+import { noThirdPartyTraffic } from '../third-party-mode';
+import { openExternalLink } from '../plugin-hook-result';
+import { ASSISTANT_PERMS, NOT_MINE, dispatchAssistant } from './assistant';
+import { KEYSTORE_METHODS, KEYSTORE_PERMS, doKeystoreCall } from './host-api-keystore';
 
 /**
  * Methods only callable from the privileged (same-origin) tier. These expose
@@ -90,9 +122,14 @@ const PRIVILEGED_ONLY_METHODS = new Set<string>([
   // This entry used to read `upfiles.set`, which matches no dispatched method
   // and therefore gated nothing - the dispatcher calls it `upfiles.save`.
   'upfiles.save',
+  // The OS certificate store: never for an untrusted plugin, whatever it declares.
+  ...KEYSTORE_METHODS,
 ]);
 
 export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
+  // The AI assistant's host APIs, one table per area (lib/plugin-sandbox/assistant).
+  ...ASSISTANT_PERMS,
+  ...KEYSTORE_PERMS,
   // storage is unscoped by the manifest - implicit.
   'storage.get': null,
   'storage.set': null,
@@ -103,6 +140,8 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'toast.error': null,
   'toast.info': null,
   'toast.warning': null,
+  'toast.progress': null,
+  'toast.dismiss': null,
   // http
   'http.post': 'http:post',
   'http.fetch': 'http:fetch',
@@ -147,10 +186,27 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'addressbook.create': 'contacts:write',
   // user
   'user.getAccounts': 'account:read',
+  // The user's own account (principal id) and address, and which mail
+  // accounts are team (group) mailboxes.
+  'user.getSelf': 'account:read',
+  'user.getMailAccounts': 'account:read',
+  // People from the server's directory: names and addresses of others.
+  'user.findPeople': 'directory:read',
+  // A plugin's own value in a mail account's shared Inbox metadata.
+  'accountData.get': 'email:read',
+  'accountData.set': 'email:write',
   'user.getIdentities': 'identity:read',
   // The IANA zone the app shows times in (Settings or the browser's).
   'user.getTimeZone': null,
+  // The app's name and version: nothing about the user.
+  'app.getInfo': null,
+  // Where a setting is: the app's own texts, nothing about the user.
+  'app.searchSettings': null,
+  // The user's preferences (layout, formats, reading and sending behaviour).
+  'app.getSettings': 'settings:read',
   'user.logout': 'auth:emit',
+  // Only in an impersonated session; see doUserReturnToOwnAccount.
+  'user.returnToOwnAccount': 'auth:impersonation-return',
   // admin
   'admin.getConfig': 'admin:config',
   'admin.getAllConfig': 'admin:config',
@@ -167,10 +223,18 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.rerenderEmail': null,
   'ui.rerenderFetchedEmails': null,
   'ui.openExternalUrl': null,
+  // Print a page the plugin made (sanitised, no scripts, no network), or a
+  // PDF through the file preview; 3 a minute.
+  'ui.print': null,
+  // Show a PDF or an image the plugin made in the app's file preview (no
+  // HTML or SVG, checked by its bytes); 5 a minute. The user decides whether
+  // to download or print it there.
+  'ui.openFile': null,
   'ui.downloadFile': 'ui:download-file',
   // email keyword mutations
   'email.setKeyword': 'email:write',
   'email.removeKeyword': 'email:write',
+  'email.updateKeywords': 'email:write',
   // Native keyword definitions are a deliberately narrow settings API: a
   // plugin can read definitions, append missing ones, or reorder the complete
   // existing set, but cannot overwrite or remove user-managed tags.
@@ -178,6 +242,8 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   // than a settings permission.
   'keywords.list': 'settings:read',
   'keywords.add': 'settings:write',
+  'keywords.update': 'settings:write',
+  'keywords.remove': 'settings:write',
   'keywords.reorder': 'settings:write',
   'keywords.discover': 'email:read',
   'keywords.getCounts': 'email:read',
@@ -193,6 +259,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   // message-list search: the plugin never sees the results, but it decides
   // which messages the list shows.
   'search.run': 'email:read',
+  'search.clear': 'email:read',
   // OAuth with a third party: a state value bound to this plugin, and the
   // redirect URI the provider sends the user back to.
   'oauth.createState': 'http:fetch',
@@ -208,9 +275,26 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'ui.setActions': null,
   // Ask the rows again for onEmailListItemRender badges (rate limited).
   'ui.refreshRowBadges': null,
+  'ui.setListFilters': 'ui:message-list',
   'ui.setDayLabels': 'ui:calendar-action',
+  // A print style the user may pick for printouts: sanitised CSS and a
+  // plain-text letterhead, applied only to printouts and only when picked.
+  'ui.registerPrintTheme': null,
+  'ui.unregisterPrintTheme': null,
   'ui.setPages': 'ui:app-page',
+  // Move the tab to one of the plugin's own pages (never anywhere else).
+  'ui.openPage': 'ui:app-page',
+  // A view of the calendar; the view's own permission is checked per call
+  // (the task view: ui:tasks or tasks:read; the others: ui:calendar-action
+  // or calendar:read).
+  'ui.openCalendar': null,
+  // A task in Bulwark's task editor; ui:tasks or tasks:read, checked per call.
+  'ui.openTask': null,
+  // Opening a message shows its content, as reading it does.
+  'ui.openEmail': 'email:read',
   'ui.setSectionTitle': 'ui:sidebar-widget',
+  // The button and header of the plugin's side-panel slot beside the mail.
+  'ui.setSidePanel': 'ui:sidebar-widget',
   // Open, close or toggle the panel the plugin's slot sits in; the panel's
   // own permission is checked per call (see the slot catalogue).
   'ui.setPanel': null,
@@ -233,6 +317,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'tasks.create': 'tasks:write',
   'tasks.update': 'tasks:write',
   'tasks.setComplete': 'tasks:write',
+  'tasks.acknowledgeAlert': 'tasks:write',
   'tasks.delete': 'tasks:write',
   // message templates
   'templates.list': 'templates:read',
@@ -248,6 +333,7 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   // reading mail: one message with its text, a page of a folder, the folders
   'email.get': 'email:read',
   'email.list': 'email:read',
+  'email.search': 'email:read',
   'mailboxes.list': 'email:read',
   // The bytes of one attachment of a given message, or of the message
   // itself. Unlike jmap.fetchBlob these only reach blobs of a message the
@@ -257,6 +343,9 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   // Moving messages between the account's folders, archive included.
   'email.move': 'email:write',
   'email.archive': 'email:write',
+  // Forward a message with its attachments, without the composer. The
+  // host asks the user before the first forward to each address.
+  'email.forward': 'email:forward',
   // Open the composer filled in; the user still decides whether to send.
   'compose.open': 'compose:open',
   // Reply to the message open in the reader, with text to start from.
@@ -267,11 +356,24 @@ export const PERM_PER_METHOD: Readonly<Record<string, Permission | null>> = {
   'notifications.show': 'ui:notifications',
   // The message being written, in a composer that handed the plugin its id.
   'composer.getBody': 'compose:read',
+  'composer.getSnapshot': 'compose:read',
+  'composer.readAttachment': 'email:blob-read',
   'composer.getSelection': 'compose:read',
   'composer.replaceSelection': 'compose:write',
   'composer.replaceBody': 'compose:write',
+  // The subject, as plain text, like an edit of the body.
+  'composer.setSubject': 'compose:write',
   // Attach a file the plugin uploaded (jmap.uploadBlob).
   'composer.attach': 'email:blob-write',
+  // Text checkers (checkers.ts): compose:check for one the host sends text
+  // to while the user types, compose:read for one that checks when asked.
+  // host-api-checker.ts checks which, by the checker's mode.
+  'composer.registerChecker': null,
+  'composer.updateChecker': null,
+  'composer.recheck': null,
+  'composer.unregisterChecker': null,
+  'composer.getCheckText': null,
+  'composer.setAnnotations': null,
 };
 
 // ─── Cross-origin allow-list (mirrors lib/plugin-api.ts) ──────
@@ -398,6 +500,23 @@ function doUserGetIdentities(): Identity[] {
 
 async function doUserLogout(): Promise<void>{
   return useAuthStore.getState().logout();
+}
+
+/**
+ * "Return to my account" for a plugin's impersonation banner (#1538): the
+ * same POST /api/auth/impersonate/return as the core strip, falling back to
+ * signing out when the server has nothing to return to. The plugin learns
+ * nothing from it; the session it returns to stays on the server. Refused
+ * outside an impersonated session, so the permission is no way to sign the
+ * user out, and in a pop-out, which doesn't own the account list.
+ */
+async function doUserReturnToOwnAccount(): Promise<void> {
+  if (isPopoutWindow()) throw new Error('user.returnToOwnAccount: not available in a pop-out window');
+  const accounts = useAccountStore.getState();
+  if (!accounts.getActiveAccount()?.impersonated) {
+    throw new Error('user.returnToOwnAccount: the session is not an impersonation');
+  }
+  await returnToOwnAccount();
 }
 
 // ─── http.post (same-origin /api/*) ───────────────────────────
@@ -654,6 +773,10 @@ async function readCapped(res: Response, limit: number): Promise<ArrayBuffer> {
 }
 
 async function doHttpFetch(plugin: InstalledPlugin, rawUrl: string, init?: PluginFetchInit) {
+  // Such a plugin isn't started in the no-third-party mode; this is the
+  // second lock in case one runs anyway (#903). A plugin the mode lets run
+  // (admin-entered servers through the proxy) has no outside fetch either.
+  if (noThirdPartyTraffic()) throw new Error('Outside requests are off: this server does not contact outside services');
   if (typeof rawUrl !== 'string') throw new Error('url must be a string');
   let url: URL;
   try { url = new URL(rawUrl); } catch { throw new Error('url must be absolute https://'); }
@@ -756,6 +879,8 @@ async function doJmapUploadBlob(content: unknown, name: unknown, type: unknown):
 interface JmapSubmitRawOptions {
   delayedUntil?: string;
   envelopeRecipients?: string[];
+  /** The `labelToken` of the onComposeSend request this send completes. */
+  labelToken?: string;
 }
 
 /**
@@ -767,6 +892,7 @@ async function doJmapSendRaw(
   rawBytes: ArrayBuffer | ArrayBufferView,
   identityId: string,
   opts?: JmapSubmitRawOptions,
+  pluginId = '',
 ): Promise<unknown> {
   if (typeof identityId !== 'string' || !identityId) throw new Error('jmap.sendRaw: identityId required');
   const { client } = useAuthStore.getState();
@@ -778,13 +904,18 @@ async function doJmapSendRaw(
   // ArrayBuffer (not SharedArrayBuffer) — also detaches from the caller's view.
   const copy = new Uint8Array(view.byteLength);
   copy.set(view);
-  const blob = new Blob([copy.buffer], { type: 'message/rfc822' });
+  // The classification label goes into the top-level header block, outside
+  // what the plugin signed or encrypted (lib/outgoing/classification-raw.ts).
+  const labelled = labelRawSend(copy, identityId, opts?.labelToken);
+  const blob = new Blob([labelled.buffer as ArrayBuffer], { type: 'message/rfc822' });
   return useEmailStore.getState().sendRawEmail(
     client,
     blob,
     identityId,
     opts?.delayedUntil,
     opts?.envelopeRecipients,
+    // Completing the composer's send: offline mode may keep it (#523).
+    { outbox: completesComposeTakeover(pluginId, identityId) },
   );
 }
 
@@ -796,6 +927,7 @@ async function doJmapSubmitRaw(
   rawBytes: ArrayBuffer | ArrayBufferView,
   identityId: string,
   opts?: JmapSubmitRawOptions,
+  pluginId = '',
 ): Promise<unknown> {
   if (typeof identityId !== 'string' || !identityId) {
     throw new Error('jmap.submitRaw: identityId required');
@@ -812,7 +944,14 @@ async function doJmapSubmitRaw(
   
   const copy = new Uint8Array(view.byteLength);
   copy.set(view);
-  const blob = new Blob([copy.buffer], { type: 'message/rfc822' });
+  const labelled = labelRawSend(copy, identityId, opts?.labelToken);
+  const blob = new Blob([labelled.buffer as ArrayBuffer], { type: 'message/rfc822' });
+
+  // Completing the composer's send while offline: kept in the outbox (#523).
+  const outbox = completesComposeTakeover(pluginId, identityId) ? getOutboxHooks() : null;
+  if (outbox?.shouldQueue(client)) {
+    return outbox.queueRaw(client, blob, { identityId, delayedUntil: opts?.delayedUntil, envelopeRecipients: opts?.envelopeRecipients, submitOnly: true });
+  }
 
   return client.submitRawEmail(
     blob,
@@ -862,10 +1001,17 @@ async function doJmapImportRaw(
   copy.set(view);
   const blob = new Blob([copy.buffer], { type: 'message/rfc822' });
 
+  // Stalwart 1.0 sets the attachment keyword an imported message deserves and
+  // keeps any other it is given: a `$hasattachment` from the plugin would make
+  // `hasAttachment` true for a message without attachments.
+  const keywords = opts?.keywords
+    ? Object.fromEntries(Object.entries(opts.keywords).filter(([keyword]) => !isServerSetKeyword(keyword)))
+    : undefined;
+
   return client.importRawEmail(
     blob,
     mailboxIds,
-    opts?.keywords,
+    keywords,
     opts?.accountId,
   );
 }
@@ -1149,6 +1295,8 @@ export interface WkdResult {
 }
 
 export async function doGetPublicKeyFromWKD(email: string): Promise<WkdResult> {
+  // The lookup goes to the recipient's domain: off with third-party traffic (#903).
+  if (!wkdAllowed()) return { status: 'ERROR', error: 'Key lookups at other domains are off on this server' };
   const cleanEmail = email.trim();
   const atIndex = cleanEmail.lastIndexOf('@');
   
@@ -1254,16 +1402,14 @@ async function downloadFile(args: { content: string | ArrayBuffer | Uint8Array; 
   if (typeof content !== 'string' && !(content instanceof ArrayBuffer) && !(content instanceof Uint8Array)) {
     throw new Error('ui.downloadFile: content must be a string or bytes');
   }
-  const url = URL.createObjectURL(new Blob([content as BlobPart], { type: contentType }));
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.rel = 'noopener';
-  document.body.appendChild(a);
-  a.click();
-  document.body.removeChild(a);
-  // Revoking at once can cancel the download in some browsers.
-  setTimeout(() => URL.revokeObjectURL(url), 60_000);
+  // A plugin that can read attachments or raw mail could hand them out
+  // here: refused while any signed-in account's device policy turns
+  // downloads or export off (Organisation > Devices).
+  if (!downloadAllowed('attachment') || !downloadAllowed('export')) {
+    throw new Error('ui.downloadFile: downloads are turned off by the organisation');
+  }
+  // Revoking at once can cancel the download in some browsers (saveBlobAs waits a minute).
+  saveBlobAs(new Blob([content as BlobPart], { type: contentType }), filename, { kind: 'attachment' });
 }
 
 // ─── Email keyword mutations ──────────────────────────────────
@@ -1276,7 +1422,28 @@ function assertPluginKeyword(keyword: unknown): string {
   if (typeof keyword !== 'string' || !PLUGIN_KEYWORD_RE.test(keyword)) {
     throw new Error(`Invalid JMAP keyword "${String(keyword)}"`);
   }
+  // Stalwart 1.0 derives hasAttachment from these; adding or removing one
+  // would misreport the message.
+  if (isServerSetKeyword(keyword)) {
+    throw new Error(`JMAP keyword "${keyword}" is set by the server`);
+  }
   return keyword;
+}
+
+/**
+ * Keywords that change what the app and the server do with a message, not
+ * just how it is labelled: a draft opens in the composer, $junk and
+ * $notjunk train the spam filter, $phishing hides the content. The
+ * email.* keyword methods leave them to the app's own actions.
+ */
+const PROTECTED_KEYWORDS = new Set(['$draft', '$junk', '$notjunk', '$phishing']);
+
+function assertMailKeyword(keyword: unknown): string {
+  const checked = assertPluginKeyword(keyword);
+  if (PROTECTED_KEYWORDS.has(checked.toLowerCase())) {
+    throw new Error(`JMAP keyword "${checked}" can't be changed by a plugin`);
+  }
+  return checked;
 }
 
 function assertPluginKeywords(value: unknown): Record<string, true> {
@@ -1319,10 +1486,83 @@ function requireClient() {
   return client;
 }
 
+/** Most keywords one email.updateKeywords call changes. */
+export const MAX_PLUGIN_KEYWORD_CHANGES = 20;
+
+/**
+ * Set (true) and clear (false) several keywords of one message in one
+ * Email/set, so a swap (one assignee for another) never leaves both or
+ * neither. A message listed in the open view, or the open one, changes
+ * through the list as the app's own actions do: the row shows the new
+ * keywords at once and the keyword hooks run. Another message is changed on
+ * the server only. `accountId` names the message's account (a click's
+ * context carries it for team and shared mailboxes); without it the
+ * signed-in account's.
+ */
+async function doEmailUpdateKeywords(emailIdArg: unknown, changesArg: unknown, accountArg: unknown): Promise<boolean> {
+  const method = 'email.updateKeywords';
+  const emailId = assertEmailId(emailIdArg, method);
+  if (!isPlainObject(changesArg)) throw new Error(`${method}: changes must be an object of keyword: true | false`);
+  const entries = Object.entries(changesArg);
+  if (entries.length > MAX_PLUGIN_KEYWORD_CHANGES) throw new Error(`${method}: at most ${MAX_PLUGIN_KEYWORD_CHANGES} keywords at once`);
+  const changes: Record<string, boolean> = {};
+  for (const [keyword, value] of entries) {
+    assertMailKeyword(keyword);
+    if (typeof value !== 'boolean') throw new Error(`${method}: keyword "${keyword}" must be true (set) or false (clear)`);
+    changes[keyword] = value;
+  }
+  const accountId = assertOptionalAccountId(accountArg, method);
+  if (entries.length === 0) return true;
+  const client = requireClient();
+  const own = client.getAccountId();
+  const wanted = accountId && accountId !== own ? accountId : undefined;
+  const state = useEmailStore.getState();
+  const isTarget = (email: Email) => {
+    if (email.id !== emailId) return false;
+    const owner = resolveEmailBlobContext(email, client);
+    if (owner.client !== client) return false;
+    return (owner.accountId && owner.accountId !== own ? owner.accountId : undefined) === wanted;
+  };
+  const row = [...state.emails, ...(state.selectedEmail ? [state.selectedEmail] : [])].find(isTarget);
+  let done = true;
+  if (row) {
+    done = await state.patchEmailKeywords(client, emailId, changes, emailKeyFor(row));
+  } else {
+    const patch = Object.fromEntries(Object.entries(changes).map(([keyword, value]) => [keywordPointer(keyword), value ? true : null]));
+    await client.batchUpdateKeywords([emailId], patch, wanted);
+  }
+  if (done) patchThreadCache(isTarget, changes);
+  return done;
+}
+
+/**
+ * The same change on the messages of expanded conversations
+ * (threadEmailsCache), whose inner rows patchEmailKeywords doesn't touch.
+ */
+function patchThreadCache(isTarget: (email: Email) => boolean, changes: Record<string, boolean>): void {
+  useEmailStore.setState((state) => {
+    let cache: Map<string, Email[]> | null = null;
+    for (const [key, members] of state.threadEmailsCache) {
+      if (!members.some(isTarget)) continue;
+      cache ??= new Map(state.threadEmailsCache);
+      cache.set(key, members.map((email) => {
+        if (!isTarget(email)) return email;
+        const keywords = { ...email.keywords };
+        for (const [keyword, on] of Object.entries(changes)) {
+          if (on) keywords[keyword] = true;
+          else delete keywords[keyword];
+        }
+        return { ...email, keywords };
+      }));
+    }
+    return cache ? { threadEmailsCache: cache } : {};
+  });
+}
+
 // ─── Native keyword definitions ──────────────────────────────
 
 const MAX_PLUGIN_KEYWORD_DEFINITIONS = 500;
-const MAX_PLUGIN_KEYWORD_LABEL_LENGTH = 255;
+const MAX_PLUGIN_KEYWORD_LABEL_LENGTH = MAX_KEYWORD_LABEL_LENGTH;
 const VALID_VISIBILITIES = new Set<KeywordVisibility>(['show', 'hide', 'unread']);
 
 type PluginKeywordDefinitionInput = Omit<KeywordDefinition, 'color'> & { color?: string };
@@ -1331,26 +1571,17 @@ function isPlainObject(value: unknown): value is Record<string, unknown> {
   return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
-/** RFC 8621 keyword syntax, applied to the complete `$label:<id>` value. */
-function isValidKeywordDefinitionId(id: string): boolean {
-  const keyword = KEYWORD_PREFIX + id;
-  if (id.length === 0 || keyword.length > MAX_KEYWORD_LENGTH) return false;
-  for (let i = 0; i < keyword.length; i++) {
-    const code = keyword.charCodeAt(i);
-    if (
-      code < 0x21 || code > 0x7e ||
-      code === 0x28 || code === 0x29 || code === 0x7b || code === 0x7d ||
-      code === 0x5d || code === 0x25 || code === 0x2a || code === 0x22 || code === 0x5c
-    ) {
-      return false;
-    }
-  }
-  return true;
-}
+/** The fields of a definition a plugin may set; keywords.update sends only the ones it changes. */
+type PluginKeywordPatch = Pick<KeywordDefinition, 'id'> &
+  Partial<Pick<KeywordDefinition, 'label' | 'color' | 'visibility'>>;
 
-function assertKeywordDefinition(value: unknown, index: number): PluginKeywordDefinitionInput {
+function assertKeywordFields(
+  value: unknown,
+  index: number,
+  method: 'keywords.add' | 'keywords.update',
+): PluginKeywordPatch {
   if (!isPlainObject(value)) {
-    throw new Error(`keywords.add: definitions[${index}] must be an object`);
+    throw new Error(`${method}: definitions[${index}] must be an object`);
   }
 
   const id = value.id;
@@ -1359,32 +1590,50 @@ function assertKeywordDefinition(value: unknown, index: number): PluginKeywordDe
   const visibility = value.visibility;
 
   if (typeof id !== 'string' || !isValidKeywordDefinitionId(id)) {
-    throw new Error(`keywords.add: definitions[${index}].id is not a valid JMAP label id`);
+    throw new Error(`${method}: definitions[${index}].id is not a valid JMAP label id`);
   }
+  // add needs a label; update leaves an omitted one as it is.
   if (
-    typeof label !== 'string' || label.trim().length === 0 ||
-    label.length > MAX_PLUGIN_KEYWORD_LABEL_LENGTH
+    (label !== undefined || method === 'keywords.add') &&
+    (typeof label !== 'string' || label.trim().length === 0 ||
+      label.length > MAX_PLUGIN_KEYWORD_LABEL_LENGTH)
   ) {
     throw new Error(
-      `keywords.add: definitions[${index}].label must be 1-${MAX_PLUGIN_KEYWORD_LABEL_LENGTH} characters`,
+      `${method}: definitions[${index}].label must be 1-${MAX_PLUGIN_KEYWORD_LABEL_LENGTH} characters`,
     );
   }
+  // Palette keys only. A tag the user coloured in settings may hold a custom
+  // #rrggbb, which keywords.list passes on as stored.
   if (
     color !== undefined &&
     (typeof color !== 'string' || !Object.prototype.hasOwnProperty.call(KEYWORD_PALETTE, color))
   ) {
-    throw new Error(`keywords.add: definitions[${index}].color is not in the keyword palette`);
+    throw new Error(`${method}: definitions[${index}].color is not in the keyword palette`);
   }
   if (visibility !== undefined && !VALID_VISIBILITIES.has(visibility as KeywordVisibility)) {
-    throw new Error(`keywords.add: definitions[${index}].visibility is invalid`);
+    throw new Error(`${method}: definitions[${index}].visibility is invalid`);
   }
 
   return {
     id,
-    label: label.trim(),
+    ...(typeof label === 'string' ? { label: label.trim() } : {}),
     ...(color === undefined ? {} : { color }),
     ...(visibility === undefined ? {} : { visibility: visibility as KeywordVisibility }),
   };
+}
+
+function assertKeywordDefinition(value: unknown, index: number): PluginKeywordDefinitionInput {
+  const { label, ...rest } = assertKeywordFields(value, index, 'keywords.add');
+  // assertKeywordFields requires the label for add.
+  return { ...rest, label: label as string };
+}
+
+function assertKeywordPatch(value: unknown, index: number): PluginKeywordPatch {
+  const patch = assertKeywordFields(value, index, 'keywords.update');
+  if (patch.label === undefined && patch.color === undefined && patch.visibility === undefined) {
+    throw new Error(`keywords.update: definitions[${index}] changes nothing; give a label, color or visibility`);
+  }
+  return patch;
 }
 
 function assertKeywordDefinitionArray(value: unknown): PluginKeywordDefinitionInput[] {
@@ -1395,11 +1644,34 @@ function assertKeywordDefinitionArray(value: unknown): PluginKeywordDefinitionIn
   return value.map(assertKeywordDefinition);
 }
 
+function assertKeywordPatchArray(value: unknown): PluginKeywordPatch[] {
+  if (!Array.isArray(value)) throw new Error('keywords.update: definitions must be an array');
+  if (value.length > MAX_PLUGIN_KEYWORD_DEFINITIONS) {
+    throw new Error(`keywords.update: at most ${MAX_PLUGIN_KEYWORD_DEFINITIONS} definitions may be updated at once`);
+  }
+  return value.map(assertKeywordPatch);
+}
+
+function assertKeywordIdArray(value: unknown, method: string): string[] {
+  if (
+    !Array.isArray(value) || value.length > MAX_PLUGIN_KEYWORD_DEFINITIONS ||
+    value.some((id) => typeof id !== 'string')
+  ) {
+    throw new Error(`${method}: ids must be an array of at most ${MAX_PLUGIN_KEYWORD_DEFINITIONS} strings`);
+  }
+  return value;
+}
+
 function doKeywordsList(): KeywordDefinition[] {
   return useSettingsStore.getState().emailKeywords.map((keyword) => ({ ...keyword }));
 }
 
-function doKeywordsAdd(value: unknown): { added: KeywordDefinition[]; skipped: string[] } {
+/** Whether keywords.update and keywords.remove may touch this definition: only the plugin's own. */
+function isOwnKeyword(plugin: InstalledPlugin, keyword: KeywordDefinition): boolean {
+  return keyword.addedBy === plugin.id;
+}
+
+function doKeywordsAdd(plugin: InstalledPlugin, value: unknown): { added: KeywordDefinition[]; skipped: string[] } {
   const definitions = assertKeywordDefinitionArray(value);
   const existing = useSettingsStore.getState().emailKeywords;
   const known = new Set(existing.map((keyword) => keyword.id.toLowerCase()));
@@ -1416,18 +1688,66 @@ function doKeywordsAdd(value: unknown): { added: KeywordDefinition[]; skipped: s
     known.add(foldedId);
     const color = definition.color ?? suggestKeywordColor(definition.id, takenColors);
     takenColors.add(color);
-    added.push({ ...definition, color });
+    added.push({ ...definition, color, addedBy: plugin.id });
   }
 
   if (added.length > 0) {
     // One atomic append keeps concurrent plugin calls from partially
     // overwriting the list and triggers the normal persist/settings-sync path.
+    // A plugin's tags make the list chosen, so no admin default wipes them.
     useSettingsStore.setState((state) => ({
       emailKeywords: [...state.emailKeywords, ...added],
+      ...emailKeywordsChosenPatch(state),
     }));
   }
 
   return { added: added.map((keyword) => ({ ...keyword })), skipped };
+}
+
+function doKeywordsUpdate(plugin: InstalledPlugin, value: unknown): { updated: KeywordDefinition[]; skipped: string[] } {
+  const patches = assertKeywordPatchArray(value);
+  const byId = new Map(patches.map((patch) => [patch.id.toLowerCase(), patch]));
+  let updated: KeywordDefinition[] = [];
+
+  // Read and write in one functional update, as reorder does, so a concurrent
+  // settings write is not overwritten by a list built from an older state.
+  useSettingsStore.setState((state) => {
+    updated = [];
+    const emailKeywords = state.emailKeywords.map((keyword) => {
+      const patch = isOwnKeyword(plugin, keyword) ? byId.get(keyword.id.toLowerCase()) : undefined;
+      if (!patch) return keyword;
+      // The id is what the messages carry, so it never changes here.
+      const next = { ...keyword, ...patch, id: keyword.id };
+      updated.push(next);
+      return next;
+    });
+    return updated.length > 0 ? { emailKeywords, ...emailKeywordsChosenPatch(state) } : state;
+  });
+
+  const done = new Set(updated.map((keyword) => keyword.id.toLowerCase()));
+  const skipped = patches.filter((patch) => !done.has(patch.id.toLowerCase())).map((patch) => patch.id);
+  return { updated: updated.map((keyword) => ({ ...keyword })), skipped };
+}
+
+function doKeywordsRemove(plugin: InstalledPlugin, value: unknown): { removed: string[]; skipped: string[] } {
+  const ids = assertKeywordIdArray(value, 'keywords.remove');
+  const wanted = new Set(ids.map((id) => id.toLowerCase()));
+  let removed: string[] = [];
+
+  // Drops the definitions only, as Settings → Tags does; the keywords on
+  // messages stay (jmap.setKeywords removes those, with email:write).
+  useSettingsStore.setState((state) => {
+    removed = [];
+    const emailKeywords = state.emailKeywords.filter((keyword) => {
+      const drop = isOwnKeyword(plugin, keyword) && wanted.has(keyword.id.toLowerCase());
+      if (drop) removed.push(keyword.id);
+      return !drop;
+    });
+    return removed.length > 0 ? { emailKeywords, ...emailKeywordsChosenPatch(state) } : state;
+  });
+
+  const done = new Set(removed.map((id) => id.toLowerCase()));
+  return { removed, skipped: ids.filter((id) => !done.has(id.toLowerCase())) };
 }
 
 function doKeywordsReorder(value: unknown, rawOptions?: unknown): KeywordDefinition[] {
@@ -1483,7 +1803,7 @@ function doKeywordsReorder(value: unknown, rawOptions?: unknown): KeywordDefinit
     // Reuse the existing definitions verbatim so ordering cannot change a
     // label's name, colour, visibility, id casing, or any future metadata.
     result = reordered;
-    return { emailKeywords: reordered };
+    return { emailKeywords: reordered, ...emailKeywordsChosenPatch(state) };
   });
   return result.map((keyword) => ({ ...keyword }));
 }
@@ -1535,7 +1855,13 @@ async function doJmapGetKeywords(value?: unknown) {
 }
 
 async function doKeywordsDiscover(value?: unknown) {
-  return requireClient().discoverKeywords(keywordDiscoveryOptions(value, 'keywords.discover'));
+  const scan = await requireClient().discoverKeywords(keywordDiscoveryOptions(value, 'keywords.discover'));
+  // Stalwart 1.0 puts an attachment keyword on every message. Nobody applied
+  // it, and the plugin keyword API refuses to set or remove it.
+  return {
+    ...scan,
+    keywords: Object.fromEntries(Object.entries(scan.keywords).filter(([keyword]) => !isServerSetKeyword(keyword))),
+  };
 }
 
 async function doKeywordsRefreshCounts(): Promise<Record<string, { total: number; unread: number }>> {
@@ -1608,6 +1934,24 @@ async function doSearchRun(plugin: InstalledPlugin, query: unknown, options: unk
   await store.advancedSearch(client);
 }
 
+/**
+ * End the plugin's own search: its chip goes, as with the chip's ✕. Filters
+ * the user added on top stay and the search runs again with them; with
+ * nothing left it clears as "clear all" does, so the folder's list shows
+ * again. A search the user typed or another plugin ran stays. Resolves
+ * whether it ended one.
+ */
+async function doSearchClear(plugin: InstalledPlugin): Promise<boolean> {
+  const store = useEmailStore.getState();
+  if (store.searchFilters.pluginFilter?.pluginId !== plugin.id) return false;
+  const client = requireClient();
+  store.setSearchFilters({ pluginFilter: null });
+  const rest = useEmailStore.getState();
+  if (!rest.searchQuery.trim() && isFilterEmpty(rest.searchFilters)) rest.clearSearchFilters();
+  await useEmailStore.getState().advancedSearch(client);
+  return true;
+}
+
 // ─── Sieve (delivery-time classification) ─────────────────────
 
 async function doSieveGetActiveScript(): Promise<{ id: string; name: string; content: string } | null> {
@@ -1638,11 +1982,31 @@ async function doSieveRegenerate(): Promise<void> {
 
 // ─── admin config (same as before) ────────────────────────────
 
+/**
+ * The plugin's admin settings without its secrets, also when this browser
+ * holds an admin session: the route hands an admin every field, and a
+ * plugin read the Safe Browsing key that way. Secrets go only to the server
+ * proxy (api.proxy), never into a plugin frame.
+ */
 async function adminGetAll(pluginId: string): Promise<Record<string, unknown>> {
-  const res = await apiFetch(`/api/admin/plugins/${encodeURIComponent(pluginId)}/config`);
+  const res = await apiFetch(`/api/admin/plugins/${encodeURIComponent(pluginId)}/config?public=1`);
   if (!res.ok) return {};
   return res.json();
 }
+/** The app a plugin runs in: product, the administrator's name for it, version, edition. */
+async function doAppGetInfo(): Promise<AppInfoView> {
+  let config: Awaited<ReturnType<typeof fetchConfig>> | null = null;
+  try { config = await fetchConfig(); } catch { config = null; }
+  return {
+    product: 'Bulwark Mail',
+    name: config?.appName || 'Webmail',
+    version: process.env.NEXT_PUBLIC_APP_VERSION || '',
+    edition: IS_LITE ? 'lite' : 'full',
+    stalwartFeatures: config?.stalwartFeaturesEnabled ?? true,
+    demoMode: config?.demoMode ?? false,
+  };
+}
+
 /** The zone the app shows times in: the user's choice, else the browser's. */
 function userTimeZone(): string {
   const setting = useSettingsStore.getState().timeZone;
@@ -1668,6 +2032,18 @@ async function adminSet(pluginId: string, key: string, value: unknown): Promise<
   }));
 }
 
+/**
+ * A server address an admin types for a credential (`originKey`) is what
+ * stays reachable with no third-party traffic: the plugin itself may not
+ * write it, or it could point its proxy at a host of its choosing.
+ */
+function refuseServerField(plugin: InstalledPlugin, key: unknown, method: string): void {
+  const serverFields = Object.values(plugin.credentials ?? {}).flatMap((spec) => (spec.scope === 'admin' && spec.originKey ? [spec.originKey] : []));
+  if (typeof key === 'string' && serverFields.includes(key)) {
+    throw new Error(`${method}: "${key}" is a server address only an administrator can set, on the plugin's admin page`);
+  }
+}
+
 /** A failed admin config write used to look like success to the plugin. */
 async function expectOk(method: string, request: Promise<Response>): Promise<void> {
   const res = await request;
@@ -1685,30 +2061,6 @@ async function adminDelete(pluginId: string, key: string): Promise<void> {
   }));
 }
 
-// ─── Toasts ──────────────────────────────────────────────────
-
-const MAX_TOAST_LENGTH = 300;
-const TOASTS_PER_TEN_SECONDS = 5;
-const recentToasts = new Map<string, number[]>();
-
-function toastText(value: unknown): string {
-  const text = String(value ?? '');
-  return text.length > MAX_TOAST_LENGTH ? text.slice(0, MAX_TOAST_LENGTH - 1) + '…' : text;
-}
-
-/** A plugin may show a few toasts; past that they are dropped, not queued. */
-function mayToast(pluginId: string): boolean {
-  const now = Date.now();
-  const recent = (recentToasts.get(pluginId) ?? []).filter((t) => now - t < 10_000);
-  if (recent.length >= TOASTS_PER_TEN_SECONDS) {
-    recentToasts.set(pluginId, recent);
-    return false;
-  }
-  recent.push(now);
-  recentToasts.set(pluginId, recent);
-  return true;
-}
-
 // ─── Dispatcher ──────────────────────────────────────────────
 
 /** Resolves an api-request method against the per-plugin permissions. */
@@ -1716,7 +2068,7 @@ export async function dispatchApiCall(
   plugin: InstalledPlugin,
   method: string,
   args: unknown[],
-  opts?: { privileged?: boolean; sink?: StreamSink },
+  opts?: { privileged?: boolean; sink?: StreamSink; toastSignal?: AbortSignal; frame?: 'background' | 'slot' },
 ): Promise<unknown> {
   // Tier gate: privileged-only methods are refused for untrusted (null-origin)
   // instances even if the permission is somehow present. Defence-in-depth on
@@ -1735,6 +2087,14 @@ export async function dispatchApiCall(
     throw new Error(`Unknown API method "${method}"`);
   }
 
+  // The AI assistant's methods; every other call goes on without waiting a tick.
+  if (method in ASSISTANT_PERMS) {
+    const assistant = await dispatchAssistant(plugin, method, args);
+    if (assistant !== NOT_MINE) return assistant;
+  }
+
+  if (method in KEYSTORE_PERMS) return doKeystoreCall(plugin, method, args);
+
   switch (method) {
     case 'proxy.fetch': return proxyFetch(plugin, args, opts?.sink ?? null);
     case 'proxy.cancel': proxyCancel(plugin, args[0]); return undefined;
@@ -1746,13 +2106,27 @@ export async function dispatchApiCall(
       const surface = args[0];
       if (typeof surface !== 'string' || !isActionSurface(surface)) throw new Error(`"${String(surface)}" is not a surface that takes actions`);
       if (!mayOfferSlot(plugin, surface)) throw new Error(`Plugin "${plugin.id}" may not add actions to "${surface}"`);
-      setPluginActions(plugin.id, plugin.name, surface, checkActions(args[1]));
+      const actions = checkActions(args[1]);
+      // Only a plugin that can sign or encrypt may say an entry does; a
+      // false claim would only pause proofreading, but keep the signal honest.
+      if (actions.some((a) => a.protects) && !pluginHasPermission(plugin, 'crypto:full') && !pluginHasPermission(plugin, 'email:raw-send')) {
+        throw new Error('protects needs the crypto:full or email:raw-send permission');
+      }
+      setPluginActions(plugin.id, plugin.name, surface, actions);
       return undefined;
     }
     case 'ui.refreshRowBadges': refreshRowBadges(); return undefined;
+    case 'ui.setListFilters': setPluginListFilters(plugin.id, plugin.name, checkListFilters(args[0])); return undefined;
     case 'ui.setDayLabels': setDayLabels(plugin.id, plugin.name, checkDayLabels(args[0])); return undefined;
+    case 'ui.registerPrintTheme': return registerPrintTheme(plugin.id, plugin.name, args[0]);
+    case 'ui.unregisterPrintTheme': unregisterPrintTheme(plugin.id, args[0]); return undefined;
     case 'ui.setPages': setPluginPages(plugin.id, plugin.name, checkPages(args[0])); return undefined;
+    case 'ui.openPage': return requestPageNavigation(plugin.id, args[0], args[1]);
+    case 'ui.openCalendar': return requestCalendarView(plugin, args[0]);
+    case 'ui.openTask': return requestOpenTask(plugin, args[0]);
+    case 'ui.openEmail': return requestOpenEmail(plugin, args[0]);
     case 'ui.setSectionTitle': setSectionTitle(plugin.id, args[0]); return undefined;
+    case 'ui.setSidePanel': setSidePanel(plugin.id, args[0]); return undefined;
     case 'ui.setPanel': {
       const slot = args[0];
       if (typeof slot !== 'string' || !mayOfferSlot(plugin, slot)) throw new Error(`Plugin "${plugin.id}" may not open the panel "${String(slot)}"`);
@@ -1764,10 +2138,12 @@ export async function dispatchApiCall(
     case 'storage.remove': storageRemove(plugin.id, args[0] as string); return undefined;
     case 'storage.keys': return storageKeys(plugin.id);
 
-    case 'toast.success': if (mayToast(plugin.id)) appToast.success(toastText(args[0])); return undefined;
-    case 'toast.error':   if (mayToast(plugin.id)) appToast.error(toastText(args[0])); return undefined;
-    case 'toast.info':    if (mayToast(plugin.id)) appToast.info(toastText(args[0])); return undefined;
-    case 'toast.warning': if (mayToast(plugin.id)) appToast.warning(toastText(args[0])); return undefined;
+    case 'toast.success': showPluginToast(plugin, 'success', args[0]); return undefined;
+    case 'toast.error': showPluginToast(plugin, 'error', args[0]); return undefined;
+    case 'toast.info': showPluginToast(plugin, 'info', args[0]); return undefined;
+    case 'toast.warning': showPluginToast(plugin, 'warning', args[0]); return undefined;
+    case 'toast.progress': return showPluginProgressToast(plugin, args[0], opts?.toastSignal);
+    case 'toast.dismiss': dismissPluginToast(plugin.id, args[0], opts?.toastSignal); return undefined;
 
     case 'http.post':  return doHttpPost(plugin, args[0] as string, args[1], args[2] as PluginHttpPostOptions | undefined);
     case 'http.fetch': return doHttpFetch(plugin, args[0] as string, args[1] as PluginFetchInit | undefined);
@@ -1777,12 +2153,14 @@ export async function dispatchApiCall(
     case 'jmap.sendRaw':   return doJmapSendRaw(
       args[0] as ArrayBuffer | ArrayBufferView,
       args[1] as string,
-      args[2] as { delayedUntil?: string; envelopeRecipients?: string[] } | undefined,
+      args[2] as JmapSubmitRawOptions | undefined,
+      plugin.id,
     );
     case 'jmap.submitRaw': return doJmapSubmitRaw(
       args[0] as ArrayBuffer | ArrayBufferView,
       args[1] as string,
-      args[2] as { delayedUntil?: string; envelopeRecipients?: string[] } | undefined,
+      args[2] as JmapSubmitRawOptions | undefined,
+      plugin.id,
     );
     case 'jmap.importRaw': return doJmapImportRaw(
       args[0] as ArrayBuffer | ArrayBufferView,
@@ -1837,55 +2215,70 @@ export async function dispatchApiCall(
     case 'addressbook.create': return doAddressBookCreate(args[0] as string);
 
     case 'user.getAccounts':   return doUserGetAccounts();
+    case 'user.getSelf':       return doUserGetSelf();
+    case 'user.getMailAccounts': return doUserGetMailAccounts();
+    case 'user.findPeople':    return doUserFindPeople(plugin, args[0]);
+    case 'accountData.get':    return doAccountDataGet(plugin, args[0]);
+    case 'accountData.set':    return doAccountDataSet(plugin, args[0], args[1]);
     case 'user.getIdentities': return doUserGetIdentities();
     case 'user.getTimeZone': return userTimeZone();
+    case 'app.getInfo': return doAppGetInfo();
+    case 'app.searchSettings': return doAppSearchSettings(args[0], args[1]);
+    case 'app.getSettings': return doAppGetSettings();
     case 'user.logout' : return doUserLogout();
+    case 'user.returnToOwnAccount': return doUserReturnToOwnAccount();
 
     case 'admin.getConfig':    return adminGet(plugin.id, args[0] as string);
     case 'admin.getAllConfig': return adminGetAll(plugin.id);
     case 'plugin.getConfig':   return publicConfig(plugin.id);
-    case 'admin.setConfig':    await adminSet(plugin.id, args[0] as string, args[1]); return undefined;
-    case 'admin.deleteConfig': await adminDelete(plugin.id, args[0] as string); return undefined;
+    case 'admin.setConfig':    refuseServerField(plugin, args[0], 'admin.setConfig'); await adminSet(plugin.id, args[0] as string, args[1]); return undefined;
+    case 'admin.deleteConfig': refuseServerField(plugin, args[0], 'admin.deleteConfig'); await adminDelete(plugin.id, args[0] as string); return undefined;
 
+    // The dialog cases take text only where they expect text (anything else
+    // gets the default); host-dialog.ts cuts the lengths, the number of
+    // prompt fields and the width before the dialog is queued.
     case 'ui.confirm': {
-      const opts = (args[0] ?? {}) as { title?: string; message?: string; confirmLabel?: string; cancelLabel?: string; danger?: boolean };
+      const opts = (args[0] ?? {}) as { title?: unknown; message?: unknown; confirmLabel?: unknown; cancelLabel?: unknown; danger?: boolean };
       return awaitDialog({
         pluginId: plugin.id,
         kind: 'confirm',
-        title: String(opts.title ?? plugin.name ?? 'Confirm'),
-        message: String(opts.message ?? ''),
+        title: typeof opts.title === 'string' ? opts.title : (plugin.name ?? 'Confirm'),
+        message: typeof opts.message === 'string' ? opts.message : '',
         confirmLabel: typeof opts.confirmLabel === 'string' ? opts.confirmLabel : undefined,
         cancelLabel: typeof opts.cancelLabel === 'string' ? opts.cancelLabel : undefined,
         danger: !!opts.danger,
       });
     }
     case 'ui.alert': {
-      const opts = (args[0] ?? {}) as { title?: string; message?: string; confirmLabel?: string };
+      const opts = (args[0] ?? {}) as { title?: unknown; message?: unknown; confirmLabel?: unknown };
       await awaitDialog({
         pluginId: plugin.id,
         kind: 'alert',
-        title: String(opts.title ?? plugin.name ?? 'Notice'),
-        message: String(opts.message ?? ''),
+        title: typeof opts.title === 'string' ? opts.title : (plugin.name ?? 'Notice'),
+        message: typeof opts.message === 'string' ? opts.message : '',
         confirmLabel: typeof opts.confirmLabel === 'string' ? opts.confirmLabel : undefined,
       });
       return undefined;
     }
     case 'ui.prompt': {
-      const opts = (args[0] ?? {}) as { title?: string; message?: string; confirmLabel?: string; cancelLabel?: string; fields?: PromptField[] };
+      const opts = (args[0] ?? {}) as { title?: unknown; message?: unknown; confirmLabel?: unknown; cancelLabel?: unknown; fields?: unknown };
+      // A field needs a name; only the known parts of it are kept.
       const fields: PromptField[] = Array.isArray(opts.fields)
-        ? opts.fields.map((f) => ({
-            name: String(f.name),
-            label: String(f.label),
-            type: f.type === 'password' ? 'password' : 'text',
-            placeholder: typeof f.placeholder === 'string' ? f.placeholder : undefined,
-            required: !!f.required,
-          }))
+        ? opts.fields
+            .filter((f): f is Record<string, unknown> => !!f && typeof f === 'object' && typeof (f as { name?: unknown }).name === 'string')
+            .map((f) => ({
+              name: f.name as string,
+              label: typeof f.label === 'string' ? f.label : '',
+              type: f.type === 'password' ? 'password' : 'text',
+              placeholder: typeof f.placeholder === 'string' ? f.placeholder : undefined,
+              required: !!f.required,
+            }))
         : [];
       return awaitPrompt({
         pluginId: plugin.id,
         kind: 'prompt',
-        title: String(opts.title ?? plugin.name ?? 'Enter details'),
-        message: String(opts.message ?? ''),
+        title: typeof opts.title === 'string' ? opts.title : (plugin.name ?? 'Enter details'),
+        message: typeof opts.message === 'string' ? opts.message : '',
         confirmLabel: typeof opts.confirmLabel === 'string' ? opts.confirmLabel : undefined,
         cancelLabel: typeof opts.cancelLabel === 'string' ? opts.cancelLabel : undefined,
         fields,
@@ -1896,17 +2289,22 @@ export async function dispatchApiCall(
       // real app-root overlay, instead of a fixed confirm/prompt form - see
       // the 'plugin-dialog' SlotName / host-dialog.ts comments for why this
       // exists (a small toolbar/row slot can't show a large custom UI).
-      const opts = (args[0] ?? {}) as { title?: string; slot?: string; extraProps?: Record<string, unknown>; width?: number };
+      const opts = (args[0] ?? {}) as { title?: unknown; slot?: string; extraProps?: Record<string, unknown>; width?: number; fill?: boolean; anchor?: unknown };
       if (!opts.slot || typeof opts.slot !== 'string') {
         throw new Error('ui.openDialog requires a "slot" name');
       }
       return awaitCustomDialog({
         pluginId: plugin.id,
-        title: String(opts.title ?? plugin.name ?? ''),
+        title: typeof opts.title === 'string' ? opts.title : (plugin.name ?? ''),
         message: '',
         slot: opts.slot,
         extraProps: (opts.extraProps && typeof opts.extraProps === 'object') ? opts.extraProps : {},
         width: typeof opts.width === 'number' ? opts.width : undefined,
+        ...(opts.fill === true ? { fill: true } : {}),
+        // Next to what the user just clicked, when the plugin asks and there
+        // was such a click; the place is the host's, never the plugin's. With
+        // fill the popover takes the filled dialog's height.
+        anchor: opts.anchor === 'trigger' ? triggerAnchor() ?? undefined : undefined,
       });
     }
     case 'ui.rerenderEmail': {
@@ -1933,11 +2331,19 @@ export async function dispatchApiCall(
       if (parsed.protocol !== 'http:' && parsed.protocol !== 'https:') {
         throw new Error(`ui.openExternalUrl: ${parsed.protocol} not allowed`);
       }
-      // Always open in a new tab; plugins must not be able to navigate the
+      // The plugin's own OAuth sign-in, in the desktop app: in the system browser its
+      // callback page would park the code where this page can't read it.
+      if (isPluginSignIn(parsed, plugin.id, window.location.origin, getPathPrefix()) && await openPluginSignInInApp(parsed.toString())) return undefined;
+      // Other plugins' link checks (onBeforeExternalLink) see it like a
+      // click in a message; the plugin's own handler isn't asked again, so a
+      // link check opens the link after its dialog.
+      // Always opens in a new tab; plugins must not be able to navigate the
       // host window (_self/_top/_parent) to an attacker-controlled origin.
-      window.open(parsed.toString(), '_blank', 'noopener,noreferrer');
+      await openExternalLink({ href: parsed.toString(), target: '_blank' }, { skipPluginId: plugin.id });
       return undefined;
     }
+    case 'ui.print': return doUiPrint(plugin, args[0]);
+    case 'ui.openFile': return doUiOpenFile(plugin, args[0]);
     case 'ui.downloadFile': {
       const opts = args[0] as { content: string | ArrayBuffer | Uint8Array; filename: string; contentType?: string };
       return downloadFile(opts ?? { content: '', filename: '' });
@@ -1945,21 +2351,24 @@ export async function dispatchApiCall(
 
     case 'email.setKeyword': {
       const emailId = assertEmailId(args[0], 'email.setKeyword');
-      const keyword = assertPluginKeyword(args[1]);
+      const keyword = assertMailKeyword(args[1]);
       const accountId = assertOptionalAccountId(args[2], 'email.setKeyword');
       await requireClient().setKeyword(emailId, keyword, accountId);
       return undefined;
     }
+    case 'email.updateKeywords': return doEmailUpdateKeywords(args[0], args[1], args[2]);
     case 'email.removeKeyword': {
       const emailId = assertEmailId(args[0], 'email.removeKeyword');
-      const keyword = assertPluginKeyword(args[1]);
+      const keyword = assertMailKeyword(args[1]);
       const accountId = assertOptionalAccountId(args[2], 'email.removeKeyword');
       await requireClient().removeKeyword(emailId, keyword, accountId);
       return undefined;
     }
 
     case 'keywords.list': return doKeywordsList();
-    case 'keywords.add': return doKeywordsAdd(args[0]);
+    case 'keywords.add': return doKeywordsAdd(plugin, args[0]);
+    case 'keywords.update': return doKeywordsUpdate(plugin, args[0]);
+    case 'keywords.remove': return doKeywordsRemove(plugin, args[0]);
     case 'keywords.reorder': return doKeywordsReorder(args[0], args[1]);
     case 'keywords.discover': return doKeywordsDiscover(args[0]);
     case 'keywords.getCounts': return doKeywordsGetCounts(args[0]);
@@ -1983,6 +2392,7 @@ export async function dispatchApiCall(
     case 'tabs.categorize': return doTabsCategorize(args[0], args[1]);
 
     case 'search.run': return doSearchRun(plugin, args[0], args[1]);
+    case 'search.clear': return doSearchClear(plugin);
 
     case 'oauth.createState': return createOAuthState(plugin.id);
     case 'oauth.getRedirectUri': {
@@ -2004,9 +2414,9 @@ export async function dispatchApiCall(
       return undefined;
     }
 
-    case 'calendar.listCalendars': return doCalendarListCalendars();
-    case 'calendar.getEvents': return doCalendarGetEvents(args[0]);
-    case 'calendar.getEvent': return doCalendarGetEvent(args[0]);
+    case 'calendar.listCalendars': return doCalendarListCalendars(plugin);
+    case 'calendar.getEvents': return doCalendarGetEvents(args[0], plugin);
+    case 'calendar.getEvent': return doCalendarGetEvent(args[0], plugin);
     case 'calendar.createEvent': return doCalendarCreateEvent(args[0], plugin.id);
     case 'calendar.updateEvent': return doCalendarUpdateEvent(args[0], args[1]);
     case 'calendar.deleteEvent': return doCalendarDeleteEvent(args[0]);
@@ -2016,6 +2426,7 @@ export async function dispatchApiCall(
     case 'tasks.create': return doTasksCreate(args[0]);
     case 'tasks.update': return doTasksUpdate(args[0], args[1]);
     case 'tasks.setComplete': return doTasksSetComplete(args[0], args[1]);
+    case 'tasks.acknowledgeAlert': return doTasksAcknowledgeAlert(args[0], args[1], args[2]);
     case 'tasks.delete': return doTasksDelete(args[0]);
 
     case 'templates.list': return doTemplatesList();
@@ -2029,13 +2440,18 @@ export async function dispatchApiCall(
     case 'vacation.get': return doVacationGet();
     case 'vacation.set': return doVacationSet(args[0]);
 
-    case 'email.get': return doEmailGet(args[0]);
+    case 'email.get': return doEmailGet(args[0], args[1]);
     case 'email.list': return doEmailList(args[0]);
+    case 'email.search': return doEmailSearch(args[0]);
     case 'mailboxes.list': return doMailboxesList();
-    case 'email.getAttachment': return doEmailGetAttachment(args[0], args[1]);
-    case 'email.getRaw': return doEmailGetRaw(args[0]);
+    case 'email.getAttachment': return doEmailGetAttachment(args[0], args[1], args[2]);
+    case 'email.getRaw': return doEmailGetRaw(args[0], args[1]);
     case 'email.move': return doEmailMove(plugin.id, args[0], args[1]);
     case 'email.archive': return doEmailArchive(plugin.id, args[0]);
+    case 'email.forward': return doEmailForward(plugin, args[0], args[1], {
+      confirm: (input) => awaitDialog({ pluginId: plugin.id, kind: 'confirm', ...input }),
+      markForwarded: (emailId, accountId) => doEmailUpdateKeywords(emailId, { $forwarded: true }, accountId),
+    });
 
     case 'compose.open': return doComposeOpen(plugin, args[0]);
     case 'compose.reply': return doComposeReply(plugin, args[0], args[1]);
@@ -2044,10 +2460,19 @@ export async function dispatchApiCall(
     case 'notifications.show': return doNotificationsShow(plugin, args[0]);
 
     case 'composer.getBody': return doComposerGetBody(plugin, args[0]);
+    case 'composer.getSnapshot': return doComposerGetSnapshot(plugin, args[0]);
+    case 'composer.readAttachment': return doComposerReadAttachment(plugin, args[0], args[1]);
     case 'composer.getSelection': return doComposerGetSelection(plugin, args[0]);
     case 'composer.replaceSelection': return doComposerReplaceSelection(plugin, args[0], args[1], args[2]);
-    case 'composer.replaceBody': return doComposerReplaceBody(plugin, args[0], args[1]);
+    case 'composer.replaceBody': return doComposerReplaceBody(plugin, args[0], args[1], args[2]);
+    case 'composer.setSubject': return doComposerSetSubject(plugin, args[0], args[1]);
     case 'composer.attach': return doComposerAttach(plugin, args[0], args[1]);
+    case 'composer.registerChecker': return doRegisterChecker(plugin, args[0], opts?.frame);
+    case 'composer.updateChecker': return doUpdateChecker(plugin, args[0], args[1]);
+    case 'composer.recheck': return doRecheck(plugin, args[0]);
+    case 'composer.unregisterChecker': return doUnregisterChecker(plugin, args[0]);
+    case 'composer.getCheckText': return doGetCheckText(plugin, args[0], args[1]);
+    case 'composer.setAnnotations': return doSetAnnotations(plugin, args[0], args[1], args[2], args[3]);
 
     default:
       throw new Error(`Unhandled method "${method}"`);

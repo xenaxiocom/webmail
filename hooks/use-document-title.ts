@@ -5,6 +5,7 @@ import { useConfig } from '@/hooks/use-config';
 import { useIsFocusedProTab, usePaneId } from '@/hooks/use-pane-context';
 import { useAccountStore } from '@/stores/account-store';
 import { formatTabTitle } from '@/lib/tab-title';
+import { isTitleAlertActive } from '@/lib/title-alert';
 import { ROOMS_NAME, useCompanyName, usePortal, withCompanyName } from '@/lib/xenaxio/portal';
 
 // The surface that set the title last owns it. One that is still mounted
@@ -21,16 +22,20 @@ let owner: symbol | null = null;
  * navigation, after the new surface has mounted, which puts the bare app name
  * back. So the title is re-applied whenever <head> changes and it is not ours.
  */
-export function useDocumentTitle(context?: string | null, { withAccount = true }: { withAccount?: boolean } = {}): void {
+export function useDocumentTitle(
+  context?: string | null,
+  { showAccount = true }: { showAccount?: boolean } = {},
+): void {
   const { appName: configName } = useConfig();
   // xenaxio, step 67: on XenRooms the app is XenRooms.
   const appName = usePortal()?.kind === 'rooms' ? ROOMS_NAME : configName;
   // The account actually in view, so two windows on two accounts stay apart.
+  // Pages that aren't about an account (the admin panel) leave it out.
   const account = useAccountStore(
     (s) => s.accounts.find((a) => a.id === s.activeAccountId)?.email || null,
   );
   // xenaxio: the company name goes first (lib/xenaxio/portal.ts).
-  const title = withCompanyName(useCompanyName(withAccount), formatTabTitle(context, withAccount ? account : null, appName));
+  const title = withCompanyName(useCompanyName(showAccount), formatTabTitle(context, showAccount ? account : null, appName));
   // The Pro shell keeps every opened tab mounted (hidden), so only the
   // focused tab may claim the title; outside Pro every surface is in view.
   const paneId = usePaneId();
@@ -50,6 +55,9 @@ export function useDocumentTitle(context?: string | null, { withAccount = true }
     let readBack: string | null = null;
     const apply = () => {
       if (owner !== self) return;
+      // A visual alert swaps the title for now (lib/title-alert); it puts
+      // the title back when it stops, and this runs again then.
+      if (isTitleAlertActive()) return;
       const current = document.title;
       if (current === title || current === readBack) return;
       document.title = title;

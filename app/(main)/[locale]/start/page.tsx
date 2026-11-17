@@ -25,7 +25,7 @@ function ConfirmView({ token }: { token: string }) {
   const [info, setInfo] = useState<{ status: string; email?: string; company?: string } | null>(null);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useDocumentTitle(t("rooms.signup_confirm_title"), { withAccount: false });
+  useDocumentTitle(t("rooms.signup_confirm_title"), { showAccount: false });
 
   useEffect(() => {
     xenaxio
@@ -89,7 +89,7 @@ function SignupForm() {
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
-  useDocumentTitle(t("rooms.signup_title"), { withAccount: false });
+  useDocumentTitle(t("rooms.signup_title"), { showAccount: false });
 
   useEffect(() => {
     xenaxio
