@@ -26,6 +26,7 @@ import { MultipleAccountsSection } from './layout-settings';
 import { ProfilePictureSetting } from '@/components/xenaxio/profile-picture-setting';
 import { XenaxioNameSetting } from '@/components/xenaxio/name-setting';
 import { XenaxioPasswordSetting, XenaxioProfileSetting } from '@/components/xenaxio/profile-setting';
+import { XenaxioDevicesSetting } from '@/components/xenaxio/devices-setting';
 import { MeetBackgroundSetting } from '@/components/xenaxio/meet/background-setting';
 import { XENAXIO_BFF } from '@/lib/xenaxio/bff';
 import { ConfirmDialog } from '@/components/ui/confirm-dialog';
@@ -167,6 +168,8 @@ export function AccountSettings() {
         <ProfilePictureSetting />
         {/* xenaxio (step 107): the own password, also from XenRooms. */}
         <XenaxioPasswordSetting />
+        {/* xenaxio (step 151 A): the phones with the Xenaxio app, signed out one by one. */}
+        <XenaxioDevicesSetting />
 
         {/* Email Address */}
         <SettingItem label={t('email.label')}>

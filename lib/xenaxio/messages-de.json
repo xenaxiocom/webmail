@@ -4487,5 +4487,16 @@
     "model_key_kept": "API-Schlüssel (gespeichert – leer lassen, um ihn zu behalten)",
     "model_hint": "Beim Speichern prüft Xenaxio, ob das Modell Bilder liest und streng JSON antwortet. Der Verbrauch zählt nicht zum Kontingent von Xenaxio.",
     "model_checking": "Wird geprüft …"
+  },
+  "devices": {
+    "title": "Telefone mit der Xenaxio-App",
+    "intro": "Jedes Telefon hat eine eigene Anmeldung und einen eigenen Zugang zu Ihrem Postfach. Abmelden beendet nur dieses Telefon; Browser und andere Telefone bleiben angemeldet.",
+    "iphone": "iPhone",
+    "android": "Android",
+    "last_used": "zuletzt genutzt am {date}",
+    "sign_out": "Abmelden",
+    "sign_out_text": "„{name}“ wird abgemeldet und verliert sofort den Zugang zu Ihrem Postfach. Sie können sich dort jederzeit wieder anmelden.",
+    "signed_out": "„{name}“ ist abgemeldet.",
+    "sign_out_failed": "Das Telefon konnte nicht abgemeldet werden. Bitte versuchen Sie es erneut."
   }
 }
