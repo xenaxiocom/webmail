@@ -179,7 +179,7 @@ export function MessageList({
             return (
               <div key={row.key} className="my-1 flex items-center px-5" role="separator">
                 <div className="h-px flex-1 bg-red-500/70" />
-                <span className="ml-2 text-[11px] font-semibold uppercase text-red-500">{t("chat.new_line")}</span>
+                <span className="ml-2 text-[0.6875rem] font-semibold uppercase text-red-500">{t("chat.new_line")}</span>
               </div>
             );
           return <ChatMessage key={row.key} message={row.message} room={room} client={client} continued={row.continued} inThread={inThread} highlighted={highlight === row.message.id} />;

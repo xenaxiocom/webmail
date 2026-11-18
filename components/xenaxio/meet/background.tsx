@@ -249,7 +249,7 @@ function Tile({ selected, onClick, label, disabled, children, badge }: { selecte
       )}
     >
       {children}
-      {badge && <span className="absolute bottom-0.5 right-0.5 rounded bg-black/60 px-1 text-[10px] leading-4 text-white">{badge}</span>}
+      {badge && <span className="absolute bottom-0.5 right-0.5 rounded bg-black/60 px-1 text-[0.625rem] leading-4 text-white">{badge}</span>}
     </button>
   );
 }
@@ -258,7 +258,7 @@ function Caption({ icon, text }: { icon: ReactNode; text: string }) {
   return (
     <span className="flex flex-col items-center gap-1">
       {icon}
-      <span className="text-[11px] leading-none">{text}</span>
+      <span className="text-[0.6875rem] leading-none">{text}</span>
     </span>
   );
 }
@@ -282,7 +282,7 @@ function FilePreview({ url, kind, type }: { url: string; kind: OwnBackground["ki
 function Group({ title, children }: { title: string; children: ReactNode }) {
   return (
     <div className="space-y-1.5">
-      <h4 className="text-[11px] uppercase tracking-wide text-white/50">{title}</h4>
+      <h4 className="text-[0.6875rem] uppercase tracking-wide text-white/50">{title}</h4>
       <div className="grid grid-cols-4 gap-2">{children}</div>
     </div>
   );

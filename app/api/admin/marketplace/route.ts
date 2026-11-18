@@ -12,6 +12,8 @@ import {
   type ServerTheme,
 } from '@/lib/admin/plugin-registry';
 import { invalidateFrameOriginsCache } from '@/lib/admin/csp-frame-origins';
+import { getPluginConfig, sealPluginSecrets } from '@/lib/admin/plugin-config';
+import type { InstallRecord } from '@/lib/admin/extension-history';
 import {
   EXTENSION_ID_RE,
   EXTENSION_VERSION_RE,
@@ -32,14 +34,29 @@ import {
   directoryJson,
   getDirectoryChannel,
   getDirectoryUrl,
+  directoryOff,
+  DIRECTORY_OFF_MESSAGE,
   installedExtensions,
   installedStateOf,
+  readBundleBytes,
   toListing,
   v2Url,
   type DirectorySummary,
   type DirectoryVersion,
 } from '@/lib/admin/marketplace-directory';
+import { MAX_PLUGIN_SIZE, MAX_THEME_SIZE } from '@/lib/plugin-types';
+import {
+  anyGrants,
+  compactGrants,
+  describeReachAdded,
+  grantsAdded,
+  grantsOf,
+  judgeAnswer,
+  unexpectedMessage,
+  withSealedSettings,
+} from '@/lib/admin/extension-grants';
 import { createHash } from 'node:crypto';
+import { devicePolicyPluginRefusal } from '@/lib/desktop/server-policy';
 
 /** Query parameters the UI may pass on to the directory's list endpoint. */
 const FORWARDED = ['q', 'type', 'pluginType', 'tag', 'author', 'sort', 'order', 'page', 'perPage', 'featured'] as const;
@@ -55,6 +72,9 @@ export async function GET(request: NextRequest) {
   try {
     const result = await requireAdminAuth(request);
     if ('error' in result) return result.error;
+    if (await directoryOff()) {
+      return NextResponse.json({ error: DIRECTORY_OFF_MESSAGE, code: 'no-third-party-traffic' }, { status: 403 });
+    }
 
     const directoryUrl = await getDirectoryUrl();
     const query: Record<string, string | undefined> = {};
@@ -89,7 +109,7 @@ export async function GET(request: NextRequest) {
 
 /**
  * POST /api/admin/marketplace - Install one version of an extension
- * Body: { slug: string, version: string, type: 'plugin' | 'theme', force?: boolean }
+ * Body: { slug: string, version: string, type: 'plugin' | 'theme', force?: boolean, acceptPermissions?: string[], acceptGrants?: object }
  *
  * The version is looked up on the directory first. A version the publisher
  * withdrew ("yanked") is refused with 409 unless `force` is set - the admin
@@ -98,14 +118,27 @@ export async function GET(request: NextRequest) {
  * signature checked, and it is installed under the directory slug, keeping
  * the enabled and forced flags of whatever was installed before. The replaced
  * version stays on disk for a rollback (lib/admin/extension-history.ts).
+ *
+ * A plugin bundle that grants more than the admin was shown (the listing on
+ * a first install, the installed version on an update) is refused with 409,
+ * `permissionsAdded` and `grantsAdded` (permissions, hosts, POST paths, frame
+ * origins, credential servers and on an update which stored secret a
+ * credential sends where, the privileged tier) until `acceptPermissions`
+ * and `acceptGrants` cover it (lib/admin/extension-grants.ts). A theme with a
+ * skin is asked about the same way, on a first install and on an update when
+ * the installed version had none. Whether the directory had withdrawn the
+ * version is kept with the install, for its rollback copy.
  */
 export async function POST(request: NextRequest) {
   try {
     const result = await requireAdminAuth(request);
     if ('error' in result) return result.error;
+    if (await directoryOff()) {
+      return NextResponse.json({ error: DIRECTORY_OFF_MESSAGE, code: 'no-third-party-traffic' }, { status: 403 });
+    }
 
     const ip = getClientIP(request);
-    const { slug, version, type, force } = await request.json();
+    const { slug, version, type, force, acceptPermissions, acceptGrants } = await request.json();
 
     if (!slug || !version || !type) {
       return NextResponse.json({ error: 'Missing slug, version, or type' }, { status: 400 });
@@ -149,6 +182,11 @@ export async function POST(request: NextRequest) {
     }
     if (typeof version !== 'string' || !RELEASE_VERSION.test(version)) {
       return NextResponse.json({ error: 'Invalid version: must look like 1.2.3' }, { status: 400 });
+    }
+
+    if (type === 'plugin') {
+      const refused = devicePolicyPluginRefusal(slug);
+      if (refused) return refused;
     }
 
     const directoryUrl = await getDirectoryUrl();
@@ -201,7 +239,7 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const buffer = await bundleRes.arrayBuffer();
+    const buffer = await readBundleBytes(bundleRes, type === 'theme' ? MAX_THEME_SIZE : MAX_PLUGIN_SIZE);
     const now = new Date().toISOString();
 
     // The directory signs every bundle it approves; refuse one whose
@@ -226,6 +264,14 @@ export async function POST(request: NextRequest) {
     }
 
     const source = { kind: 'marketplace' as const, slug, directoryUrl };
+    // Kept with the install, and so with its rollback copy later: the notes,
+    // and whether the directory had withdrawn this version (a rollback names it).
+    const notes = typeof meta.changelog === 'string' && meta.changelog.trim() ? { changelog: meta.changelog.slice(0, 20_000) } : {};
+    const record: InstallRecord = {
+      yanked: meta.yanked
+        ? { at: String(meta.yanked.at ?? ''), reason: typeof meta.yanked.reason === 'string' ? meta.yanked.reason.slice(0, 500) : null }
+        : null,
+    };
     const installExtras = {
       signature: signature.status,
       channel: meta.channel,
@@ -253,7 +299,29 @@ export async function POST(request: NextRequest) {
       const existingTheme = await getTheme(resolvedId);
       const isUpdate = existingTheme !== null;
 
-      const theme: ServerTheme = {
+      // A skin restyles every part of the app, so one the admin hasn't seen is asked
+      // about first, like a plugin that grants more (lib/admin/extension-grants.ts): on an
+      // update when the installed version had none, on a first install always, since the
+      // listing doesn't say.
+      const skinSeen = grantsOf(existingTheme);
+      const skinAdded = grantsAdded(skinSeen, { skin: skin !== null });
+      const skinAnswer = judgeAnswer(skinAdded, skinSeen, { acceptPermissions, acceptGrants });
+      if (!skinAnswer.settled) {
+        return NextResponse.json(
+          {
+            error: skinAnswer.unexpected
+              ? unexpectedMessage(skinAnswer.unexpected)
+              : `Version ${version} ${isUpdate ? 'asks for more than the installed version has' : 'may do more than the directory listed'}. ${describeReachAdded(skinAdded, !isUpdate).join(' ')}`,
+            permissionsAdded: [],
+            grantsAdded: skinAdded,
+            compared: isUpdate ? 'installed' : 'listing',
+            ...(skinAnswer.unexpected ? { unexpected: skinAnswer.unexpected } : {}),
+          },
+          { status: 409 },
+        );
+      }
+
+      const theme: ServerTheme & InstallRecord = {
         id: resolvedId,
         name: manifest.name || slug,
         // Prefer the directory-published version (what we requested) over
@@ -272,6 +340,8 @@ export async function POST(request: NextRequest) {
         installedAt: existingTheme?.installedAt ?? now,
         updatedAt: now,
         source,
+        ...notes,
+        ...record,
       };
 
       await saveTheme(theme, css, skin);
@@ -283,6 +353,7 @@ export async function POST(request: NextRequest) {
           version: theme.version,
           slug,
           signature: signature.status,
+          ...(anyGrants(skinAdded) ? { accepted: compactGrants(skinAdded) } : {}),
           ...(meta.yanked ? { yanked: true } : {}),
           ...(isUpdate ? { previousVersion: existingTheme.version } : {}),
         },
@@ -321,7 +392,49 @@ export async function POST(request: NextRequest) {
     const existingPlugin = await getPlugin(slug);
     const isUpdate = existingPlugin !== null;
 
-    const plugin: ServerPlugin = {
+    // Nothing is granted that nobody saw. What the admin saw is the installed version for an
+    // update, and the directory's listing for a first install: the quick-install dialog shows
+    // that list, and the bundle (optional permissions included) can ask for more. The
+    // listing names no hosts, paths, frame origins, credential servers or tier, so on a
+    // first install all of those are asked about. Which stored secret each credential sends
+    // where, and a setting that stops being a secret, are compared on an update only:
+    // a first install starts with nothing stored (what an earlier plugin left under the
+    // id is removed before it is saved). For an update the stored settings are put in
+    // order first, so a setting whose stored value is a secret counts as one even when
+    // the installed version no longer declares it. The
+    // answer names each addition as the 409 listed it; an entry it names that was neither
+    // asked about nor seen is refused. `force` is for withdrawn and older versions, and says
+    // nothing about this.
+    const granted = grantsOf(manifest);
+    if (isUpdate) await sealPluginSecrets(slug, existingPlugin);
+    const seen = isUpdate
+      ? withSealedSettings(grantsOf(existingPlugin), await getPluginConfig(slug))
+      : { ...grantsOf({ permissions: meta.permissions }), credentials: granted.credentials };
+    const added = grantsAdded(seen, granted);
+    const answer = judgeAnswer(added, seen, { acceptPermissions, acceptGrants });
+    if (!answer.settled) {
+      const parts = [
+        ...(added.permissions.length > 0
+          ? [`${isUpdate ? 'New permissions' : 'Permissions the directory did not list'}: ${added.permissions.join(', ')}.`]
+          : []),
+        ...describeReachAdded(added, !isUpdate),
+      ];
+      return NextResponse.json(
+        {
+          error: answer.unexpected
+            ? unexpectedMessage(answer.unexpected)
+            : `Version ${version} asks for more than ${isUpdate ? 'the installed version has' : 'the directory listed'}. ${parts.join(' ')}`,
+          permissionsAdded: added.permissions,
+          grantsAdded: added,
+          compared: isUpdate ? 'installed' : 'listing',
+          ...(answer.unexpected ? { unexpected: answer.unexpected } : {}),
+        },
+        { status: 409 },
+      );
+    }
+    const permissionsAdded = added.permissions;
+
+    const plugin: ServerPlugin & InstallRecord = {
       id: slug,
       name: manifest.name,
       // See theme branch: trust the directory-published version, not
@@ -337,6 +450,7 @@ export async function POST(request: NextRequest) {
       ...(existingPlugin?.forceEnabled !== undefined
         ? { forceEnabled: existingPlugin.forceEnabled }
         : {}),
+      ...(existingPlugin?.defaultOff ? { defaultOff: true } : {}),
       installedAt: existingPlugin?.installedAt ?? now,
       updatedAt: now,
       ...(manifest.configSchema ? { configSchema: manifest.configSchema } : {}),
@@ -347,8 +461,13 @@ export async function POST(request: NextRequest) {
       ...(manifest.locales ? { locales: manifest.locales } : {}),
       ...(manifest.credentials ? { credentials: manifest.credentials } : {}),
       source,
+      ...notes,
+      ...record,
     };
 
+    // What is stored keeps its standing through the save: a secret stays one whatever
+    // this version declares for its key, and a first install starts clean.
+    await sealPluginSecrets(slug, existingPlugin);
     await savePlugin(plugin, code);
     invalidateFrameOriginsCache();
     await auditLog(
@@ -362,6 +481,9 @@ export async function POST(request: NextRequest) {
         httpOrigins: plugin.httpOrigins ?? [],
         apiPostPaths: plugin.apiPostPaths ?? [],
         signature: signature.status,
+        ...(permissionsAdded.length > 0 ? { permissionsAdded } : {}),
+        // What the admin accepted beyond what they had seen.
+        ...(anyGrants(added) ? { accepted: compactGrants(added) } : {}),
         ...(meta.yanked ? { yanked: true } : {}),
         ...(isUpdate ? { previousVersion: existingPlugin.version } : {}),
       },

@@ -13,6 +13,7 @@ import { useOwnDomainAddress } from "@/hooks/use-own-domain-address";
 import type { ContactCard } from "@/lib/jmap/types";
 import { ColleagueCardDetails, ColleagueCardHeader, RoomsMessageLink } from "@/components/xenaxio/colleague-card";
 import { useColleague } from "@/lib/xenaxio/people";
+import { useAddressContextMenu } from "./address-context-menu";
 
 const CARD_WIDTH = 300;
 
@@ -195,7 +196,7 @@ export function placeCard(anchor: CardAnchor, height: number): { top: number; le
 }
 
 export const recipientCardClass =
-  "fixed z-50 w-[300px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto bg-background rounded-lg shadow-lg border border-border animate-in fade-in-0 zoom-in-95 duration-100";
+  "fixed z-50 w-[300px] max-w-[calc(100vw-16px)] max-h-[calc(100dvh-16px)] overflow-y-auto bg-background rounded-lg shadow-lg border border-border animate-in fade-in-0 zoom-in-95 animation-duration-100";
 
 interface RecipientCardPopoverProps extends RecipientCardProps {
   anchor: CardAnchor;
@@ -274,15 +275,18 @@ interface RecipientPopoverProps {
   email: string;
   /** Display label override (e.g. "me") */
   displayLabel?: string;
+  /** Rich content in place of the text label, such as a name over its address. */
+  label?: React.ReactNode;
   /** Called when user clicks "View contact" - receives the contact and email */
   onViewContact?: (contact: ContactCard | null, email: string) => void;
   className?: string;
 }
 
-export function RecipientPopover({ name, email, displayLabel, onViewContact, className }: RecipientPopoverProps) {
+export function RecipientPopover({ name, email, displayLabel, label, onViewContact, className }: RecipientPopoverProps) {
   const [anchor, setAnchor] = useState<CardAnchor | null>(null);
   const triggerRef = useRef<HTMLButtonElement>(null);
   const shownEmail = useOwnDomainAddress()(email);
+  const addressMenu = useAddressContextMenu(onViewContact);
 
   const handleToggle = () => {
     if (anchor) {
@@ -298,12 +302,16 @@ export function RecipientPopover({ name, email, displayLabel, onViewContact, cla
       <button
         ref={triggerRef}
         onClick={handleToggle}
+        onContextMenu={(e) => {
+          setAnchor(null);
+          addressMenu.onContextMenu(e, { name, email });
+        }}
         className={cn(
-          "text-foreground hover:text-primary hover:underline cursor-pointer transition-colors min-w-0 break-words",
+          "text-foreground hover:text-primary hover:underline cursor-pointer transition-colors min-w-0 break-words text-start",
           className
         )}
       >
-        <bdi>{displayLabel || name || shownEmail}</bdi>
+        {label ?? <bdi>{displayLabel || name || shownEmail}</bdi>}
       </button>
 
       {anchor && (
@@ -316,6 +324,7 @@ export function RecipientPopover({ name, email, displayLabel, onViewContact, cla
           ignoreRef={triggerRef}
         />
       )}
+      {addressMenu.menu}
     </>
   );
 }

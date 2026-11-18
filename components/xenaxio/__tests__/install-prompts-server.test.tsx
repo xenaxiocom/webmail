@@ -38,8 +38,11 @@ vi.mock("@/stores/account-store", () => ({ useAccountStore: { getState: () => ({
 vi.mock("@/stores/settings-store", () => ({
   useSettingsStore: Object.assign((selector: (s: typeof mocks.settingsState) => unknown) => selector(mocks.settingsState), {
     getState: () => mocks.settingsState,
+    subscribe: () => () => {},
   }),
+  registerCalendarSubscriptionSyncBridge: () => {},
 }));
+vi.mock("@/hooks/use-device-policy", () => ({ useStrictestDevices: () => ({ noInstallPrompt: false }) }));
 vi.mock("@/stores/policy-store", () => ({
   usePolicyStore: (selector: (s: typeof mocks.policyState) => unknown) => selector(mocks.policyState),
 }));
@@ -49,6 +52,7 @@ vi.mock("@/lib/web-push", () => ({
   isWebPushSupported: () => true,
   isWebPushEnabled: mocks.isWebPushEnabled,
   resyncWebPush: vi.fn().mockResolvedValue(false),
+  waitForWebPushResync: vi.fn().mockResolvedValue(undefined),
 }));
 
 const { PWAInstallPrompt } = await import("@/components/pwa-install-prompt");

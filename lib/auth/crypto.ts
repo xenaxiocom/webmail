@@ -23,10 +23,20 @@ function getKey(): Buffer {
 /**
  * A remembered sign-in: the account's password (Basic auth), or the access
  * token the user signed in with (Bearer auth, e.g. a Fastmail API token).
+ * `signedInAt`: when the user signed in (ms), for the organisation's maximum
+ * session length (lib/auth/session-age.ts); absent in cookies written
+ * before it was recorded. `accountName`: the account the mail server
+ * resolved the credential to at sign-in, also when it equals `username`, so
+ * a restored context keys per-user data on it as the sign-in did (a token
+ * login may claim a bare local part); absent in cookies written before it
+ * was kept, and in sign-ins that resolved none. `remember`: whether the
+ * sign-in asked to be remembered (the cookie's 30 days); absent in cookies
+ * written before it was kept, which count as not remembered wherever the
+ * cookie is written again.
  */
 export type SessionCredentials =
-  | { serverUrl: string; username: string; password: string; token?: undefined }
-  | { serverUrl: string; username: string; token: string; password?: undefined };
+  | { serverUrl: string; username: string; password: string; token?: undefined; signedInAt?: number; accountName?: string; remember?: boolean }
+  | { serverUrl: string; username: string; token: string; password?: undefined; signedInAt?: number; accountName?: string; remember?: boolean };
 
 /** The Authorization header remembered credentials sign in with. */
 export function sessionAuthHeader(credentials: SessionCredentials): string {
@@ -34,13 +44,22 @@ export function sessionAuthHeader(credentials: SessionCredentials): string {
   return `Basic ${Buffer.from(`${credentials.username}:${credentials.password}`).toString('base64')}`;
 }
 
-export function encryptSession(serverUrl: string, username: string, secret: string | { token: string }): string {
+export function encryptSession(
+  serverUrl: string,
+  username: string,
+  secret: string | { token: string },
+  signedInAt: number = Date.now(),
+  accountName?: string,
+  remember?: boolean,
+): string {
   const key = getKey();
   const iv = randomBytes(IV_LENGTH);
   const cipher = createCipheriv(ALGORITHM, key, iv);
 
   const credential = typeof secret === 'string' ? { password: secret } : { token: secret.token };
-  const payload = JSON.stringify({ v: 1, serverUrl, username, ...credential });
+  const account = accountName ? { accountName } : {};
+  const remembered = remember !== undefined ? { remember } : {};
+  const payload = JSON.stringify({ v: 1, serverUrl, username, ...credential, signedInAt, ...account, ...remembered });
   const encrypted = Buffer.concat([cipher.update(payload, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
 
@@ -64,11 +83,18 @@ export function decryptSession(token: string): SessionCredentials | null {
     const parsed = JSON.parse(decrypted.toString('utf8'));
 
     if (parsed.v !== 1 || !parsed.serverUrl || !parsed.username) return null;
+    const signedInAt = typeof parsed.signedInAt === 'number' && Number.isFinite(parsed.signedInAt) && parsed.signedInAt > 0
+      ? { signedInAt: parsed.signedInAt as number }
+      : {};
+    const account = typeof parsed.accountName === 'string' && parsed.accountName
+      ? { accountName: parsed.accountName as string }
+      : {};
+    const remembered = typeof parsed.remember === 'boolean' ? { remember: parsed.remember as boolean } : {};
     if (typeof parsed.password === 'string' && parsed.password) {
-      return { serverUrl: parsed.serverUrl, username: parsed.username, password: parsed.password };
+      return { serverUrl: parsed.serverUrl, username: parsed.username, password: parsed.password, ...signedInAt, ...account, ...remembered };
     }
     if (typeof parsed.token === 'string' && parsed.token) {
-      return { serverUrl: parsed.serverUrl, username: parsed.username, token: parsed.token };
+      return { serverUrl: parsed.serverUrl, username: parsed.username, token: parsed.token, ...signedInAt, ...account, ...remembered };
     }
     return null;
   } catch (error) {
@@ -103,8 +129,20 @@ export type PayloadPurpose =
   | 'wopi-token'
   /** The app password an impersonation handoff minted, kept for revocation. */
   | 'impersonation-grant'
+  /** A session parked by an impersonation handoff for "Return to my account" (lib/impersonation/restore.ts). */
+  | 'impersonation-restore'
   /** A user's plugin credentials (lib/plugin-secrets/vault.ts). */
-  | 'plugin-secrets';
+  | 'plugin-secrets'
+  /** When a token sign-in happened, for the maximum session length (lib/auth/session-age.ts). */
+  | 'session-age'
+  /** A pairing grant or code record in the shared store (lib/auth/pairing-store.ts). */
+  | 'pairing-store'
+  /** A parked mobile hand-off sign-in in the shared store (lib/auth/handoff-store.ts). */
+  | 'handoff-store'
+  /** Which server a desktop account's refresh token belongs to (lib/oauth/custom-upstream.ts). */
+  | 'custom-upstream'
+  /** Proof of an earlier session, for wiping a dropped account's plugin secrets (lib/plugin-secrets/wipe-proof.ts). */
+  | 'plugin-wipe-proof';
 
 /**
  * Whether a blob minted before purposes were bound may be re-admitted for
@@ -124,7 +162,13 @@ const LEGACY_PAYLOAD_MARKERS: Record<PayloadPurpose, (payload: Record<string, un
   'pair-refresh': () => false,
   'wopi-token': (p) => p.t === 'wopi',
   'impersonation-grant': () => false,
+  'impersonation-restore': () => false,
   'plugin-secrets': () => false,
+  'session-age': () => false,
+  'pairing-store': () => false,
+  'handoff-store': () => false,
+  'custom-upstream': () => false,
+  'plugin-wipe-proof': () => false,
 };
 
 export function encryptPayload(payload: Record<string, unknown>, purpose: PayloadPurpose): string {

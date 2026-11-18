@@ -4487,5 +4487,16 @@
     "model_key_kept": "API key (saved – leave empty to keep it)",
     "model_hint": "When you save, Xenaxio checks that the model reads pictures and answers strict JSON. Its use does not count towards the Xenaxio allowance.",
     "model_checking": "Checking …"
+  },
+  "devices": {
+    "title": "Phones with the Xenaxio app",
+    "intro": "Each phone has its own sign-in and its own access to your mailbox. Signing one out ends that phone only; browsers and other phones stay signed in.",
+    "iphone": "iPhone",
+    "android": "Android",
+    "last_used": "last used on {date}",
+    "sign_out": "Sign out",
+    "sign_out_text": "“{name}” will be signed out and lose access to your mailbox at once. You can sign in on it again at any time.",
+    "signed_out": "“{name}” is signed out.",
+    "sign_out_failed": "The phone could not be signed out. Please try again."
   }
 }

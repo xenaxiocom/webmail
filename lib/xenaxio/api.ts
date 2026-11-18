@@ -183,7 +183,7 @@ export interface MailAppSettings {
 export interface PortalInfo {
   name: string;
   slug: string | null;
-  /** Main address, e.g. https://firma.xenaxio.com. */
+  /** Main address, e.g. `https://firma.xenaxio.com` */
   url: string;
   color: string | null;
   colorText: string | null;
@@ -1287,6 +1287,16 @@ export interface CompanyLessonRequest {
   createdAt: string;
 }
 
+/** Step 151 A: a phone signed in to the Xenaxio app. */
+export interface MobileDevice {
+  id: string;
+  name: string;
+  platform: "ios" | "android";
+  createdAt: string;
+  lastSeenAt: string;
+  current: boolean;
+}
+
 export const xenaxio = {
   me: () => request<Me>("GET", "/api/me"),
   lookupTranscripts: (files: { id: string; accountId?: string }[]) => request<TranscriptLookup>("POST", "/api/files/transcripts/lookup", { files }),
@@ -1368,6 +1378,9 @@ export const xenaxio = {
   toolCeilings: () => request<ToolCeilingPage>("GET", "/api/admin/ai/permissions"),
   setToolCeiling: (scope: string, level: "ask" | "deny" | null) => request<ToolCeilingPage>("PUT", "/api/admin/ai/permissions", { scope, level }),
   /** Step 51: `mcpUrl` is the company's own address; `sharedMcpUrl` the shared one. */
+  /** Step 151 A: the phones signed in to the Xenaxio app; one is signed out alone. */
+  mobileDevices: () => request<{ devices: MobileDevice[] }>("GET", "/api/mobile/devices"),
+  signOutMobileDevice: (id: string) => request<{ ok: true }>("DELETE", `/api/mobile/devices/${encodeURIComponent(id)}`),
   mcpTokens: () => request<{ mcpUrl: string; sharedMcpUrl?: string; enabled: boolean; tokens: McpTokenInfo[] }>("GET", "/api/me/mcp-tokens"),
   createMcpToken: (name: string, days: number) => request<{ token: string; mcpUrl: string; info: McpTokenInfo }>("POST", "/api/me/mcp-tokens", { name, days }),
   revokeMcpToken: (id: string) => request<{ ok: true }>("DELETE", `/api/me/mcp-tokens/${encodeURIComponent(id)}`),

@@ -1,7 +1,10 @@
 import type { ConfigData } from '@/hooks/use-config';
 import type { SettingsPolicy } from '@/lib/admin/types';
 import { DEFAULT_POLICY } from '@/lib/admin/types';
-import { httpUrlOrEmpty } from '@/lib/config-validation';
+import { httpOrMailtoOrEmpty, httpUrlOrEmpty, httpUrlOrPathOrEmpty } from '@/lib/config-validation';
+import { parseNoThirdPartyValue } from '@/lib/third-party-mode';
+import { sanitizeOrganisationPolicy } from '@/lib/admin/organisation-policy';
+import { sanitizeRestrictions, sanitizeScopes } from '@/lib/admin/policy-scopes';
 
 /**
  * Flags that need the Next.js server (cookies, filesystem, OAuth relay). They
@@ -12,6 +15,7 @@ import { httpUrlOrEmpty } from '@/lib/config-validation';
 export const LITE_FORCED_FLAGS = {
   oauthEnabled: false,
   oauthOnly: false,
+  oauthPasswordFallbackEnabled: false,
   autoSsoEnabled: false,
   settingsSyncEnabled: false,
   stalwartFeaturesEnabled: false,
@@ -68,6 +72,7 @@ export function applyLiteConfig(raw: unknown, defaults?: { jmapServerUrl?: strin
     oauthClientId: '',
     oauthIssuerUrl: '',
     oauthScopes: '',
+    oauthResource: '',
     rememberMeEnabled: bool(input.rememberMeEnabled, true),
     faviconUrl: str(input.faviconUrl, '') || '/branding/Bulwark_Favicon.svg',
     appLogoLightUrl: str(input.appLogoLightUrl, ''),
@@ -78,13 +83,17 @@ export function applyLiteConfig(raw: unknown, defaults?: { jmapServerUrl?: strin
     loginImprintUrl: str(input.loginImprintUrl, ''),
     loginPrivacyPolicyUrl: str(input.loginPrivacyPolicyUrl, ''),
     loginWebsiteUrl: str(input.loginWebsiteUrl, ''),
+    loginUsernamePlaceholder: str(input.loginUsernamePlaceholder, ''),
     loginLogoMaxHeight: str(input.loginLogoMaxHeight, ''),
     loginLogoMaxWidth: str(input.loginLogoMaxWidth, ''),
     loginShowHeading: bool(input.loginShowHeading, true),
     loginShowSubtitle: bool(input.loginShowSubtitle, true),
     loginShowTotp: bool(input.loginShowTotp, true),
     loginShowTokenLogin: bool(input.loginShowTokenLogin, false),
+    desktopBrowserSignIn: false,
     loginShowRememberMe: bool(input.loginShowRememberMe, false),
+    // Lite keeps an unticked sign-in in the tab's sessionStorage instead.
+    browserSessionSignIn: false,
     loginShowVersion: bool(input.loginShowVersion, true),
     demoMode: bool(input.demoMode, false),
     allowCustomJmapEndpoint: bool(input.allowCustomJmapEndpoint, jmapServerUrl === '' && jmapServers.length === 0),
@@ -93,6 +102,17 @@ export function applyLiteConfig(raw: unknown, defaults?: { jmapServerUrl?: strin
     embeddedMode: bool(input.embeddedMode, false),
     parentOrigin: str(input.parentOrigin, ''),
     sourceCodeUrl: httpUrlOrEmpty(input.sourceCodeUrl),
+    accessibilityStatementUrl: httpUrlOrEmpty(input.accessibilityStatementUrl),
+    accessibilityFeedbackUrl: httpOrMailtoOrEmpty(input.accessibilityFeedbackUrl),
+    helpUrl: httpUrlOrEmpty(input.helpUrl),
+    easyReadUrl: httpUrlOrEmpty(input.easyReadUrl),
+    signLanguageUrl: httpUrlOrEmpty(input.signLanguageUrl),
+    // Lite has no Security tab: this links to the server's own page for it (#1570).
+    accountManagementUrl: httpUrlOrPathOrEmpty(input.accountManagementUrl),
+    accountManagementLabel: str(input.accountManagementLabel, ''),
+    // Same browser-side switches as the server build (lib/outgoing-hosts.ts).
+    noThirdPartyTraffic: parseNoThirdPartyValue(input.noThirdPartyTraffic),
+    oauthRevokeOnSignOut: bool(input.oauthRevokeOnSignOut, true),
     ...LITE_FORCED_FLAGS,
   };
 }
@@ -114,22 +134,32 @@ export function applyLitePolicy(raw: unknown): SettingsPolicy {
   return {
     ...DEFAULT_POLICY,
     ...input,
-    restrictions: { ...(input.restrictions ?? {}) },
+    restrictions: sanitizeRestrictions(input.restrictions),
     defaults: { ...(input.defaults ?? {}) },
     themePolicy: { ...DEFAULT_POLICY.themePolicy, ...(input.themePolicy ?? {}) },
     features: {
       ...DEFAULT_POLICY.features,
       ...(input.features ?? {}),
-      pluginsEnabled: false,
-      pluginsUploadEnabled: false,
-      sidebarAppsEnabled: false,
-      // Kept by this app's server, which Lite does not have.
-      accountArchiveEnabled: false,
-      accountArchivePasswordsEnabled: false,
+      ...LITE_PINNED_FEATURES,
     },
     forceEnabledPlugins: [],
     approvedPlugins: [],
     forceEnabledThemes: [],
     defaultSidebarApps: [],
+    organisation: sanitizeOrganisationPolicy(input.organisation),
+    // A scope can't switch back on what Lite can't do.
+    scopes: sanitizeScopes(input.scopes).map((scope) => ({
+      ...scope,
+      policy: { ...scope.policy, features: { ...scope.policy.features, ...LITE_PINNED_FEATURES } },
+    })),
   };
 }
+
+const LITE_PINNED_FEATURES = {
+  pluginsEnabled: false,
+  pluginsUploadEnabled: false,
+  sidebarAppsEnabled: false,
+  // Kept by this app's server, which Lite does not have.
+  accountArchiveEnabled: false,
+  accountArchivePasswordsEnabled: false,
+} as const;

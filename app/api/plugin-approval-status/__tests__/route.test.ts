@@ -7,9 +7,15 @@ import JSZip from 'jszip';
 
 vi.mock('next/headers', () => ({ cookies: async () => ({ get: () => undefined }) }));
 vi.mock('@/lib/stalwart/auth-context', () => ({
-  readStalwartAuthContextFromStore: (_store: unknown, slot: number) => (slot === 0 ? { username: currentUser } : null),
+  readCurrentStalwartAuthContext: async (_store: unknown, slot: number) => (slot === 0 ? { username: currentUser } : null),
+  rememberedSessionPastMaxAge: async () => false,
 }));
 vi.mock('@/lib/security/same-origin', () => ({ rejectCrossOriginRequest: () => null }));
+
+let features: Record<string, boolean> = {};
+vi.mock('@/lib/admin/config-manager', () => ({
+  configManager: { ensureLoaded: async () => {}, getPolicy: () => ({ features }) },
+}));
 
 let currentUser = 'alice@example.org';
 const entries: Array<Record<string, unknown>> = [];
@@ -55,6 +61,7 @@ beforeEach(() => {
   entries.length = 0;
   bundles.clear();
   currentUser = 'alice@example.org';
+  features = { pluginsEnabled: true, pluginsUploadEnabled: true, requirePluginApproval: true };
 });
 
 describe('POST /api/plugin-approval-status', () => {
@@ -84,6 +91,40 @@ describe('POST /api/plugin-approval-status', () => {
     }));
 
     expect(res.status).toBe(400);
+    expect(entries).toHaveLength(0);
+  });
+
+  it.each([
+    ['plugins are off', { pluginsEnabled: false }],
+    ['user plugins are off', { pluginsUploadEnabled: false }],
+    ['approval is not required', { requirePluginApproval: false }],
+  ])('takes no package while %s', async (_label, off) => {
+    features = { ...features, ...off };
+    const res = await submit(await zipOf(MANIFEST));
+
+    expect(res.status).toBe(403);
+    expect(entries).toHaveLength(0);
+    expect(bundles.size).toBe(0);
+  });
+
+  it('refuses an upload larger than a package may be before reading it', async () => {
+    let read = 0;
+    const body = new ReadableStream<Uint8Array>({
+      pull(controller) {
+        read += 1;
+        controller.enqueue(new Uint8Array(1024 * 1024));
+        if (read >= 50) controller.close();
+      },
+    });
+    const res = await POST(new NextRequest('http://localhost/api/plugin-approval-status', {
+      method: 'POST',
+      body,
+      duplex: 'half',
+      headers: { 'content-type': 'multipart/form-data; boundary=x', 'content-length': String(50 * 1024 * 1024) },
+    } as ConstructorParameters<typeof NextRequest>[1]));
+
+    expect(res.status).toBe(413);
+    expect(read).toBeLessThanOrEqual(1);
     expect(entries).toHaveLength(0);
   });
 

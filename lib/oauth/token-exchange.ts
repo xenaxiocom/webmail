@@ -1,16 +1,23 @@
 import { logger } from '@/lib/logger';
-import { discoverOAuth } from '@/lib/oauth/discovery';
-import type { EndpointValidator, OAuthMetadata } from '@/lib/oauth/discovery';
+import { observeUpstream } from '@/lib/metrics/upstream';
+import { discoverOAuth, discoverSignInMetadata } from '@/lib/oauth/discovery';
+import type { EndpointValidator, IssuerRule, OAuthMetadata, SignInDiscovery } from '@/lib/oauth/discovery';
+import { configuredServer, discoveryBase, signInIssuerRule } from '@/lib/oauth/sign-in-servers';
 import { isPublicHttpUrl } from '@/lib/security/url-guard';
 import { readFileEnv } from '@/lib/read-file-env';
 import { configManager } from '@/lib/admin/config-manager';
 import { parseJmapServers, findServerById } from '@/lib/admin/jmap-servers';
+import { stalwartDefaultClientId } from '@/lib/auth/stalwart-password-login';
+import { getOauthResource } from '@/lib/oauth/tokens';
+import type { CustomUpstream } from '@/lib/oauth/custom-upstream';
+import { answerFields, oauthErrorCode } from '@/lib/oauth/answer-summary';
 
 // Fallback OAuth client id used when no client is configured. The password+TOTP
 // login route mints tokens against the mail server's built-in OAuth with this
-// id (Stalwart accepts any client id unless `require_client_registration` is
-// enabled), so refreshing/revoking those tokens must fall back to the same id
-// instead of failing on the missing OAUTH_CLIENT_ID (#873).
+// id (Stalwart 0.16 accepts any client id unless `require_client_registration`
+// is enabled; 1.0 gets a client of its own, see defaultClientOptions), so
+// refreshing/revoking those tokens must fall back to the same id instead of
+// failing on the missing OAUTH_CLIENT_ID (#873).
 export const DEFAULT_CLIENT_ID = 'bulwark-webmail';
 
 export interface ClientConfigOptions {
@@ -21,6 +28,12 @@ export interface ClientConfigOptions {
    * so a misconfiguration surfaces at login rather than as a broken session.
    */
   fallbackClientId?: string;
+  /**
+   * The server this token belongs to when it's in no configured list: the
+   * desktop app's accounts (lib/oauth/custom-upstream.ts). Wins over `serverId`
+   * and the global server, and the configured client secret is never sent to it.
+   */
+  upstream?: CustomUpstream | null;
 }
 
 function httpOrigin(url: string): string | null {
@@ -70,38 +83,15 @@ function getServerEntry(serverId?: string | null) {
   return findServerById(servers, serverId);
 }
 
-/**
- * Strip a trailing JMAP session path so OAuth discovery hits the right base.
- *
- * `discoverOAuth` appends `/.well-known/...` to this base, so JMAP_SERVER_URL set to
- * the session URL (`.../jmap/session` or `.../.well-known/jmap`, common so the client
- * can skip the 307 redirect a preflighted CORS request cannot follow) makes discovery
- * fetch `<session-url>/.well-known/oauth-authorization-server`, get a 404, and refresh
- * fail with "OAuth token endpoint not found".
- *
- * Only the session suffix (and any query or fragment) is removed, not the whole path:
- * discovery also runs against OAUTH_ISSUER_URL, and a path-based issuer (for example a
- * Keycloak realm at `/realms/<name>`) must keep its path. So this is deliberately not
- * `new URL(url).origin`. (#971)
- */
-function discoveryBase(url: string): string {
-  try {
-    const u = new URL(url);
-    u.pathname = u.pathname.replace(/\/(?:jmap\/session|\.well-known\/jmap)\/*$/, '');
-    u.search = '';
-    u.hash = '';
-    return u.toString().replace(/\/+$/, '');
-  } catch {
-    return url;
-  }
-}
-
 export function getRequiredConfig(serverId?: string | null, options?: ClientConfigOptions) {
+  if (options?.upstream) {
+    const { clientId, serverUrl } = options.upstream;
+    return { clientId, serverUrl, discoveryUrl: discoveryBase(serverUrl), serverId: undefined, endSessionUrl: undefined, resource: undefined };
+  }
   const entry = getServerEntry(serverId);
 
   const globalClientId = configManager.get<string>('oauthClientId', '') || process.env.OAUTH_CLIENT_ID;
-  const globalServerUrl = configManager.get<string>('jmapServerUrl', '') || process.env.JMAP_SERVER_URL || process.env.NEXT_PUBLIC_JMAP_SERVER_URL;
-  const globalIssuerUrl = configManager.get<string>('oauthIssuerUrl', '') || process.env.OAUTH_ISSUER_URL;
+  const { serverUrl: globalServerUrl, issuerUrl: globalIssuerUrl } = configuredServer();
 
   const clientId = entry?.oauth?.clientId || globalClientId || options?.fallbackClientId;
   const serverUrl = entry?.url || globalServerUrl;
@@ -123,7 +113,23 @@ export function getRequiredConfig(serverId?: string | null, options?: ClientConf
   const endSessionUrl = entry
     ? entry.oauth?.endSessionUrl
     : (configManager.get<string>('oauthEndSessionUrl', '') || process.env.OAUTH_END_SESSION_URL)?.trim() || undefined;
-  return { clientId, serverUrl, discoveryUrl, serverId: entry?.id, endSessionUrl };
+  // The resource names an API of the global provider, so it follows the
+  // issuer's rule too: never sent to a server entry's provider (#1461).
+  const resource = entry ? undefined : getOauthResource() || undefined;
+  return { clientId, serverUrl, discoveryUrl, serverId: entry?.id, endSessionUrl, resource };
+}
+
+/**
+ * Options for refreshing or revoking a token the password+TOTP login may have
+ * minted without a configured client. On Stalwart 1.0 that login signs in
+ * with a client it registers itself (lib/auth/stalwart-password-login.ts),
+ * whose id the refresh must present instead of the default one.
+ */
+export async function defaultClientOptions(serverId?: string | null, upstream?: CustomUpstream | null): Promise<ClientConfigOptions> {
+  if (upstream) return { upstream };
+  const { clientId, serverUrl } = getRequiredConfig(serverId, { fallbackClientId: DEFAULT_CLIENT_ID });
+  if (clientId !== DEFAULT_CLIENT_ID) return { fallbackClientId: DEFAULT_CLIENT_ID };
+  return { fallbackClientId: await stalwartDefaultClientId(serverUrl, DEFAULT_CLIENT_ID, true) };
 }
 
 export function getClientSecret(serverId?: string | null): string {
@@ -141,24 +147,43 @@ export function hasClientSecret(serverId?: string | null): boolean {
   return getClientSecret(serverId) !== '';
 }
 
-export async function getTokenEndpoint(serverId?: string | null, options?: ClientConfigOptions): Promise<string> {
+/**
+ * `issuerRule` (for a sign-in, lib/oauth/sign-in-servers.ts signInIssuerRule):
+ * which metadata `issuer` counts (lib/oauth/discovery.ts). Without it the
+ * issuer isn't checked, as for renewing and revoking tokens.
+ */
+export async function getTokenEndpoint(serverId?: string | null, options?: ClientConfigOptions, issuerRule?: IssuerRule): Promise<string> {
   const { discoveryUrl } = getRequiredConfig(serverId, options);
-  const metadata = await discoverOAuth(discoveryUrl, { validateEndpoint: getDiscoveryValidator(discoveryUrl) });
+  const metadata = await discoverOAuth(discoveryUrl, { validateEndpoint: getDiscoveryValidator(discoveryUrl), issuerRule });
   if (!metadata?.token_endpoint) {
     throw new Error('OAuth token endpoint not found');
   }
   return metadata.token_endpoint;
 }
 
-export async function getMetadata(serverId?: string | null, options?: ClientConfigOptions): Promise<OAuthMetadata | null> {
+export async function getMetadata(serverId?: string | null, options?: ClientConfigOptions, issuerRule?: IssuerRule): Promise<OAuthMetadata | null> {
   const { discoveryUrl } = getRequiredConfig(serverId, options);
-  return discoverOAuth(discoveryUrl, { validateEndpoint: getDiscoveryValidator(discoveryUrl) });
+  return discoverOAuth(discoveryUrl, { validateEndpoint: getDiscoveryValidator(discoveryUrl), issuerRule });
+}
+
+/** A configured server's metadata under the sign-in rule, or why there is none (lib/oauth/discovery.ts). */
+export async function discoverSignIn(serverId?: string | null): Promise<SignInDiscovery> {
+  const { discoveryUrl } = getRequiredConfig(serverId);
+  return discoverSignInMetadata(discoveryUrl, { validateEndpoint: getDiscoveryValidator(discoveryUrl), issuerRule: signInIssuerRule() });
 }
 
 export function buildOAuthParams(base: Record<string, string>, serverId?: string | null, options?: ClientConfigOptions): URLSearchParams {
-  const { clientId } = getRequiredConfig(serverId, options);
+  const { clientId, resource } = getRequiredConfig(serverId, options);
   const params = new URLSearchParams({ ...base, client_id: clientId });
-  const secret = getClientSecret(serverId);
+  // RFC 8707 section 2.2: the resource indicator from the authorization request
+  // also goes on the token request. IdPs built on node-oidc-provider with
+  // useGrantedResource off (Logto, for one) only issue a JWT for the API when
+  // the token request names it, and otherwise return an opaque token that
+  // Stalwart rejects. Revocation (no grant_type) does not take a resource.
+  if (resource && (base.grant_type === 'authorization_code' || base.grant_type === 'refresh_token')) {
+    params.set('resource', resource);
+  }
+  const secret = options?.upstream ? '' : getClientSecret(serverId);
   if (secret) {
     params.set('client_secret', secret);
   }
@@ -178,36 +203,50 @@ export async function exchangeCodeForTokens(
   codeVerifier: string,
   redirectUri: string,
   serverId?: string | null,
+  options?: ClientConfigOptions,
 ): Promise<TokenResult> {
-  const tokenEndpoint = await getTokenEndpoint(serverId);
+  // A code goes only to the token endpoint of metadata whose issuer passes the
+  // sign-in rule: the issuer the callback was checked against. The desktop
+  // app's server of its own (`upstream`) is the one the user typed; it checks
+  // the answer itself.
+  const tokenEndpoint = await getTokenEndpoint(serverId, options, options?.upstream ? undefined : signInIssuerRule());
 
   const params = buildOAuthParams({
     grant_type: 'authorization_code',
     code,
     redirect_uri: redirectUri,
     code_verifier: codeVerifier,
-  }, serverId);
+  }, serverId, options);
 
   // The body carries the code, the PKCE verifier and the client secret. The
   // endpoint was validated; a redirect would re-send all of it to a host
   // that was not, so none is followed.
-  const tokenResponse = await fetch(tokenEndpoint, {
+  const tokenResponse = await observeUpstream('oauth', () => fetch(tokenEndpoint, {
     method: 'POST',
     headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
     body: params.toString(),
     redirect: 'error',
-  });
+  }));
 
   if (!tokenResponse.ok) {
-    const errorText = await tokenResponse.text();
-    logger.error('Token exchange failed', { status: tokenResponse.status, error: errorText });
+    // The OAuth error code only: the body can repeat what was sent.
+    const error = oauthErrorCode(await tokenResponse.text());
+    logger.error('Token exchange failed', { status: tokenResponse.status, ...(error ? { error } : {}) });
     throw new Error('Token exchange failed');
   }
 
-  const tokens = await tokenResponse.json();
+  let tokens;
+  try {
+    tokens = await tokenResponse.json();
+  } catch {
+    // The parser's message would quote the answer, tokens and all.
+    logger.error('Token answer is not JSON', { status: tokenResponse.status });
+    throw new Error('Invalid token response');
+  }
 
-  if (!tokens.access_token) {
-    logger.error('Token response missing access_token', { response: JSON.stringify(tokens).substring(0, 500) });
+  if (!tokens?.access_token) {
+    // Which fields came, not their values: the answer may still hold tokens.
+    logger.error('Token response missing access_token', { fields: answerFields(tokens) });
     throw new Error('Invalid token response');
   }
 

@@ -434,7 +434,7 @@ function Formatted({ text, sources, onOpen }: { text: string; sources: SourceEma
             key={`${key}-${i}`}
             type="button"
             onClick={() => onOpen(sources[n] ?? id)}
-            className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/15 px-1 align-text-top text-[10px] font-semibold text-primary hover:bg-primary/25"
+            className="mx-0.5 inline-flex h-4 min-w-4 items-center justify-center rounded bg-primary/15 px-1 align-text-top text-[0.625rem] font-semibold text-primary hover:bg-primary/25"
             title={sources[n]?.subject}
           >
             {n >= 0 ? n + 1 : "↗"}
@@ -886,7 +886,7 @@ export function AssistantPanel() {
     // would sit under the iOS status bar and hide the close button.
     <aside
       data-xenaxio-glass=""
-      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] text-foreground shadow-xl sm:w-[400px]"
+      className="fixed inset-y-0 right-0 z-50 flex w-full flex-col border-l border-border bg-background pt-[var(--app-top-inset)] pr-[env(safe-area-inset-right)] text-foreground shadow-xl sm:w-[400px]"
       aria-label={t("assistant.title")}
       onDragOver={(e) => {
         if (!e.dataTransfer.types.includes("Files")) return;
@@ -952,7 +952,7 @@ export function AssistantPanel() {
               <X className="h-3.5 w-3.5" />
             </Button>
           </div>
-          {noScreen && <p className="text-[11px] text-muted-foreground">{t("assistant.screen.context_dropped")}</p>}
+          {noScreen && <p className="text-[0.6875rem] text-muted-foreground">{t("assistant.screen.context_dropped")}</p>}
           {screen.label?.kind === "email" && selectedEmail && !noScreen && (
             <div className="flex flex-wrap gap-2">
               <Button variant="outline" size="sm" disabled={busy} onClick={() => summarize(selectedEmail.threadId, selectedEmail.subject ?? "")}>
@@ -1205,7 +1205,7 @@ export function AssistantPanel() {
               removeLabel={t("assistant.attach_remove")}
             />
           ))}
-          <p className="text-[11px] text-muted-foreground">{uploading ? t("assistant.attach_uploading") : t("assistant.attach_saved")}</p>
+          <p className="text-[0.6875rem] text-muted-foreground">{uploading ? t("assistant.attach_uploading") : t("assistant.attach_saved")}</p>
         </div>
       )}
       <form onSubmit={send} className="relative flex items-end gap-2 border-t border-border p-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))]">

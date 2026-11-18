@@ -83,7 +83,7 @@ export function initials(name: string): string {
 
 export function PersonBadge({ name, email, size = "sm" }: { name: string; email?: string; size?: "sm" | "md" }) {
   const person = usePeopleStore((s) => (email ? s.people.get(email.toLowerCase()) : undefined));
-  const px = size === "sm" ? "h-6 w-6 text-[10px]" : "h-8 w-8 text-xs";
+  const px = size === "sm" ? "h-6 w-6 text-[0.625rem]" : "h-8 w-8 text-xs";
   if (person?.avatarUrl) return <img src={person.avatarUrl} alt="" title={name} className={cn("shrink-0 rounded-full object-cover", px)} />;
   return (
     <span title={name} className={cn("inline-flex shrink-0 items-center justify-center rounded-full bg-primary/15 font-semibold text-primary", px)}>

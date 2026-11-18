@@ -13,7 +13,7 @@ export function AboutAttribution() {
   const { sourceCodeUrl } = useConfig();
   const link = "underline underline-offset-2 hover:text-foreground";
   return (
-    <p className="mt-1.5 text-[11px] leading-snug text-muted-foreground">
+    <p className="mt-1.5 text-[0.6875rem] leading-snug text-muted-foreground">
       {t("about.based_on")}{" "}
       <a href={UPSTREAM_URL} target="_blank" rel="noopener noreferrer" className={link}>
         Bulwark Mail

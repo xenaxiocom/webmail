@@ -33,7 +33,7 @@ function PasswordLinkForm({ kind, token }: { kind: "invite" | "reset"; token: st
   // Step 96, part D: the company moved to Xenaxio – a new mailbox, then into mail.
   const mailbox = info?.kind === "mailbox";
   const title = t(mailbox ? "rooms.moved_title" : kind === "invite" ? "rooms.invite_title" : "rooms.reset_title");
-  useDocumentTitle(title, { withAccount: false });
+  useDocumentTitle(title, { showAccount: false });
 
   useEffect(() => {
     xenaxio
@@ -95,7 +95,7 @@ function ForgotForm({ onBack }: { onBack: () => void }) {
   const [busy, setBusy] = useState(false);
   const [sent, setSent] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  useDocumentTitle(t("rooms.forgot_title"), { withAccount: false });
+  useDocumentTitle(t("rooms.forgot_title"), { showAccount: false });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();
@@ -181,7 +181,7 @@ function LoginForm() {
     };
   }, [rooms, add, next, home, router]);
   const title = rooms ? t(add ? "rooms.add_title" : "rooms.login_title") : add ? t("login.add_title") : t("login.title");
-  useDocumentTitle(title, { withAccount: false });
+  useDocumentTitle(title, { showAccount: false });
 
   const submit = async (e: FormEvent) => {
     e.preventDefault();

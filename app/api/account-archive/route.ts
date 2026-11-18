@@ -2,19 +2,27 @@ import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { configManager } from '@/lib/admin/config-manager';
 import { hasSessionSecret } from '@/lib/auth/session-secret';
-import { readStalwartAuthContextFromStore } from '@/lib/stalwart/auth-context';
-import { assertBasicAuthMatchesUsername, verifyJmapAuth } from '@/lib/auth/verify-jmap-auth';
+import { readCurrentStalwartAuthContext } from '@/lib/stalwart/auth-context';
+import { JmapAuthVerificationError, assertBasicAuthMatchesUsername, verifyJmapAuth } from '@/lib/auth/verify-jmap-auth';
+import { loginClientAddress } from '@/lib/auth/client-address';
+import { acquireStoredCredential } from '@/lib/stalwart/stored-credential-budget';
 import { parseJmapServers, resolveTrustedJmapUrl } from '@/lib/admin/jmap-servers';
 import { rejectCrossOriginRequest } from '@/lib/security/same-origin';
 import { MAX_ACCOUNT_SLOTS } from '@/lib/account-utils';
 import { archiveIdentity, parseArchiveEnvelope, ARCHIVE_MAX_BYTES, type ArchiveOwner } from '@/lib/account-archive';
 import { deleteArchive, loadArchive, saveArchive } from '@/lib/account-archive-storage';
+import { isStoreUnavailable } from '@/lib/stored-data-errors';
 
 export const runtime = 'nodejs';
 
 const reply = (data: unknown, status = 200) => NextResponse.json(data, {
   status, headers: { 'Cache-Control': 'no-store' },
 });
+
+/** A shared store that can't be reached is a 503 the client retries; nothing was written. */
+const storageFailed = (error: unknown) => isStoreUnavailable(error)
+  ? NextResponse.json({ error: 'storage_unavailable' }, { status: 503, headers: { 'Cache-Control': 'no-store', 'Retry-After': '10' } })
+  : reply({ error: 'storage_failed' }, 500);
 
 /**
  * The owner whose archive this request may touch, or the response refusing it.
@@ -38,7 +46,8 @@ async function verifiedOwner(request: NextRequest): Promise<ArchiveOwner | NextR
   } catch { return denied; }
   const store = await cookies();
   for (let slot = 0; slot < MAX_ACCOUNT_SLOTS; slot++) {
-    const ctx = readStalwartAuthContextFromStore(store, slot);
+    // None past the maximum session length.
+    const ctx = await readCurrentStalwartAuthContext(store, slot);
     if (!ctx) continue;
     try { if (archiveIdentity(ctx) !== claimed) continue; } catch { continue; }
     try {
@@ -47,8 +56,21 @@ async function verifiedOwner(request: NextRequest): Promise<ArchiveOwner | NextR
       const trusted = resolveTrustedJmapUrl(ctx.serverUrl,
         configManager.get<string>('jmapServerUrl', ''),
         parseJmapServers(configManager.get<unknown>('jmapServers', [])));
-      await verifyJmapAuth(ctx.serverUrl, ctx.authHeader, { trusted: !!trusted });
-    } catch { return denied; }
+      // Held to the stored-credential budget like every other replay of the
+      // cookie's credential, requests that overlap included.
+      const pass = await acquireStoredCredential(ctx.authHeader);
+      if (!pass) return denied;
+      try {
+        await verifyJmapAuth(ctx.serverUrl, ctx.authHeader, { trusted: !!trusted, clientIp: loginClientAddress(request) });
+      } catch (error) {
+        if (error instanceof JmapAuthVerificationError && error.upstreamStatus !== undefined) pass.answered(error.upstreamStatus);
+        else pass.failed();
+        throw error;
+      }
+      pass.answered(200);
+    } catch {
+      return denied;
+    }
     return { username: ctx.accountName ?? ctx.username, serverUrl: ctx.serverUrl };
   }
   return denied;
@@ -58,7 +80,7 @@ export async function GET(request: NextRequest) {
   const owner = await verifiedOwner(request);
   if (owner instanceof NextResponse) return owner;
   try { return reply({ envelope: await loadArchive(owner) }); }
-  catch { return reply({ error: 'storage_failed' }, 500); }
+  catch (error) { return storageFailed(error); }
 }
 
 export async function PUT(request: NextRequest) {
@@ -74,7 +96,7 @@ export async function PUT(request: NextRequest) {
     envelope = parseArchiveEnvelope((JSON.parse(text) as { envelope?: unknown })?.envelope);
   } catch { return reply({ error: 'invalid_archive' }, 400); }
   try { await saveArchive(owner, envelope); return reply({ ok: true }); }
-  catch { return reply({ error: 'storage_failed' }, 500); }
+  catch (error) { return storageFailed(error); }
 }
 
 export async function DELETE(request: NextRequest) {
@@ -83,5 +105,5 @@ export async function DELETE(request: NextRequest) {
   const owner = await verifiedOwner(request);
   if (owner instanceof NextResponse) return owner;
   try { await deleteArchive(owner); return reply({ ok: true }); }
-  catch { return reply({ error: 'storage_failed' }, 500); }
+  catch (error) { return storageFailed(error); }
 }

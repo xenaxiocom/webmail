@@ -142,7 +142,7 @@ function Console({
 
   return (
     <div className="min-h-dvh bg-background text-foreground">
-      <header className="sticky top-0 z-30 border-b border-border bg-background pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+      <header className="sticky top-0 z-30 border-b border-border bg-background pt-[var(--app-top-inset)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
         <div className="mx-auto max-w-4xl px-4 h-14 flex items-center justify-between">
           <span className="text-sm font-semibold text-primary">
             {t("common.app_name")} · {t("operator.title")}

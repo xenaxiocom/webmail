@@ -58,7 +58,8 @@ describe("step 107: the profile in Settings → Account", () => {
     render(<XenaxioProfileSetting />);
     await screen.findByDisplayValue("Esso.dev");
     fireEvent.click(screen.getByRole("button", { name: "Speichern" }));
-    await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
+    // The field's own message (Bulwark 1.21 also announces it in its live region).
+    await waitFor(() => expect(screen.getAllByRole("alert").length).toBeGreaterThan(0));
     expect(api.calls.some((c) => c.method === "PUT")).toBe(false);
   });
 

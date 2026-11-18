@@ -61,7 +61,7 @@ export function AuthCard({ title, subtitle, children }: { title: string; subtitl
     </>
   );
   return (
-    <main className="min-h-dvh flex items-center justify-center bg-background px-4 pt-[calc(2.5rem+env(safe-area-inset-top))] pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
+    <main className="min-h-dvh flex items-center justify-center bg-background px-4 pt-[calc(2.5rem+var(--app-top-inset))] pb-[calc(2.5rem+env(safe-area-inset-bottom))]">
       <div className="w-full max-w-md">
         {website ? (
           <a

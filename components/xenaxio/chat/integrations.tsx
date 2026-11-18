@@ -116,7 +116,7 @@ export function IntegrationsDialog({ room, roomName, onClose }: { room: Room; ro
         {hooks?.map((h) => (
           <div key={h.id} className="rounded-md border border-border p-3 text-sm">
             <div className="flex items-center gap-2">
-              <span className="rounded bg-muted px-1.5 text-[10px] font-semibold uppercase text-muted-foreground">{t("chat.app")}</span>
+              <span className="rounded bg-muted px-1.5 text-[0.625rem] font-semibold uppercase text-muted-foreground">{t("chat.app")}</span>
               <span className="min-w-0 flex-1 truncate font-semibold">{h.name}</span>
               <button type="button" disabled={busy} onClick={async () => (await confirm({ title: t("chat.hooks_rotate"), message: t("chat.hooks_rotate_confirm"), confirmText: t("chat.hooks_rotate") })) && void run(() => chatHooks.rotate(room.id, h.id))} className="rounded p-1 hover:bg-accent" title={t("chat.hooks_rotate")} aria-label={t("chat.hooks_rotate")}>
                 <IconRefresh size={16} />

@@ -37,7 +37,8 @@ import {
 } from "@tabler/icons-react";
 import { type ChangeEvent, type ReactNode, useEffect, useMemo, useRef, useState } from "react";
 import { withBasePath } from "@/lib/browser-navigation";
-import { generateAvatarColor, getInitials } from "@/lib/account-utils";
+import { generateAvatarColor } from "@/lib/account-utils";
+import { avatarInitials } from "@/components/ui/avatar";
 import { type AvatarAnimation, errorText, XenaxioApiError, xenaxio } from "@/lib/xenaxio/api";
 import { useXenaxioAvatarStore } from "@/lib/xenaxio/avatars";
 import { CENTER, type Focus, objectPosition } from "@/lib/xenaxio/media";
@@ -142,7 +143,7 @@ export function LargeAvatar({
         {src ? (
           <img src={withBasePath(src)} alt="" className="h-full w-full object-cover" style={{ objectPosition: src === animation?.url ? objectPosition(animation) : undefined }} />
         ) : (
-          getInitials(name, email ?? "")
+          avatarInitials(name, email ?? "")
         )}
       </span>
       {presence && (
@@ -300,7 +301,7 @@ export function PictureFramer({ src, aspect, round, focus, onChange, label }: { 
         className="pointer-events-none h-full w-full object-cover"
         style={{ objectPosition: objectPosition(focus) }}
       />
-      <span className="pointer-events-none absolute inset-x-0 bottom-1.5 text-center text-[11px] font-medium text-white drop-shadow">{t("chat.profile_framer_drag")}</span>
+      <span className="pointer-events-none absolute inset-x-0 bottom-1.5 text-center text-[0.6875rem] font-medium text-white drop-shadow">{t("chat.profile_framer_drag")}</span>
     </div>
   );
 }

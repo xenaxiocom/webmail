@@ -147,7 +147,7 @@ function MembersPanel({ client, roomId }: { client: ChatClient; roomId: string }
               {name(m.userId)}
               {m.userId === client.userId && <span className="text-muted-foreground"> ({t("chat.you")})</span>}
             </span>
-            {client.powerOf(room, m.userId) >= 100 && <span className="text-[10px] uppercase text-muted-foreground">admin</span>}
+            {client.powerOf(room, m.userId) >= 100 && <span className="text-[0.625rem] uppercase text-muted-foreground">admin</span>}
           </button>
         ))}
       </div>

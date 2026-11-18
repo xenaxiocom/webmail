@@ -1,0 +1,28 @@
+# Admin config and user policy from files in git instead of the admin console.
+# Every replica reads config.json and policy.json from the ConfigMap and picks
+# up a change within a few seconds; the admin console shows them but can't
+# save them. Sessions, settings and the audit log still live in the store.
+#
+#   kubectl apply -k overlays/config-in-git
+#
+# To start from your current policy, use "Export policy.json" on the admin
+# console's Domains and groups page.
+#
+# A ConfigMap is not a Secret: anyone who may read ConfigMaps in the namespace
+# reads config.json. Keep "oauthClientSecret" out of it. Set
+# OAUTH_CLIENT_SECRET on the Deployment from a Secret instead (secretKeyRef),
+# or mount the Secret as a file and put its path in "oauthClientSecretFile".
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+resources:
+  - ../../base
+
+configMapGenerator:
+  - name: bulwark-admin-config
+    files:
+      - config.json
+      - policy.json
+
+patches:
+  - path: config-from-files.yaml

@@ -1,19 +1,29 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { cookies } from 'next/headers';
 import { logger } from '@/lib/logger';
-import { refreshTokenCookieName, refreshTokenServerCookieName } from '@/lib/oauth/tokens';
-import { getCookieOptions } from '@/lib/oauth/cookie-config';
+import { loggableError } from '@/lib/oauth/answer-summary';
+import { getPasswordLoginScope, refreshTokenCookieName, refreshTokenServerCookieName } from '@/lib/oauth/tokens';
+import { getCookieOptions, getSignInCookieOptions } from '@/lib/oauth/cookie-config';
 import { readFileEnv } from '@/lib/read-file-env';
 import { configManager } from '@/lib/admin/config-manager';
 import { isPublicHttpUrl } from '@/lib/security/url-guard';
 import { recordLogin } from '@/lib/telemetry/login-tracker';
-import { parseJmapServers, findServerByUrl, findServerById } from '@/lib/admin/jmap-servers';
-import { MAX_ACCOUNT_SLOTS } from '@/lib/account-utils';
+import { parseJmapServers, findServerByUrl, findServerById, resolveTrustedJmapUrl } from '@/lib/admin/jmap-servers';
 import { DEFAULT_CLIENT_ID } from '@/lib/oauth/token-exchange';
 import { rejectCrossOriginRequest } from '@/lib/security/same-origin';
+import { rejectNonJsonBody } from '@/app/api/auth/json-request';
 import { stalwartPasswordLogin } from '@/lib/auth/stalwart-password-login';
 import { loginClientAddress } from '@/lib/auth/client-address';
 import { LOGIN_BUDGET_RETRY_AFTER_SECONDS, reserveLoginAttempt } from '@/lib/auth/verify-budget';
+import { isStoreUnavailable, storeUnavailableResponse } from '@/lib/auth/store-unavailable';
+import { writeSignInStamp } from '@/lib/auth/session-age';
+import { hasSessionSecret } from '@/lib/auth/session-secret';
+import { IS_DESKTOP_BUILD } from '@/lib/desktop/flag';
+import { isDesktopTrustedServer } from '@/lib/desktop/trusted-servers';
+import { devicePolicyServerRefusal } from '@/lib/desktop/server-policy';
+import { stalwartDefaultClientId } from '@/lib/auth/stalwart-password-login';
+import { writeCustomUpstream } from '@/lib/oauth/custom-upstream';
+import { accountSlotFromBody } from '@/lib/stalwart/credentials';
 
 /**
  * Exchange a password + (optional) TOTP code for OAuth tokens.
@@ -38,6 +48,8 @@ async function attemptLogin(
   serverId: string | null,
   upstreamTrusted: boolean,
   clientIp: string,
+  rememberMe: boolean,
+  typedServer: boolean,
 ): Promise<NextResponse> {
   const base = upstreamUrl.replace(/\/+$/, '');
 
@@ -45,10 +57,10 @@ async function attemptLogin(
   // server entry has its own oauth block configured.
   const serverList = parseJmapServers(configManager.get<unknown>('jmapServers', []));
   const entry = findServerById(serverList, serverId);
-  const clientId = entry?.oauth?.clientId
+  const configuredClientId = entry?.oauth?.clientId
     || configManager.get<string>('oauthClientId', '')
-    || process.env.OAUTH_CLIENT_ID
-    || DEFAULT_CLIENT_ID;
+    || process.env.OAUTH_CLIENT_ID;
+  const clientId = configuredClientId || DEFAULT_CLIENT_ID;
   const clientSecret = entry?.oauth?.clientSecret
     || configManager.get<string>('oauthClientSecret', '')
     || process.env.OAUTH_CLIENT_SECRET
@@ -57,7 +69,7 @@ async function attemptLogin(
 
   // Wrong passwords tried from here count against this server's address
   // upstream, so each client gets a failure budget (lib/auth/verify-budget.ts).
-  const refund = reserveLoginAttempt(clientIp);
+  const refund = await reserveLoginAttempt(clientIp);
   if (!refund) {
     return NextResponse.json(
       { error: 'too_many_attempts' },
@@ -74,11 +86,14 @@ async function attemptLogin(
     redirectUri,
     trusted: upstreamTrusted,
     clientIp,
+    // Stalwart 1.0 knows no client by the default name.
+    registerUnknownClient: !configuredClientId,
+    scope: configuredClientId ? getPasswordLoginScope() : undefined,
   });
   // Only a rejected password spends the budget. `totp_required` means the
   // password was right and the code is still missing, which every TOTP login
   // goes through once; outages say nothing about the password.
-  if (result.ok || result.error !== 'invalid_credentials') refund();
+  if (result.ok || result.error !== 'invalid_credentials') await refund();
 
   if (!result.ok) {
     switch (result.error) {
@@ -108,7 +123,17 @@ async function attemptLogin(
 
   logger.info('TOTP login succeeded');
   void recordLogin(username, base);
-  return await storeAndRespond(result.tokens, slot, serverId);
+  // A server the user typed (and every server of the desktop app) is in no
+  // configured list, so the refresh has to be told where this token belongs
+  // and which client it was issued to (lib/oauth/custom-upstream.ts). That
+  // record is sealed: without a session secret the refresh token isn't kept,
+  // or its renewal would go to the configured server.
+  const typed = (IS_DESKTOP_BUILD && !serverId) || typedServer;
+  const tokens = typed && !hasSessionSecret() ? { ...result.tokens, refresh_token: undefined } : result.tokens;
+  const upstream = typed && tokens.refresh_token
+    ? { serverUrl: base, clientId: await stalwartDefaultClientId(base, clientId, upstreamTrusted) }
+    : null;
+  return await storeAndRespond(tokens, slot, serverId, rememberMe, upstream);
 }
 
 function trimUrl(url: string): string {
@@ -120,23 +145,26 @@ export async function POST(request: NextRequest) {
   // so a cross-site top-level POST would otherwise reach this handler.
   const crossOrigin = rejectCrossOriginRequest(request);
   if (crossOrigin) return crossOrigin;
+  const notJson = rejectNonJsonBody(request);
+  if (notJson) return notJson;
   try {
-    const { serverUrl, username, password, totp, slot: bodySlot, server_id: bodyServerId, redirectUri: bodyRedirectUri } =
+    const { serverUrl, username, password, totp, slot: bodySlot, server_id: bodyServerId, redirectUri: bodyRedirectUri, rememberMe } =
       await request.json();
 
     if (!serverUrl || !username || !password) {
       return NextResponse.json({ error: 'Missing required parameters' }, { status: 400 });
     }
 
-    const slot = typeof bodySlot === 'number' && bodySlot >= 0 && bodySlot < MAX_ACCOUNT_SLOTS ? bodySlot : 0;
+    const slot = accountSlotFromBody(bodySlot) ?? 0;
     const requestedServerId = typeof bodyServerId === 'string' && bodyServerId ? bodyServerId : null;
     const totpCode = typeof totp === 'string' && totp ? totp : undefined;
 
     // Pin the upstream URL to a configured JMAP server. The list of allowed
     // servers is `jmapServerUrl` plus any entry from `jmapServers`. Only when
-    // no server is configured (and the deployment explicitly allows custom
-    // JMAP endpoints) do we fall back to the user-supplied URL - and even then
-    // it must resolve to a public address.
+    // the user named none of them (and the deployment explicitly allows custom
+    // JMAP endpoints) do we use the user-supplied URL - and even then it must
+    // resolve to a public address. Their password belongs to that server, and
+    // the browser goes on to use the token there.
     await configManager.ensureLoaded();
     const configuredServerUrl =
       configManager.get<string>('jmapServerUrl', '') ||
@@ -147,16 +175,26 @@ export async function POST(request: NextRequest) {
     const serverList = parseJmapServers(configManager.get<unknown>('jmapServers', []));
 
     let upstreamUrl: string;
+    const refusedByDevice = devicePolicyServerRefusal(serverUrl);
+    if (refusedByDevice) return refusedByDevice;
+
     let upstreamTrusted = true;
+    // A server the user typed rather than one configured here.
+    let typedServer = false;
     let resolvedServerId: string | null = null;
     const requestedEntry = findServerById(serverList, requestedServerId);
     const matchedEntry = requestedEntry || findServerByUrl(serverList, serverUrl);
+    const customRequested = allowCustomEndpoint && !resolveTrustedJmapUrl(serverUrl, configuredServerUrl, serverList);
 
     if (matchedEntry) {
       upstreamUrl = matchedEntry.url;
       resolvedServerId = matchedEntry.id;
-    } else if (configuredServerUrl) {
+    } else if (configuredServerUrl && !customRequested) {
       upstreamUrl = configuredServerUrl;
+    // Spelled out as in lib/admin/jmap-servers.ts, so other builds don't hold it.
+    } else if (process.env.NEXT_PUBLIC_BULWARK_DESKTOP === '1' && isDesktopTrustedServer(serverUrl)) {
+      upstreamUrl = serverUrl;
+      typedServer = true;
     } else if (allowCustomEndpoint) {
       if (!(await isPublicHttpUrl(serverUrl))) {
         logger.warn('TOTP login: rejected non-public server URL');
@@ -164,6 +202,7 @@ export async function POST(request: NextRequest) {
       }
       upstreamUrl = serverUrl;
       upstreamTrusted = false;
+      typedServer = true;
     } else {
       return NextResponse.json({ error: 'jmap_server_not_configured' }, { status: 500 });
     }
@@ -186,10 +225,15 @@ export async function POST(request: NextRequest) {
       slot,
       resolvedServerId,
       upstreamTrusted,
-      loginClientAddress(request),
+      loginClientAddress(request, upstreamUrl),
+      // Clients from before the flag remembered every sign-in.
+      rememberMe !== false,
+      typedServer,
     );
   } catch (error) {
-    logger.error('TOTP login error', { error: error instanceof Error ? error.message : 'Unknown error' });
+    // The sign-in limit can't be counted without the shared store: refused.
+    if (isStoreUnavailable(error)) return storeUnavailableResponse();
+    logger.error('TOTP login error', { error: loggableError(error) });
     return NextResponse.json({ error: 'Internal server error' }, { status: 500 });
   }
 }
@@ -198,11 +242,24 @@ async function storeAndRespond(
   tokens: { access_token: string; expires_in?: number; refresh_token?: string },
   slot: number,
   serverId: string | null,
+  rememberMe: boolean,
+  upstream: { serverUrl: string; clientId: string } | null,
 ): Promise<NextResponse> {
   const cookieStore = await cookies();
+  // A sign-in: the maximum session length counts from here (lib/auth/session-age.ts).
+  const signedInAt = Date.now();
   if (tokens.refresh_token) {
     const cookieName = refreshTokenCookieName(slot);
-    cookieStore.set(cookieName, tokens.refresh_token, getCookieOptions());
+    // Without "Remember me" the sign-in ends with the browser session.
+    const options = getSignInCookieOptions(rememberMe);
+    cookieStore.set(cookieName, tokens.refresh_token, options);
+    // The token is renewed and revoked only at the server that issued it.
+    writeSignInStamp(cookieStore, slot, {
+      signedInAt,
+      refreshToken: tokens.refresh_token,
+      serverId,
+      ...(upstream ? { customServer: upstream.serverUrl } : {}),
+    }, options);
   }
   const serverCookieName = refreshTokenServerCookieName(slot);
   if (serverId) {
@@ -210,10 +267,12 @@ async function storeAndRespond(
   } else {
     cookieStore.delete(serverCookieName);
   }
+  if (upstream && tokens.refresh_token) writeCustomUpstream(cookieStore, slot, upstream, rememberMe);
 
   return NextResponse.json({
     access_token: tokens.access_token,
     expires_in: tokens.expires_in || 3600,
     has_refresh_token: !!tokens.refresh_token,
+    signed_in_at: signedInAt,
   });
 }

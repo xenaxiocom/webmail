@@ -76,15 +76,15 @@ function TaskCard({ task, locale, onOpen, project }: { task: TaskSummary; locale
       {task.labels.length > 0 && (
         <div className="mb-1 flex flex-wrap gap-1">
           {task.labels.map((l) => (
-            <span key={l} className="rounded bg-primary/10 px-1.5 py-0.5 text-[11px] text-primary">
+            <span key={l} className="rounded bg-primary/10 px-1.5 py-0.5 text-[0.6875rem] text-primary">
               {l}
             </span>
           ))}
         </div>
       )}
-      {project && <p className="mb-0.5 truncate text-[11px] text-muted-foreground">{project}</p>}
+      {project && <p className="mb-0.5 truncate text-[0.6875rem] text-muted-foreground">{project}</p>}
       {task.path && task.path.length > 0 && (
-        <p className="mb-0.5 truncate text-[11px] text-muted-foreground" title={task.path.map((x) => `${x.ref} ${x.title}`).join(" › ")}>
+        <p className="mb-0.5 truncate text-[0.6875rem] text-muted-foreground" title={task.path.map((x) => `${x.ref} ${x.title}`).join(" › ")}>
           ↳ {task.path.map((x) => x.ref).join(" › ")}
         </p>
       )}

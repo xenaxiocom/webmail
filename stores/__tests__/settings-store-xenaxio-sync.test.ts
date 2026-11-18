@@ -25,6 +25,9 @@ describe('settings sync with the xenaxio platform', () => {
     useSettingsStore.setState({ sendDelaySeconds: 0, settingsSyncDisabled: false });
     useTemplateStore.setState({ templates: [], recentTemplateIds: [], deletedTemplateIds: {} });
     useCalendarStore.setState({ icalSubscriptions: [], deletedSubscriptionIds: {} });
+    // Bulwark 1.21 stamps every local change, and a change made here wins over an
+    // older server copy; the setup above is not such a change.
+    localStorage.removeItem('settings-sync-stamps');
   });
 
   it('shows what another browser saved', async () => {

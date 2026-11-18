@@ -14,8 +14,9 @@ vi.mock('next/server', () => ({
   },
 }));
 
+const logInfo = vi.hoisted(() => vi.fn());
 vi.mock('@/lib/logger', () => ({
-  logger: { warn: vi.fn(), error: vi.fn(), debug: vi.fn(), info: vi.fn() },
+  logger: { warn: vi.fn(), error: vi.fn(), debug: vi.fn(), info: logInfo },
 }));
 
 const state = {
@@ -48,10 +49,13 @@ vi.mock('@/lib/admin/session', () => ({
   requireAdminAuth: async () => (state.hasAdminSession ? { role: 'admin' } : { error: 'unauthorized' }),
   getClientIP: () => '127.0.0.1',
   isSameOriginRequest: () => true,
+  getAdminDeviceId: async () => null,
+  setAdminDeviceCookie: vi.fn(),
 }));
 
 vi.mock('@/lib/admin/rate-limit', () => ({
   checkRateLimit: () => ({ allowed: true, retryAfterMs: 0 }),
+  checkDeviceRateLimit: () => ({ allowed: true, retryAfterMs: 0 }),
 }));
 
 const auditLog = vi.fn();
@@ -116,7 +120,8 @@ async function callPost(body: Record<string, unknown>) {
 describe('admin auth route - stalwartAdminAccess modes (#870)', () => {
   beforeEach(() => {
     vi.clearAllMocks();
-    state.config = {};
+    // The instance's own server: only its superusers count.
+    state.config = { jmapServerUrl: 'https://mail.example.com' };
     state.adminPasswordConfigured = false;
     state.hasAdminSession = false;
     role.current = 'superuser';
@@ -152,6 +157,14 @@ describe('admin auth route - stalwartAdminAccess modes (#870)', () => {
       const login = await callPost({ stalwartAuth: true });
       expect(login.status).toBe(403);
       expect(setAdminSessionCookie).not.toHaveBeenCalled();
+    });
+
+    it("logs what the token may do, not that the account isn't an admin (#1611)", async () => {
+      // The same refusal hits a superuser whose webmail token has only the
+      // data scopes, so the log must not read as "not an admin".
+      await callGet();
+      expect(logInfo).toHaveBeenCalledWith('Stalwart admin check', { username: 'admin@example.com', tokenCanAdmin: false });
+      expect(JSON.stringify(logInfo.mock.calls)).not.toContain('isAdmin');
     });
   });
 
