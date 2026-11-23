@@ -30,7 +30,7 @@ export function EmailCard({ email }: { email: SharedEmail }) {
       <Link href={`/mail/message/${encodeURIComponent(messageRouteId(email.emailId))}`} className="mt-2 inline-block text-xs font-medium text-primary hover:underline">
         {t("chat.email_open")}
       </Link>
-      <p className="mt-1 text-[11px] text-muted-foreground">{t("chat.email_access_note")}</p>
+      <p className="mt-1 text-[0.6875rem] text-muted-foreground">{t("chat.email_access_note")}</p>
     </div>
   );
 }

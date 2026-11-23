@@ -3,18 +3,20 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import {
-  Plus, HardDrive, Folder, FolderOpen, ChevronRight, ChevronDown, Star, StarOff,
-  Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch, NotebookPen,
-  Link as LinkIcon,
+  Plus, HardDrive, File, Folder, FolderOpen, ChevronRight, ChevronDown, Star, StarOff,
+  Clock, Share2, Upload, FolderUp, FolderPlus, FilePlus, Pencil, Trash2, Download, Eye, X, FolderSearch, FolderInput,
+  NotebookPen, Link as LinkIcon,
 } from "@/components/icons";
-import { Button } from "@/components/ui/button";
+import { isTrashLocation } from "@/lib/files-trash";
+import { IconButton } from "@/components/ui/icon-button";
 import { ContextMenu, ContextMenuItem, ContextMenuSeparator } from "@/components/ui/context-menu";
 import { useContextMenu } from "@/hooks/use-context-menu";
 import { cn } from "@/lib/utils";
-import type { FileResource } from "@/stores/file-store";
+import { sharedFilePages, type FileResource } from "@/stores/file-store";
 import { getFileIconByName } from "@/components/files/file-icons";
+import { isInternalDrag, readDraggedNames } from "@/components/files/file-item-parts";
+import { AccountScopeLabel } from "@/components/layout/account-scope-label";
 import { useXT } from "@/lib/xenaxio/i18n";
-import { anchorEvent, isInternalDrag, readDraggedNames } from "@/components/files/file-item-parts";
 
 const COLLAPSED_KEY = "files-sidebar-collapsed";
 const RECENT_LIMIT = 8;
@@ -28,16 +30,17 @@ function loadCollapsed(): Record<string, boolean> {
   }
 }
 
-const ROW_STYLE = { paddingBlock: "var(--density-sidebar-py, 4px)", minHeight: "32px" } as const;
+const ROW_STYLE = { paddingBlock: "var(--density-sidebar-py, 4px)" } as const;
 
 function rowClass(active: boolean, dropTarget: boolean) {
   return cn(
-    "group w-full flex items-center gap-2 pe-3 text-sm transition-colors text-start",
+    // 32px rows, 44px on touch (R1).
+    "group w-full flex items-center gap-2 pe-3 text-sm transition-colors text-start min-h-8 pointer-coarse:min-h-11",
     active
       ? "bg-accent text-accent-foreground font-medium"
       : dropTarget
         ? "bg-primary/10 text-foreground ring-1 ring-inset ring-primary/40"
-        : "text-foreground/80 hover:bg-muted",
+        : "text-foreground hover:bg-muted",
   );
 }
 
@@ -66,6 +69,8 @@ export interface FilesSidebarProps {
   onUploadFolder: () => void;
   onNewFolder: () => void;
   onNewTextFile: () => void;
+  /** The label of the new-file entries: "New file" when documents can be made too (#1393). */
+  newFileLabel?: string;
   /** Xenaxio step 115: a new Markdown note. */
   onNewNote: () => void;
   onToggleFavorite: (path: string) => void;
@@ -78,11 +83,21 @@ export interface FilesSidebarProps {
   /** Open a folder, then start creating or uploading there. */
   onCreateIn: (path: string, id: string | null, kind: CreateKind) => void;
   onRenameFolder: (folder: FileResource) => void;
+  /** Move to… for a folder of the own drive. */
+  onMoveFolder?: (folder: FileResource) => void;
+  /** Download a folder as a zip. */
+  onDownloadFolder?: (folder: FileResource) => void;
   onDeleteFolder: (folder: FileResource) => void;
   /** Open the folder holding a recent file, with the file selected. */
   onRevealRecent: (id: string) => void;
-  onDownloadRecent: (id: string) => void;
+  /** Left out when a device policy turned downloads off. */
+  onDownloadRecent?: (id: string) => void;
   onRemoveRecent: (id: string) => void;
+  /** Items in the trash; the entry shows their number. */
+  trashCount?: number;
+  onOpenTrash?: () => void;
+  /** Delete items dragged onto the trash entry. */
+  onDropToTrash?: (names: string[]) => void;
 }
 
 export function FilesSidebar({
@@ -99,6 +114,7 @@ export function FilesSidebar({
   onUploadFolder,
   onNewFolder,
   onNewTextFile,
+  newFileLabel,
   onNewNote,
   onToggleFavorite,
   onDropItems,
@@ -107,12 +123,18 @@ export function FilesSidebar({
   onCopyLink,
   onCreateIn,
   onRenameFolder,
+  onMoveFolder,
+  onDownloadFolder,
   onDeleteFolder,
   onRevealRecent,
   onDownloadRecent,
   onRemoveRecent,
+  trashCount = 0,
+  onOpenTrash,
+  onDropToTrash,
 }: FilesSidebarProps) {
   const t = useTranslations("files");
+  const tMenu = useTranslations("menuAudit");
   const xt = useXT();
   const newMenu = useContextMenu<null>();
   const itemMenu = useContextMenu<MenuTarget>();
@@ -194,7 +216,7 @@ export function FilesSidebar({
     const active = folder.id === currentParentId;
     const Icon = isOpen && children.length > 0 ? FolderOpen : Folder;
     return (
-      <div key={folder.id} role="treeitem" aria-expanded={children.length > 0 ? isOpen : undefined} aria-selected={active}>
+      <div key={folder.id} role="listitem">
         <div
           className={rowClass(active, dropTarget === folder.id)}
           style={{ ...ROW_STYLE, paddingInlineStart: `${12 + depth * 14}px` }}
@@ -205,10 +227,11 @@ export function FilesSidebar({
             <button
               type="button"
               onClick={() => toggleExpanded(folder.id)}
-              className="p-0.5 -ms-1 rounded hover:bg-foreground/10 text-muted-foreground shrink-0"
+              aria-expanded={isOpen}
+              className="flex items-center justify-center size-6 -ms-[7px] -me-[3px] -my-[3px] rounded hover:bg-foreground/10 text-muted-foreground shrink-0"
               aria-label={isOpen ? t("collapse_folder", { name: folder.name }) : t("expand_folder", { name: folder.name })}
             >
-              {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" />}
+              {isOpen ? <ChevronDown className="w-3.5 h-3.5" /> : <ChevronRight className="w-3.5 h-3.5" />}
             </button>
           ) : (
             <span className="w-3.5 -ms-1 shrink-0" />
@@ -216,6 +239,7 @@ export function FilesSidebar({
           <button
             type="button"
             onClick={() => onNavigate(path, folder.id)}
+            aria-current={active ? "page" : undefined}
             className="flex items-center gap-2 flex-1 min-w-0 text-start"
             title={folder.ownerName ? t("shared_by", { name: folder.ownerName }) : folder.name}
           >
@@ -224,7 +248,7 @@ export function FilesSidebar({
           </button>
         </div>
         {isOpen && children.length > 0 && (
-          <div role="group">{children.map((child) => renderFolder(child, path, depth + 1))}</div>
+          <div role="list">{children.map((child) => renderFolder(child, path, depth + 1))}</div>
         )}
       </div>
     );
@@ -238,15 +262,18 @@ export function FilesSidebar({
       aria-expanded={!collapsed[key]}
     >
       {collapsed[key]
-        ? <ChevronRight className="w-3 h-3 text-muted-foreground rtl:rotate-180" />
+        ? <ChevronRight className="w-3 h-3 text-muted-foreground" />
         : <ChevronDown className="w-3 h-3 text-muted-foreground" />}
       {icon}
-      <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider truncate">{label}</span>
+      <span className="text-xs font-medium text-muted-foreground truncate">{label}</span>
     </button>
   );
 
   const rootFolders = childrenByParent.get(null) ?? [];
   const sharedFolders = sharedRoots.filter((r) => r.isDirectory);
+  // Files shared on their own sit in no shared folder; each owner's are
+  // listed on one page.
+  const sharedPages = sharedFilePages(sharedRoots);
   const recent = recentFiles.slice(0, RECENT_LIMIT);
   const menuTarget = itemMenu.contextMenu.isOpen ? itemMenu.contextMenu.data : null;
   const run = (action: () => void) => {
@@ -258,42 +285,43 @@ export function FilesSidebar({
   const createItems = (path: string, id: string | null) => (
     <>
       <ContextMenuSeparator />
-      <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => run(() => onCreateIn(path, id, "folder"))} />
+      <ContextMenuItem icon={FolderPlus} label={tMenu("files_new_folder")} onClick={() => run(() => onCreateIn(path, id, "folder"))} />
       <ContextMenuItem icon={NotebookPen} label={xt("notes.new_note")} onClick={() => run(() => onCreateIn(path, id, "note"))} />
-      <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => run(() => onCreateIn(path, id, "text"))} />
-      <ContextMenuItem icon={Upload} label={t("upload_files")} onClick={() => run(() => onCreateIn(path, id, "files"))} />
-      <ContextMenuItem icon={FolderUp} label={t("upload_folder")} onClick={() => run(() => onCreateIn(path, id, "dir"))} />
+      <ContextMenuItem icon={FilePlus} label={newFileLabel ?? tMenu("files_new_text_file")} onClick={() => run(() => onCreateIn(path, id, "text"))} />
+      <ContextMenuItem icon={Upload} label={tMenu("files_upload_files")} onClick={() => run(() => onCreateIn(path, id, "files"))} />
+      <ContextMenuItem icon={FolderUp} label={tMenu("files_upload_folder")} onClick={() => run(() => onCreateIn(path, id, "dir"))} />
     </>
   );
 
   return (
     <div data-app-sidebar="" className="flex flex-col h-full bg-secondary">
       {/* Same h-14 box as the mail sidebar's account switcher, so the apps line up. */}
-      <div className="px-3 h-14 border-b border-border flex items-center justify-between flex-shrink-0">
-        <span className="text-sm font-semibold truncate">{t("title")}</span>
+      <div className="px-3 h-14 box-content border-b border-border flex items-center justify-between flex-shrink-0">
+        {/* Which account it shows, when there are several: the address, which switches. */}
+        <div className="flex min-w-0 flex-col">
+          <span className="text-sm font-semibold truncate">{t("title")}</span>
+          <AccountScopeLabel />
+        </div>
         {canCreate && (
-          <Button
+          <IconButton
             ref={newButtonRef}
-            size="icon"
-            variant="ghost"
-            className="h-8 w-8 flex-shrink-0"
-            aria-label={t("new")}
-            title={t("new")}
+            label={t("new")}
+            className="flex-shrink-0"
             aria-haspopup="menu"
             aria-expanded={newMenu.contextMenu.isOpen}
             onMouseDown={(e) => { if (newMenu.contextMenu.isOpen) e.stopPropagation(); }}
             onClick={(e) => {
               if (newMenu.contextMenu.isOpen) newMenu.closeContextMenu();
-              else newMenu.openContextMenu(anchorEvent(e.currentTarget, "end"), null);
+              else newMenu.openContextMenuFrom(e.currentTarget, null, "end");
             }}
           >
-            <Plus className="w-4 h-4" />
-          </Button>
+            <Plus />
+          </IconButton>
         )}
       </div>
 
       <nav className="flex-1 overflow-y-auto py-1" aria-label={t("folders")}>
-        <div role="tree" aria-label={t("my_files")}>
+        <div>
           <div
             className={rowClass(currentPath === "/" && currentParentId === null, dropTarget === "__root__")}
             style={{ ...ROW_STYLE, paddingInlineStart: "12px" }}
@@ -304,10 +332,11 @@ export function FilesSidebar({
               <button
                 type="button"
                 onClick={() => toggleSection("tree")}
-                className="p-0.5 -ms-1 rounded hover:bg-foreground/10 text-muted-foreground shrink-0"
+                aria-expanded={!collapsed.tree}
+                className="flex items-center justify-center size-6 -ms-[7px] -me-[3px] -my-[3px] rounded hover:bg-foreground/10 text-muted-foreground shrink-0"
                 aria-label={collapsed.tree ? t("expand_folder", { name: t("my_files") }) : t("collapse_folder", { name: t("my_files") })}
               >
-                {collapsed.tree ? <ChevronRight className="w-3.5 h-3.5 rtl:rotate-180" /> : <ChevronDown className="w-3.5 h-3.5" />}
+                {collapsed.tree ? <ChevronRight className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
               </button>
             ) : (
               <span className="w-3.5 -ms-1 shrink-0" />
@@ -315,13 +344,16 @@ export function FilesSidebar({
             <button
               type="button"
               onClick={() => onNavigate("/", null)}
+              aria-current={currentPath === "/" && currentParentId === null ? "page" : undefined}
               className="flex items-center gap-2 flex-1 min-w-0 text-start"
             >
               <HardDrive className="w-4 h-4 shrink-0" />
               <span className="truncate">{t("my_files")}</span>
             </button>
           </div>
-          {!collapsed.tree && rootFolders.map((folder) => renderFolder(folder, "/", 1))}
+          {!collapsed.tree && rootFolders.length > 0 && (
+            <div role="list" aria-label={t("my_files")}>{rootFolders.map((folder) => renderFolder(folder, "/", 1))}</div>
+          )}
         </div>
 
         {favorites.length > 0 && (
@@ -333,11 +365,12 @@ export function FilesSidebar({
                 type="button"
                 onClick={() => onNavigate(path)}
                 onContextMenu={(e) => itemMenu.openContextMenu(e, { kind: "favorite", path })}
+                aria-current={currentPath === path ? "page" : undefined}
                 className={rowClass(currentPath === path, false)}
                 style={{ ...ROW_STYLE, paddingInlineStart: "26px" }}
                 title={path}
               >
-                <Star className="w-4 h-4 shrink-0 text-amber-500 fill-current" />
+                <Star className="w-4 h-4 shrink-0 text-amber-400 fill-amber-400" />
                 <span className="truncate">{path === "/" ? t("my_files") : path.split("/").pop()}</span>
               </button>
             ))}
@@ -366,10 +399,66 @@ export function FilesSidebar({
           </div>
         )}
 
-        {sharedFolders.length > 0 && (
-          <div className="mt-3" role="tree" aria-label={t("shared_with_me")}>
+        {(sharedFolders.length > 0 || sharedPages.length > 0) && (
+          <div className="mt-3">
             {sectionHeader("shared", t("shared_with_me"), <Share2 className="w-3 h-3 text-muted-foreground" />)}
-            {!collapsed.shared && sharedFolders.map((folder) => renderFolder(folder, "/", 1))}
+            {!collapsed.shared && (
+            <div role="list" aria-label={t("shared_with_me")}>
+            {sharedFolders.map((folder) => renderFolder(folder, "/", 1))}
+            {sharedPages.map((page) => {
+              const name = t("shared_files_from", { name: page.ownerName });
+              const active = page.id === currentParentId;
+              return (
+                <div key={page.id} role="listitem">
+                  <div className={rowClass(active, false)} style={{ ...ROW_STYLE, paddingInlineStart: "26px" }}>
+                    <span className="w-3.5 -ms-1 shrink-0" />
+                    <button
+                      type="button"
+                      onClick={() => onNavigate(`/${name}`, page.id)}
+                      aria-current={active ? "page" : undefined}
+                      className="flex items-center gap-2 flex-1 min-w-0 text-start"
+                      title={t("shared_by", { name: page.ownerName })}
+                    >
+                      <File className={cn("w-4 h-4 shrink-0 text-primary", active && "text-current")} />
+                      <span className="truncate">{name}</span>
+                    </button>
+                  </div>
+                </div>
+              );
+            })}
+            </div>
+            )}
+          </div>
+        )}
+
+        {onOpenTrash && (
+          <div className="mt-3">
+            <button
+              type="button"
+              onClick={onOpenTrash}
+              aria-current={isTrashLocation(currentParentId) ? "page" : undefined}
+              className={rowClass(isTrashLocation(currentParentId), dropTarget === "__trash__")}
+              style={{ ...ROW_STYLE, paddingInlineStart: "12px" }}
+              onDragOver={(e) => {
+                if (!isInternalDrag(e) || !onDropToTrash || isTrashLocation(currentParentId)) return;
+                e.preventDefault();
+                e.dataTransfer.dropEffect = "move";
+                setDropTarget("__trash__");
+              }}
+              onDragLeave={() => setDropTarget((cur) => (cur === "__trash__" ? null : cur))}
+              onDrop={(e) => {
+                if (!isInternalDrag(e) || !onDropToTrash) return;
+                e.preventDefault();
+                setDropTarget(null);
+                const names = readDraggedNames(e);
+                if (names.length > 0) onDropToTrash(names);
+              }}
+            >
+              <span className="w-3.5 -ms-1 shrink-0" />
+              <Trash2 className="w-4 h-4 shrink-0" />
+              <span className="truncate flex-1">{t("trash")}</span>
+              {trashCount > 0 && <span className="text-xs text-muted-foreground tabular-nums">{trashCount}</span>}
+            </button>
           </div>
         )}
 
@@ -382,12 +471,12 @@ export function FilesSidebar({
       </nav>
 
       <ContextMenu ref={newMenu.menuRef} isOpen={newMenu.contextMenu.isOpen} position={newMenu.contextMenu.position} onClose={newMenu.closeContextMenu}>
-        <ContextMenuItem icon={Upload} label={t("upload_files")} onClick={() => { newMenu.closeContextMenu(); onUploadFiles(); }} />
-        <ContextMenuItem icon={FolderUp} label={t("upload_folder")} onClick={() => { newMenu.closeContextMenu(); onUploadFolder(); }} />
+        <ContextMenuItem icon={Upload} label={tMenu("files_upload_files")} onClick={() => { newMenu.closeContextMenu(); onUploadFiles(); }} />
+        <ContextMenuItem icon={FolderUp} label={tMenu("files_upload_folder")} onClick={() => { newMenu.closeContextMenu(); onUploadFolder(); }} />
         <ContextMenuSeparator />
-        <ContextMenuItem icon={FolderPlus} label={t("new_folder")} onClick={() => { newMenu.closeContextMenu(); onNewFolder(); }} />
+        <ContextMenuItem icon={FolderPlus} label={tMenu("files_new_folder")} onClick={() => { newMenu.closeContextMenu(); onNewFolder(); }} />
         <ContextMenuItem icon={NotebookPen} label={xt("notes.new_note")} onClick={() => { newMenu.closeContextMenu(); onNewNote(); }} />
-        <ContextMenuItem icon={FilePlus} label={t("new_text_file")} onClick={() => { newMenu.closeContextMenu(); onNewTextFile(); }} />
+        <ContextMenuItem icon={FilePlus} label={newFileLabel ?? tMenu("files_new_text_file")} onClick={() => { newMenu.closeContextMenu(); onNewTextFile(); }} />
       </ContextMenu>
 
       <ContextMenu ref={itemMenu.menuRef} isOpen={itemMenu.contextMenu.isOpen} position={itemMenu.contextMenu.position} onClose={itemMenu.closeContextMenu}>
@@ -408,7 +497,15 @@ export function FilesSidebar({
             <>
               <ContextMenuItem icon={FolderOpen} label={t("open")} onClick={() => run(() => onNavigate(path, folder.id))} />
               {writable && createItems(path, folder.id)}
+              {/* The list's folder menu in the same order; Cut, Copy and
+                  Details act on the list and are left out here (R6). */}
               {(!folder.isShared || canShare(folder) || onCopyLink) && <ContextMenuSeparator />}
+              {canShare(folder) && (
+                <ContextMenuItem icon={Share2} label={tMenu("files_share")} onClick={() => run(() => onShare(folder))} />
+              )}
+              {onCopyLink && (
+                <ContextMenuItem icon={LinkIcon} label={xt("file_link.copy")} onClick={() => run(() => onCopyLink(folder))} />
+              )}
               {!folder.isShared && (
                 <ContextMenuItem
                   icon={starred ? StarOff : Star}
@@ -416,16 +513,17 @@ export function FilesSidebar({
                   onClick={() => run(() => onToggleFavorite(path))}
                 />
               )}
-              {canShare(folder) && (
-                <ContextMenuItem icon={Share2} label={t("share")} onClick={() => run(() => onShare(folder))} />
-              )}
-              {onCopyLink && (
-                <ContextMenuItem icon={LinkIcon} label={xt("file_link.copy")} onClick={() => run(() => onCopyLink(folder))} />
-              )}
-              {(mayRename || mayDelete) && <ContextMenuSeparator />}
+              <ContextMenuSeparator />
               {mayRename && (
                 <ContextMenuItem icon={Pencil} label={t("rename")} onClick={() => run(() => onRenameFolder(folder))} />
               )}
+              {onMoveFolder && !folder.isShared && mayRename && (
+                <ContextMenuItem icon={FolderInput} label={t("move_to")} onClick={() => run(() => onMoveFolder(folder))} />
+              )}
+              {onDownloadFolder && (
+                <ContextMenuItem icon={Download} label={t("download_zip")} onClick={() => run(() => onDownloadFolder(folder))} />
+              )}
+              {mayDelete && <ContextMenuSeparator />}
               {mayDelete && (
                 <ContextMenuItem icon={Trash2} label={t("delete")} destructive onClick={() => run(() => onDeleteFolder(folder))} />
               )}
@@ -443,7 +541,9 @@ export function FilesSidebar({
           <>
             <ContextMenuItem icon={Eye} label={t("open")} onClick={() => run(() => onOpenRecent(menuTarget.id))} />
             <ContextMenuItem icon={FolderSearch} label={t("show_in_folder")} onClick={() => run(() => onRevealRecent(menuTarget.id))} />
-            <ContextMenuItem icon={Download} label={t("download")} onClick={() => run(() => onDownloadRecent(menuTarget.id))} />
+            {onDownloadRecent && (
+              <ContextMenuItem icon={Download} label={t("download")} onClick={() => run(() => onDownloadRecent(menuTarget.id))} />
+            )}
             <ContextMenuSeparator />
             <ContextMenuItem icon={X} label={t("remove_from_recent")} onClick={() => run(() => onRemoveRecent(menuTarget.id))} />
           </>

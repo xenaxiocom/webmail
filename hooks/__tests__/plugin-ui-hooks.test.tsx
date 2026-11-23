@@ -30,7 +30,7 @@ const EMAIL = { id: 'm1', mailboxIds: { inbox: true }, keywords: {} } as unknown
 
 beforeEach(() => {
   clearAllHooks();
-  useUIStore.setState({ activeView: 'list', sidebarOpen: false, sidebarCollapsed: false, isMobile: true, isTablet: false, isDesktop: false });
+  useUIStore.setState({ activeView: 'list', sidebarOpen: false, sidebarCollapsed: false, isMobile: true, isCompact: false, isDesktop: false });
 });
 
 describe('layout hooks', () => {
@@ -45,11 +45,13 @@ describe('layout hooks', () => {
     useUIStore.getState().setSidebarCollapsed(true);
     useUIStore.getState().setDeviceType(false, false, true);
     useUIStore.getState().setDeviceType(false, false, true);
+    // A compact desktop is "tablet" to plugins.
+    useUIStore.getState().setDeviceType(false, true, true);
 
     expect(view).toHaveBeenCalledWith({ view: 'viewer' });
     expect(toggle).toHaveBeenCalledWith({ open: true });
     expect(collapse).toHaveBeenCalledWith({ collapsed: true });
-    expect(device.mock.calls).toEqual([[{ deviceType: 'desktop' }]]);
+    expect(device.mock.calls).toEqual([[{ deviceType: 'desktop' }], [{ deviceType: 'tablet' }]]);
   });
 
   it('reports Back on the phone', () => {
@@ -81,6 +83,8 @@ describe('drag and drop hooks', () => {
       moveEmailsToMailbox: vi.fn().mockResolvedValue(true),
       refreshCurrentMailbox: vi.fn().mockResolvedValue(undefined),
       setEmailKeywords: vi.fn().mockResolvedValue(true),
+      // The tag drop writes each dragged row through its own login and account.
+      patchEmailKeywords: vi.fn().mockResolvedValue(true),
       fetchEmails: vi.fn().mockResolvedValue(undefined),
       fetchTagCounts: vi.fn(),
       clearSelection: vi.fn(),
@@ -147,7 +151,7 @@ describe('drag and drop hooks', () => {
   });
 
   it('says nothing was tagged when a plugin stops it', async () => {
-    useEmailStore.setState({ setEmailKeywords: vi.fn().mockResolvedValue(false) } as never);
+    useEmailStore.setState({ setEmailKeywords: vi.fn().mockResolvedValue(false), patchEmailKeywords: vi.fn().mockResolvedValue(false) } as never);
     const tagged = listen(dragDropHooks.onTagDrop);
     const onSuccess = vi.fn();
     const { result } = renderHook(

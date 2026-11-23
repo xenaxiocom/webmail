@@ -9,11 +9,18 @@ import {
   hasClientSecret,
 } from '@/lib/oauth/token-exchange';
 import { buildRedeemBundle } from '@/lib/auth/pair-bundle';
+import { isHandoffCodeChallenge, stashHandoff } from '@/lib/auth/handoff-store';
+import { desktopHandoffTarget } from '@/lib/auth/mobile-handoff';
+import { isStoreUnavailable, storeUnavailableResponse } from '@/lib/auth/store-unavailable';
 import { refreshTokenCookieName, refreshTokenServerCookieName } from '@/lib/oauth/tokens';
-import { getCookieOptions } from '@/lib/oauth/cookie-config';
+import { getCookieOptions, getSignInCookieOptions } from '@/lib/oauth/cookie-config';
 import { storeIdToken } from '@/lib/oauth/end-session';
 import { rejectCrossOriginRequest } from '@/lib/security/same-origin';
+import { rejectNonJsonBody } from '@/app/api/auth/json-request';
 import { MAX_ACCOUNT_SLOTS } from '@/lib/account-utils';
+import { writeSignInStamp } from '@/lib/auth/session-age';
+import { callbackIssuerAccepted } from '@/lib/oauth/discovery';
+import { loggableError } from '@/lib/oauth/answer-summary';
 
 const SSO_PENDING_COOKIE = 'sso_pending';
 const SSO_PENDING_MAX_AGE_MS = 5 * 60 * 1000; // 5 minutes
@@ -32,15 +39,43 @@ function webmailBaseFromCallback(redirectUri: string): string | null {
   }
 }
 
+/**
+ * Who just signed in, for the question the desktop app's hand-off asks: the id token says, as
+ * it came straight from the provider, and otherwise the mail server's session does.
+ */
+async function accountName(serverUrl: string, accessToken: string, idToken: string | undefined): Promise<string> {
+  try {
+    const claims = JSON.parse(Buffer.from((idToken ?? '').split('.')[1] ?? '', 'base64url').toString('utf8')) as Record<string, unknown>;
+    for (const claim of ['email', 'preferred_username', 'name']) {
+      if (typeof claims[claim] === 'string' && claims[claim]) return claims[claim] as string;
+    }
+  } catch {
+    // Not a JWT, or none: the server can say.
+  }
+  try {
+    const session = await fetch(`${serverUrl.replace(/\/+$/, '')}/.well-known/jmap`, {
+      headers: { Authorization: `Bearer ${accessToken}` },
+      redirect: 'error',
+      signal: AbortSignal.timeout(5000),
+    });
+    const body = (await session.json()) as { username?: unknown };
+    return typeof body.username === 'string' ? body.username : '';
+  } catch {
+    return '';
+  }
+}
+
 export async function POST(request: NextRequest) {
   // CSRF gate (GHSA-qvr9-m8cq-7wvg): cookies written here are SameSite=Lax,
   // so a cross-site top-level POST would otherwise reach this handler.
   const crossOrigin = rejectCrossOriginRequest(request);
   if (crossOrigin) return crossOrigin;
+  const notJson = rejectNonJsonBody(request);
+  if (notJson) return notJson;
   const cookieStore = await cookies();
 
   try {
-    const { code, state, slot: bodySlot } = await request.json();
+    const { code, state, slot: bodySlot, iss } = await request.json();
 
     if (!code || !state) {
       return NextResponse.json({ error: 'Missing code or state' }, { status: 400 });
@@ -97,14 +132,31 @@ export async function POST(request: NextRequest) {
       typeof pending.mobile_redirect_uri === 'string' ? pending.mobile_redirect_uri : null;
     const mobileState = typeof pending.mobile_state === 'string' ? pending.mobile_state : null;
     const isMobileFlow = Boolean(mobileRedirectUri);
+    const mobileCodeChallenge = isHandoffCodeChallenge(pending.mobile_code_challenge)
+      ? pending.mobile_code_challenge
+      : null;
+    const remember = pending.remember !== false;
 
     if (!codeVerifier || !redirectUri) {
       cookieStore.delete(SSO_PENDING_COOKIE);
       return NextResponse.json({ error: 'Invalid SSO session data' }, { status: 400 });
     }
 
+    // RFC 9207: a code answered by another issuer than the one this sign-in
+    // was sent to is refused before the code or the verifier goes anywhere.
+    // The callback page passes `iss` on; a missing one is refused when the
+    // provider says it always sends it. /start records the issuer of metadata
+    // that passes the sign-in rule (signInIssuerRule), and the code goes only
+    // to such metadata's token endpoint.
+    if (!callbackIssuerAccepted(iss, pending.issuer, pending.iss_required === true)) {
+      logger.warn('SSO complete: the answer came from another issuer than the one asked');
+      cookieStore.delete(SSO_PENDING_COOKIE);
+      return NextResponse.json({ error: 'Issuer mismatch' }, { status: 400 });
+    }
+
     // Exchange code for tokens
     const tokens = await exchangeCodeForTokens(code, codeVerifier, redirectUri, pendingServerId);
+    const signedInAt = Date.now();
 
     // For the mobile handoff flow the tokens are handed back to the app
     // verbatim - we deliberately don't write any cookies on the webmail
@@ -114,7 +166,12 @@ export async function POST(request: NextRequest) {
     if (!isMobileFlow) {
       if (tokens.refresh_token) {
         const cookieName = refreshTokenCookieName(slot);
-        cookieStore.set(cookieName, tokens.refresh_token, getCookieOptions());
+        // Without "Remember me" the sign-in ends with the browser session.
+        const options = getSignInCookieOptions(remember);
+        cookieStore.set(cookieName, tokens.refresh_token, options);
+        // A sign-in: the maximum session length counts from here (lib/auth/session-age.ts),
+        // and the token is renewed and revoked only at this server.
+        writeSignInStamp(cookieStore, slot, { signedInAt, refreshToken: tokens.refresh_token, serverId: pendingServerId }, options);
       }
       const serverCookieName = refreshTokenServerCookieName(slot);
       if (pendingServerId) {
@@ -122,7 +179,7 @@ export async function POST(request: NextRequest) {
       } else {
         cookieStore.delete(serverCookieName);
       }
-      storeIdToken(cookieStore, slot, tokens.id_token, request.nextUrl.basePath, [tokens.refresh_token, pendingServerId]);
+      storeIdToken(cookieStore, slot, tokens.id_token, request.nextUrl.basePath, [tokens.refresh_token, pendingServerId], remember);
     }
 
     // Delete pending cookie
@@ -137,6 +194,30 @@ export async function POST(request: NextRequest) {
       // builds refuse a provider on another host, so those renew through
       // this webmail - the same bundle a paired phone gets.
       const { clientId, serverUrl } = getRequiredConfig(pendingServerId);
+      if (mobileRedirectUri && desktopHandoffTarget(mobileRedirectUri)) {
+        // The desktop app on this instance: its redeem writes its own cookies, the way
+        // the code below would have for this browser. sso/start made sure of a challenge.
+        if (!mobileCodeChallenge) throw new Error('desktop hand-off without a challenge');
+        const handoffCode = await stashHandoff({
+          flow: 'desktop-tokens',
+          server_url: serverUrl,
+          server_id: pendingServerId,
+          custom: false,
+          access_token: tokens.access_token,
+          refresh_token: tokens.refresh_token,
+          id_token: tokens.id_token,
+          expires_in: tokens.expires_in ?? 3600,
+          signed_in_at: signedInAt,
+        }, { challenge: mobileCodeChallenge, state: mobileState ?? '', awaitConfirm: true });
+        logger.info('Desktop hand-off parked', { flow: 'desktop-tokens' });
+        return NextResponse.json({
+          mobile_handoff_code: handoffCode,
+          server_url: serverUrl,
+          account: await accountName(serverUrl, tokens.access_token, tokens.id_token),
+          mobile_redirect_uri: mobileRedirectUri,
+          mobile_state: mobileState,
+        });
+      }
       const bundle = buildRedeemBundle({
         flow: 'oauth',
         serverUrl,
@@ -151,6 +232,24 @@ export async function POST(request: NextRequest) {
         trusted: true,
       }, webmailBaseFromCallback(redirectUri));
       if (bundle.flow !== 'oauth') throw new Error('unexpected bundle');
+      if (mobileCodeChallenge) {
+        // The app sent a PKCE challenge: park the tokens and give the browser
+        // only a one-time code for the link (lib/auth/handoff-store.ts). The
+        // tokens never reach the page. The code starts working when the user
+        // confirms the hand-off (/api/auth/handoff/confirm).
+        const handoffCode = await stashHandoff(bundle, {
+          challenge: mobileCodeChallenge,
+          state: mobileState ?? '',
+          awaitConfirm: true,
+        });
+        logger.info('Mobile hand-off parked', { flow: 'oauth' });
+        return NextResponse.json({
+          mobile_handoff_code: handoffCode,
+          server_url: bundle.server_url,
+          mobile_redirect_uri: mobileRedirectUri,
+          mobile_state: mobileState,
+        });
+      }
       return NextResponse.json({
         access_token: bundle.access_token,
         expires_in: bundle.expires_in,
@@ -166,11 +265,15 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({
       access_token: tokens.access_token,
       expires_in: tokens.expires_in,
+      signed_in_at: signedInAt,
+      remember,
     });
   } catch (error) {
     // Clean up pending cookie on any error
     cookieStore.delete(SSO_PENDING_COOKIE);
-    logger.error('SSO complete error', { error: error instanceof Error ? error.message : 'Unknown error' });
+    // The mobile hand-off can't be parked without the shared store.
+    if (isStoreUnavailable(error)) return storeUnavailableResponse();
+    logger.error('SSO complete error', { error: loggableError(error) });
     return NextResponse.json({ error: 'Token exchange failed' }, { status: 401 });
   }
 }

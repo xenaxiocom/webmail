@@ -490,7 +490,7 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
     >
       <div className="w-9 shrink-0">
         {continued ? (
-          <span className="invisible block pt-1 text-right text-[10px] text-muted-foreground tabular-nums group-hover:visible" title={full(message.ts)}>
+          <span className="invisible block pt-1 text-right text-[0.625rem] text-muted-foreground tabular-nums group-hover:visible" title={full(message.ts)}>
             {time(message.ts)}
           </span>
         ) : (
@@ -511,9 +511,9 @@ export function ChatMessage({ message, room, client, continued, inThread, highli
             <button type="button" onClick={() => openProfile(message.sender)} className="text-sm font-bold hover:underline">
               {author}
             </button>
-            {app && <span className="rounded bg-muted px-1 text-[10px] font-semibold uppercase text-muted-foreground">{t("chat.app")}</span>}
+            {app && <span className="rounded bg-muted px-1 text-[0.625rem] font-semibold uppercase text-muted-foreground">{t("chat.app")}</span>}
             {/* Part E: people of other companies carry their domain, as in Slack Connect. */}
-            {!app && client.isExternalUser(message.sender) && <span className="rounded bg-primary/10 px-1 text-[10px] font-medium text-primary">{serverOfUser(message.sender)}</span>}
+            {!app && client.isExternalUser(message.sender) && <span className="rounded bg-primary/10 px-1 text-[0.625rem] font-medium text-primary">{serverOfUser(message.sender)}</span>}
             <span className="text-xs text-muted-foreground tabular-nums" title={full(message.ts)}>
               {time(message.ts)}
             </span>

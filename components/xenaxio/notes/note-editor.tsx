@@ -318,7 +318,7 @@ export function NoteEditor({ resource, onClose, onOpenOther }: NoteEditorProps) 
   return (
     <div
       ref={trapRef}
-      className="fixed inset-0 z-50 flex flex-col bg-background pt-[env(safe-area-inset-top)]"
+      className="fixed inset-0 z-50 flex flex-col bg-background pt-[var(--app-top-inset)]"
       role="dialog"
       aria-modal="true"
       aria-label={resource.name}

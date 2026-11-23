@@ -1,9 +1,9 @@
 "use client";
 
-import { useEmailStore } from "@/stores/email-store";
 import { useSettingsStore } from "@/stores/settings-store";
 import { useFaviconBadge } from "@/hooks/use-favicon-badge";
 import { useAppBadge } from "@/hooks/use-app-badge";
+import { useAllInboxesUnread } from "@/hooks/use-all-inboxes-unread";
 import { useChatBadge } from "@/lib/xenaxio/chat/nav";
 import { useOtherCompaniesBadge } from "@/lib/xenaxio/chat/rooms";
 
@@ -29,17 +29,15 @@ import { useOtherCompaniesBadge } from "@/lib/xenaxio/chat/rooms";
  * Renders nothing.
  */
 export function FaviconBadge() {
-  // The store's canonical inbox selector. `role === 'inbox'` alone is not
-  // enough: shared and group inboxes ship in the same `mailboxes` array, so on
-  // a delegated setup the first match can be somebody else's inbox.
-  const inboxUnread = useEmailStore(
-    (s) => s.mailboxes.find((m) => m.role === "inbox" && !m.isShared)?.unreadEmails ?? 0,
-  );
   const enabled = useSettingsStore((s) => s.faviconUnreadBadge);
+  // With several accounts the badge counts the inbox of each (on by default):
+  // new mail in an account that is not on screen still shows on the icon and
+  // in the desktop tray.
+  const count = useAllInboxesUnread();
 
   // xenaxio: chat mentions and direct messages count too (step 43, part C).
   // Step 67: on XenRooms also the other companies' mentions and direct messages.
-  const unread = inboxUnread + useChatBadge() + useOtherCompaniesBadge();
+  const unread = count + useChatBadge() + useOtherCompaniesBadge();
 
   useFaviconBadge(unread, enabled);
   useAppBadge(unread, enabled);

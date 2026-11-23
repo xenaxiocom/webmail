@@ -1,15 +1,31 @@
-import type { FileNode } from './types';
+import type { FileNode, FileNodeType } from './types';
 
 /**
- * Xenaxio step 149: Stalwart 1.x implements JMAP File Storage draft 18 and
- * later, which names a node's kind `@type` ("File", "Directory", "SymLink")
- * and its media type `mediaType`. 0.16 calls them `nodeType` and `type`. Each
- * server leaves the other's names out of FileNode/get but refuses them in a
- * create. Same approach as Bulwark upstream (lib/jmap/filenode-kind.ts).
+ * What a FileNode is: a file, a folder or a symlink.
+ *
+ * `nodeType` says so on Stalwart 0.16.6 and later. Without it, a node is a
+ * folder exactly when it has no content blob (#379). Stalwart 1.0 adds
+ * symlinks, which have no blob either but can't hold anything, so the blob
+ * rule alone would show them as empty folders.
  */
-export type FileNodeKind = 'file' | 'directory' | 'symlink';
+export function fileNodeKind(node: Pick<FileNode, 'nodeType' | 'blobId'>): FileNodeType {
+  switch (node.nodeType) {
+    case 'file':
+    case 'directory':
+    case 'symlink':
+      return node.nodeType;
+    default:
+      return node.blobId == null ? 'directory' : 'file';
+  }
+}
 
-const DRAFT_NODE_TYPES: Record<string, FileNodeKind> = { File: 'file', Directory: 'directory', SymLink: 'symlink' };
+/**
+ * Stalwart 1.0 implements File Storage draft 18, which names the kind
+ * `@type` ("File", "Directory", "SymLink") and the media type `mediaType`.
+ * 0.16 calls them `nodeType` and `type`. Each server leaves the other's
+ * names out of FileNode/get but refuses them in a create.
+ */
+const DRAFT_NODE_TYPES: Record<string, FileNodeType> = { File: 'file', Directory: 'directory', SymLink: 'symlink' };
 
 type DraftFileNode = { '@type'?: unknown; mediaType?: unknown };
 
@@ -25,10 +41,10 @@ export function fromDraftFileNode<T extends Partial<FileNode>>(node: T & DraftFi
   };
 }
 
-/** The properties of a FileNode/set create in the newer draft, from 0.16 ones (no blob: a folder). */
+/** The properties of a FileNode/set create in draft 18, from 0.16 ones (no blob: a folder). */
 export function toDraftFileNodeCreate(props: Record<string, unknown>): Record<string, unknown> {
-  const { type, nodeType: _kind, ...rest } = props;
+  const { type, ...rest } = props;
   return rest.blobId == null
     ? { '@type': 'Directory', ...rest }
-    : { '@type': 'File', ...rest, ...(typeof type === 'string' ? { mediaType: type } : {}) };
+    : { '@type': 'File', ...rest, mediaType: type };
 }

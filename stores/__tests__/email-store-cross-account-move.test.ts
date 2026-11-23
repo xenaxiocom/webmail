@@ -1,9 +1,13 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { useEmailStore } from '../email-store';
+import { useAuthStore } from '../auth-store';
 import type { Email, Mailbox } from '@/lib/jmap/types';
 import type { IJMAPClient } from '@/lib/jmap/client-interface';
 
 type Store = ReturnType<typeof useEmailStore.getState>;
+
+// The routing tests replace it with a spy; the carry-over test needs the real one.
+const realCrossAccountMoveEmails = useEmailStore.getState().crossAccountMoveEmails;
 
 function makeMailbox(overrides: Partial<Mailbox>): Mailbox {
   return {
@@ -49,6 +53,13 @@ describe('email-store moveToMailboxCrossAware', () => {
     email.accountId = 'local-A';
     crossSpy = vi.fn().mockResolvedValue(undefined);
     moveSpy = vi.fn().mockResolvedValue(undefined);
+    // The login browsed is the active one: its folders are `mailboxes`.
+    const loginA = { getAccountId: () => 'jmap-A', getServerUrl: () => 'https://a.example' };
+    useAuthStore.setState({
+      activeAccountId: 'local-A', client: loginA as never,
+      getClientForAccount: ((id: string) => (id === 'local-A' ? loginA : undefined)) as never,
+      getAllConnectedClients: (() => new Map([['local-A', loginA]])) as never,
+    } as never);
     useEmailStore.setState({
       emails: [email],
       mailboxes: [ownInbox, ownArchive, sharedTeamA],
@@ -98,5 +109,34 @@ describe('email-store moveToMailboxCrossAware', () => {
       undefined,      // dest (own) not shared
       'jmap-B',       // source shared → override to owner account
     );
+  });
+});
+
+describe('email-store crossAccountMoveEmails between two servers', () => {
+  it('imports the message with every keyword, the Stalwart 1.0 attachment keyword included', async () => {
+    const blob = new Blob(['From: x@example.com\r\n\r\nhi']);
+    const keywords = { $seen: true, '$label:work': true, $hasattachment: true };
+    const source = {
+      getEmail: vi.fn().mockResolvedValue({ id: 'e1', blobId: 'blob-1', keywords }),
+      fetchBlob: vi.fn().mockResolvedValue(blob),
+      deleteEmail: vi.fn().mockResolvedValue(undefined),
+    };
+    const dest = { importRawEmail: vi.fn().mockResolvedValue('imported-1') };
+    useAuthStore.setState({
+      activeAccountId: 'login-A',
+      getClientForAccount: ((id: string) => (id === 'login-A' ? source : id === 'login-B' ? dest : undefined)) as never,
+    } as never);
+    useEmailStore.setState({
+      emails: [makeEmail('e1', 'srv-inbox-A')],
+      crossAccountMoveEmails: realCrossAccountMoveEmails,
+      // The background folder refresh after the move is not under test.
+      fetchMailboxes: vi.fn().mockResolvedValue(undefined) as unknown as Store['fetchMailboxes'],
+      fetchAccountMailboxes: vi.fn().mockResolvedValue(undefined) as unknown as Store['fetchAccountMailboxes'],
+    });
+
+    await useEmailStore.getState().crossAccountMoveEmails(new Map([['login-A', ['e1']]]), 'login-B', 'inbox-B');
+
+    expect(dest.importRawEmail).toHaveBeenCalledWith(blob, { 'inbox-B': true }, keywords, undefined, undefined);
+    expect(source.deleteEmail).toHaveBeenCalledWith('e1', undefined);
   });
 });

@@ -58,7 +58,7 @@ function MenuItem({ onClick, children, checked, danger }: { onClick: () => void;
   );
 }
 
-const MenuLabel = ({ children }: { children: React.ReactNode }) => <div className="px-3 pb-0.5 pt-2 text-[11px] font-semibold uppercase text-muted-foreground">{children}</div>;
+const MenuLabel = ({ children }: { children: React.ReactNode }) => <div className="px-3 pb-0.5 pt-2 text-[0.6875rem] font-semibold uppercase text-muted-foreground">{children}</div>;
 const MenuLine = () => <div className="my-1 border-t border-border" />;
 
 /** Saves the layout; says so when the server refuses. */
@@ -220,15 +220,15 @@ function RoomRow({ client, room, active, onOpen, onDropBefore }: { client: ChatC
           <IconLock size={16} className="shrink-0 opacity-80" />
         )}
         <span className="min-w-0 flex-1 truncate">{name}</span>
-        {room.kind === "dm" && partner && client.isExternalUser(partner) && <span className="shrink-0 text-[10px] opacity-70">{serverOfUser(partner)}</span>}
+        {room.kind === "dm" && partner && client.isExternalUser(partner) && <span className="shrink-0 text-[0.625rem] opacity-70">{serverOfUser(partner)}</span>}
         {muted && <IconBellOff size={13} className="shrink-0 opacity-70" aria-label={t("chat.notify_none")} />}
         {inCall > 0 && (
-          <span className={cn("flex shrink-0 items-center gap-0.5 text-[11px] font-semibold", active ? "" : "text-emerald-600")} title={t("chat.call_running_count", { count: inCall })} aria-label={t("chat.call_running_count", { count: inCall })}>
+          <span className={cn("flex shrink-0 items-center gap-0.5 text-[0.6875rem] font-semibold", active ? "" : "text-emerald-600")} title={t("chat.call_running_count", { count: inCall })} aria-label={t("chat.call_running_count", { count: inCall })}>
             <IconHeadphones size={13} />
             {inCall}
           </span>
         )}
-        {badge > 0 && <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[11px] font-bold leading-5", active ? "bg-primary-foreground text-primary" : "bg-red-500 text-white")}>{badge}</span>}
+        {badge > 0 && <span className={cn("min-w-5 rounded-full px-1.5 text-center text-[0.6875rem] font-bold leading-5", active ? "bg-primary-foreground text-primary" : "bg-red-500 text-white")}>{badge}</span>}
       </button>
       <button
         type="button"
@@ -448,7 +448,7 @@ export function ChatSidebar({
     >
       {icon}
       <span className="flex-1">{label}</span>
-      {badge > 0 && <span className="rounded-full bg-red-500 px-1.5 text-[11px] font-bold leading-5 text-white">{badge}</span>}
+      {badge > 0 && <span className="rounded-full bg-red-500 px-1.5 text-[0.6875rem] font-bold leading-5 text-white">{badge}</span>}
     </button>
   );
 
@@ -472,7 +472,7 @@ export function ChatSidebar({
               <MenuLine />
               <MenuItem onClick={() => (setOptions(false), void client.markAllRead().then(() => toast.success(t("chat.side_all_read"))))}>
                 {t("chat.side_mark_all_read")}
-                <kbd className="ml-2 rounded border border-border px-1 text-[10px] font-normal">Shift Esc</kbd>
+                <kbd className="ml-2 rounded border border-border px-1 text-[0.625rem] font-normal">Shift Esc</kbd>
               </MenuItem>
             </Popover>
           )}
@@ -485,7 +485,7 @@ export function ChatSidebar({
         <button type="button" onClick={onJump} className="flex h-8 w-full items-center gap-2 rounded-md border border-border bg-background px-2 text-left text-sm text-muted-foreground hover:border-foreground/30">
           <IconSearch size={15} />
           <span className="flex-1">{t("chat.jump")}</span>
-          <kbd className="rounded border border-border px-1 text-[10px]">Ctrl K</kbd>
+          <kbd className="rounded border border-border px-1 text-[0.625rem]">Ctrl K</kbd>
         </button>
         <form
           onSubmit={(e) => {
@@ -528,7 +528,7 @@ export function ChatSidebar({
                 {r.inviter && <div className="truncate text-xs text-muted-foreground">{t("chat.invited_by", { name: client.displayName(r.inviter, r) })}</div>}
                 {/* Part E: invitations from other companies wait for a yes; say where they come from. */}
                 {r.inviter && client.isExternalUser(r.inviter) && (
-                  <div className="mt-1 flex items-start gap-1 rounded bg-amber-100/70 px-1.5 py-1 text-[11px] text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
+                  <div className="mt-1 flex items-start gap-1 rounded bg-amber-100/70 px-1.5 py-1 text-[0.6875rem] text-amber-900 dark:bg-amber-500/15 dark:text-amber-200">
                     <IconWorld size={13} className="mt-px shrink-0" />
                     <span>{t("chat.ext_invite", { domain: serverOfUser(r.inviter) })}</span>
                   </div>

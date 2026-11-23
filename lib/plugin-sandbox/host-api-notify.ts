@@ -14,6 +14,7 @@ import { toastHooks } from '../plugin-hooks';
 import { readObject, readString, withinRate } from './host-api-input';
 import { recordNotification } from '@/stores/notification-center-store';
 import { credentialOverview } from './connect-dialog';
+import { useSettingsStore } from '@/stores/settings-store';
 
 export const MAX_NOTIFICATION_TITLE = 120;
 export const MAX_NOTIFICATION_BODY = 300;
@@ -22,8 +23,15 @@ export const MAX_NOTIFICATION_ACTION_LABEL = 40;
 const MAX_ACTION_URL = 2048;
 const TAG_RE = /^[A-Za-z0-9._:-]{1,64}$/;
 
+/** Marks and controls that change the direction of the text around them. */
+const DIRECTION_MARKS = /[\u061c\u200e\u200f\u202a-\u202e\u2066-\u2069]/g;
+
+/**
+ * A plugin's text as one line the host can show: line breaks and other
+ * control characters become spaces, direction marks go.
+ */
 // eslint-disable-next-line no-control-regex -- line breaks and other control characters become spaces
-const oneLine = (text: string) => text.replace(/[\u0000-\u001f\u007f]+/g, ' ').trim();
+export const oneLine = (text: string) => text.replace(/[\u0000-\u001f\u007f]+/g, ' ').replace(DIRECTION_MARKS, '').trim();
 
 /**
  * Show a notification from a plugin. Resolves to 'system' when the browser
@@ -56,7 +64,10 @@ export async function doNotificationsShow(plugin: InstalledPlugin, input: unknow
   // Also listed in the app's notification panel (the bell), where a click
   // reaches the plugin the same way as a click on the system notification.
   recordNotification({ level: 'info', title, body, pluginId: plugin.id, pluginName: source, ...(tag ? { tag } : {}), ...(action ? { action } : {}) });
-  if (typeof Notification !== 'undefined' && Notification.permission === 'granted') {
+  // Do not disturb: no system notification (with its sound) from the page;
+  // the quiet toast below and the bell's list still have it.
+  const doNotDisturb = useSettingsStore.getState().doNotDisturb;
+  if (!doNotDisturb && typeof Notification !== 'undefined' && Notification.permission === 'granted') {
     try {
       const notification = new Notification(title, {
         body: body ? `${body}\n${source}` : source,

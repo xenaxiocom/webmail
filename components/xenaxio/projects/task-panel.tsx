@@ -158,7 +158,7 @@ export function TaskPanel({ project, taskId, onClose, onChanged, onOpen }: { pro
 
   return (
     <div className="fixed inset-0 z-40 flex justify-end bg-black/30" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <aside ref={ref} role="dialog" aria-modal="true" aria-label={task?.title ?? t("projects.task")} className="flex h-full w-full max-w-lg flex-col border-l border-border bg-background pt-[env(safe-area-inset-top)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl"
+      <aside ref={ref} role="dialog" aria-modal="true" aria-label={task?.title ?? t("projects.task")} className="flex h-full w-full max-w-lg flex-col border-l border-border bg-background pt-[var(--app-top-inset)] pr-[env(safe-area-inset-right)] pb-[env(safe-area-inset-bottom)] shadow-xl"
         style={edgeSwipe.style}
         {...edgeSwipe.handlers}
       >

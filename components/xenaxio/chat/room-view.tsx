@@ -194,7 +194,7 @@ export function RoomView({ client, room, focusId }: { client: ChatClient; room: 
               <IconLock size={18} />
             )}
             <span className="truncate">{roomName}</span>
-            {room.external && <span className="ml-1 rounded bg-primary/10 px-1.5 text-[10px] font-semibold uppercase text-primary">{t("chat.external")}</span>}
+            {room.external && <span className="ml-1 rounded bg-primary/10 px-1.5 text-[0.625rem] font-semibold uppercase text-primary">{t("chat.external")}</span>}
             {room.kind !== "dm" && <IconChevronDown size={14} className="text-muted-foreground" />}
           </button>
         </div>

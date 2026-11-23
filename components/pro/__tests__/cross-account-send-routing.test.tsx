@@ -13,13 +13,13 @@ import React from 'react';
 // The composer itself is irrelevant here - stub it down to a button that
 // fires the onSend payload the real composer builds for a cross-account
 // identity (raw identity id + owning local account id).
-const payloadRef = vi.hoisted(() => ({ current: {} as Record<string, unknown> }));
+const payloadRef = vi.hoisted(() => ({ current: {} as Record<string, unknown>, outcome: null as Promise<unknown> | null }));
 
 vi.mock('@/components/email/email-composer', () => ({
-  EmailComposer: ({ onSend }: { onSend?: (d: Record<string, unknown>) => Promise<void> }) =>
+  EmailComposer: ({ onSend }: { onSend?: (d: Record<string, unknown>) => Promise<unknown> }) =>
     React.createElement(
       'button',
-      { onClick: () => { void onSend?.(payloadRef.current); } },
+      { onClick: () => { payloadRef.outcome = onSend?.(payloadRef.current) ?? null; } },
       'send',
     ),
 }));
@@ -107,6 +107,7 @@ vi.mock('@/stores/pro-tab-store', () => {
 });
 
 import { ProComposeTabBody } from '../pro-compose-tab-body';
+import { useAuthStore } from '@/stores/auth-store';
 
 const TAB_DATA = { sessionId: 1, mode: 'compose' as const, title: 'New message' };
 
@@ -150,13 +151,69 @@ describe('Pro compose tab - cross-account send routing (#461)', () => {
     expect(sendEmail.mock.calls[0][0]).toBe(activeClient);
   });
 
-  it('falls back to the active client when the owning account is no longer connected', async () => {
+  // The From identity belongs to a login that is no longer connected: nothing
+  // may leave through another login. The composer is told nothing was sent,
+  // so it keeps the message.
+  it('sends nothing when the login that owns the identity is no longer connected', async () => {
     payloadRef.current = { ...basePayload, localAccountId: 'local-gone' };
+    payloadRef.outcome = null;
+    render(<ProComposeTabBody tabId="tab-1" data={TAB_DATA} />);
+
+    fireEvent.click(screen.getByText('send'));
+
+    await waitFor(() => expect(payloadRef.outcome).not.toBeNull());
+    await expect(payloadRef.outcome).resolves.toBe(false);
+    expect(sendEmail).not.toHaveBeenCalled();
+  });
+
+  // The composer removes a draft version saved through another login only
+  // once the message is out; without a connection nothing went.
+  it('tells the composer nothing was sent when there is no connection', async () => {
+    const auth = useAuthStore.getState() as unknown as { client: unknown };
+    const connected = auth.client;
+    auth.client = null;
+    try {
+      payloadRef.current = { ...basePayload, localAccountId: 'local-2' };
+      render(<ProComposeTabBody tabId="tab-1" data={TAB_DATA} />);
+
+      fireEvent.click(screen.getByText('send'));
+
+      await expect(payloadRef.outcome).resolves.toBe(false);
+      expect(sendEmail).not.toHaveBeenCalled();
+    } finally {
+      auth.client = connected;
+    }
+  });
+});
+
+describe('Pro compose tab - what the composer chose', () => {
+  beforeEach(() => {
+    sendEmail.mockClear();
+  });
+
+  it('sends with the priority, read receipt, DSN, REQUIRETLS, plugin headers and label the composer chose', async () => {
+    payloadRef.current = {
+      ...basePayload,
+      requestReadReceipt: true,
+      requestDsn: true,
+      requireTls: true,
+      priority: 'high',
+      headers: { 'X-Plugin': '1' },
+      labelHeaders: { 'header:SIO-Label:asRaw': ' marking="CONFIDENTIAL"' },
+    };
     render(<ProComposeTabBody tabId="tab-1" data={TAB_DATA} />);
 
     fireEvent.click(screen.getByText('send'));
 
     await waitFor(() => expect(sendEmail).toHaveBeenCalled());
-    expect(sendEmail.mock.calls[0][0]).toBe(activeClient);
+    const args = sendEmail.mock.calls[0] as unknown[];
+    expect(args[args.length - 1]).toMatchObject({
+      requestReadReceipt: true,
+      requestDsn: true,
+      requireTls: true,
+      priority: 'high',
+      headers: { 'X-Plugin': '1' },
+      labelHeaders: { 'header:SIO-Label:asRaw': ' marking="CONFIDENTIAL"' },
+    });
   });
 });

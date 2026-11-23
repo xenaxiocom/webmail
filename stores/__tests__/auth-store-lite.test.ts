@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Bulwark Lite (static export) has no /api/* routes: sessions are kept in web
@@ -166,10 +167,13 @@ describe('auth-store in the static Lite build', () => {
     // The client the token was issued to rides along, so refreshes present the same one.
     expect(readLiteRefreshToken(0)).toEqual({ serverUrl: SERVER, username: 'alice', refreshToken: 'RT-1', clientId: 'bulwark-webmail' });
     expect(localStorage.getItem('bulwark-lite:refresh:0')).not.toBeNull();
-    expect(localStorage.getItem('bulwark-lite:access:0')).toContain('"accessToken":"AT-1"');
-    // No password anywhere in web storage.
+    expect(localStorage.getItem('bulwark-lite:access:0')).not.toBeNull();
+    expect(readLiteAccessToken(0)?.accessToken).toBe('AT-1');
+    // No password and no token text anywhere in web storage.
     const dump = JSON.stringify({ ...localStorage, ...sessionStorage });
     expect(dump).not.toContain('"pw"');
+    expect(dump).not.toContain('RT-1');
+    expect(dump).not.toContain('AT-1');
     expect(readLiteBasicSession(0)).toBeNull();
   });
 
@@ -182,7 +186,9 @@ describe('auth-store in the static Lite build', () => {
     const loginCall = mock.mock.calls.find(([input]) => String(input) === `${SERVER}/api/auth`);
     expect(JSON.parse(String(loginCall?.[1]?.body)).mfaToken).toBe('123456');
     expect(localStorage.getItem('bulwark-lite:refresh:0')).toBeNull();
-    expect(JSON.parse(sessionStorage.getItem('bulwark-lite:refresh:0')!).refreshToken).toBe('RT-1');
+    expect(sessionStorage.getItem('bulwark-lite:refresh:0')).not.toBeNull();
+    expect(sessionStorage.getItem('bulwark-lite:refresh:0')).not.toContain('RT-1');
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('RT-1');
   });
 
   it('a plain password login without "remember me" still uses token login and keeps the refresh token with the tab', async () => {
@@ -196,7 +202,9 @@ describe('auth-store in the static Lite build', () => {
     expect(useAuthStore.getState().authMode).toBe('oauth');
     expect(useAuthStore.getState().client?.getAuthHeader()).toBe('Bearer AT-1');
     // Tab-scoped: sessionStorage only, so a reload keeps the session and closing the tab ends it.
-    expect(sessionStorage.getItem('bulwark-lite:refresh:0')).toContain('"refreshToken":"RT-1"');
+    expect(sessionStorage.getItem('bulwark-lite:refresh:0')).not.toBeNull();
+    expect(sessionStorage.getItem('bulwark-lite:refresh:0')).not.toContain('RT-1');
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('RT-1');
     expect(localStorage.getItem('bulwark-lite:refresh:0')).toBeNull();
     expect(readLiteBasicSession(0)).toBeNull();
   });
@@ -459,6 +467,43 @@ describe('auth-store in the static Lite build', () => {
     expect(readLiteRefreshToken(0)).toBeNull();
   });
 
+  it('signing in again to the same account revokes the refresh token it replaces (#1571)', async () => {
+    let issued = 0;
+    const { revoked } = stalwartFetch({
+      revocation: true,
+      tokenAnswer: () => jsonResponse({ access_token: `AT-${++issued}`, expires_in: 3600, refresh_token: `RT-${issued}` }),
+    });
+    await useAuthStore.getState().login(SERVER, 'alice', 'pw', undefined, true);
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('RT-1');
+
+    await useAuthStore.getState().login(SERVER, 'alice', 'pw', undefined, true);
+
+    expect(useAccountStore.getState().accounts).toHaveLength(1);
+    expect(readLiteRefreshToken(0)?.refreshToken).toBe('RT-2');
+    await vi.waitFor(() => expect(revoked).toEqual(['RT-1']));
+  });
+
+  it('an OAuth sign-in to an account already signed in revokes the token of the slot it leaves (#1571)', async () => {
+    const { revoked } = stalwartFetch({ revocation: true });
+    const accountId = useAccountStore.getState().addAccount({
+      label: 'alice', serverUrl: SERVER, username: 'alice@example.com', authMode: 'oauth', rememberMe: true,
+      displayName: 'alice', email: 'alice@example.com', lastLoginAt: Date.now(), isConnected: false, hasError: false, isDefault: true,
+    });
+    useAccountStore.getState().updateAccount(accountId, { cookieSlot: 0 });
+    saveLiteRefreshToken(0, { serverUrl: SERVER, username: 'alice@example.com', refreshToken: 'RT-old', tokenEndpoint: `${SERVER}/auth/token`, revocationEndpoint: `${SERVER}/auth/revoke` }, true);
+    vi.spyOn(JMAPClient.prototype, 'getUsername').mockReturnValue('alice@example.com');
+    const redirect = `${SERVER}/webmail/oauth/callback`;
+    saveLiteOAuthFlow({ tokenEndpoint: `${SERVER}/auth/token`, clientId: 'bulwark-webmail', redirectUri: redirect, persistent: true });
+    sessionStorage.setItem('oauth_cookie_slot', '1');
+
+    expect(await useAuthStore.getState().loginWithOAuth(SERVER, 'CODE', 'VERIFIER', redirect)).toBe(true);
+
+    expect(useAccountStore.getState().getAccountById(accountId)?.cookieSlot).toBe(1);
+    expect(readLiteRefreshToken(1)?.refreshToken).toBe('RT-1');
+    expect(readLiteRefreshToken(0)).toBeNull();
+    await vi.waitFor(() => expect(revoked).toEqual(['RT-old']));
+  });
+
   describe('OAuth sign-in (Lite on Stalwart)', () => {
     const PROVIDER_TOKEN = 'https://id.example.org/token';
     const REDIRECT = 'https://mail.example.com/webmail/oauth/callback';
@@ -503,8 +548,10 @@ describe('auth-store in the static Lite build', () => {
         serverUrl: SERVER, username: 'alice@example.com', refreshToken: 'RT-sso', clientId: 'app-client', tokenEndpoint: PROVIDER_TOKEN,
       });
       expect(localStorage.getItem('bulwark-lite:refresh:0')).not.toBeNull();
-      // The reload that follows sign-in resumes with this token (#552).
-      expect(localStorage.getItem('bulwark-lite:access:0')).toContain('"accessToken":"AT-sso"');
+      // The reload that follows sign-in resumes with this token (#552), stored sealed.
+      expect(localStorage.getItem('bulwark-lite:access:0')).not.toBeNull();
+      expect(localStorage.getItem('bulwark-lite:access:0')).not.toContain('AT-sso');
+      expect(readLiteAccessToken(0)?.accessToken).toBe('AT-sso');
       // A code is good for one attempt.
       expect(readLiteOAuthFlow()).toBeNull();
 

@@ -1,3 +1,4 @@
+import 'fake-indexeddb/auto';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 /**
@@ -80,7 +81,8 @@ describe('Lite on Stalwart: OAuth discovery', () => {
     const found = await oauth.liteDiscoverOAuth(`${SERVER}/`, ' alice@example.com ');
     expect(found).toEqual({
       external: false,
-      scope: 'openid offline_access',
+      // Stalwart 1.0 gives a third-party client only what its data scopes name.
+      scope: 'openid offline_access urn:ietf:params:oauth:scope:mail',
       metadata: {
         issuer: SERVER,
         authorization_endpoint: `${SERVER}/login`,

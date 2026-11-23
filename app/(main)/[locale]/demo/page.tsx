@@ -19,7 +19,7 @@ function DemoStart() {
   const locale = useLocale();
   const [error, setError] = useState<{ key: string; busy: boolean } | null>(null);
   const started = useRef(false);
-  useDocumentTitle(t("demo.title"), { withAccount: false });
+  useDocumentTitle(t("demo.title"), { showAccount: false });
 
   useEffect(() => {
     // Once per page view (React runs effects twice in development).

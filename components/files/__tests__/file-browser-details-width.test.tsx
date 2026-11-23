@@ -102,7 +102,7 @@ function renderBrowser(opts: { resources?: FileResource[]; allFolders?: FileReso
       onPaste={noop}
       onMoveTo={noop}
       onPreviewImage={vi.fn()}
-      onCreateTextFile={noop}
+      onCreateFile={noop}
       onDuplicate={noop}
       getImageUrl={async () => ''}
       favorites={[]}
@@ -125,7 +125,7 @@ describe('Files: width of the Details panel (step 114)', () => {
     wide = true;
     localStorage.setItem('files-show-details', '1');
     act(() => useSettingsStore.setState({ filesDetailsWidth: null, filesSidebarWidth: null }));
-    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ matches: /min-width/.test(query) ? wide : false, media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false }) as MediaQueryList);
+    vi.spyOn(window, 'matchMedia').mockImplementation((query: string) => ({ get matches() { return /min-width|width >=/.test(query) ? wide : false; }, media: query, onchange: null, addEventListener: () => undefined, removeEventListener: () => undefined, addListener: () => undefined, removeListener: () => undefined, dispatchEvent: () => false }) as MediaQueryList);
     vi.spyOn(HTMLElement.prototype, 'getBoundingClientRect').mockReturnValue({ width: 1000, height: 800, x: 0, y: 0, top: 0, left: 0, right: 1000, bottom: 800, toJSON: () => ({}) } as DOMRect);
   });
   afterEach(() => {
@@ -161,7 +161,7 @@ describe('Files: width of the Details panel (step 114)', () => {
     expect(JSON.parse(useSettingsStore.getState().exportSettings()).filesDetailsWidth).toBe(35);
   });
 
-  it('the folder column: its width goes to the settings instead of this browser; one from another device shows', () => {
+  it('the folder column: its width goes to the settings instead of this browser; one from another device shows', async () => {
     localStorage.setItem('files-sidebar-width', '300');
     renderBrowser();
     const column = () => screen.getAllByRole('separator')[0]!.previousElementSibling as HTMLElement;
@@ -175,6 +175,8 @@ describe('Files: width of the Details panel (step 114)', () => {
     expect(localStorage.getItem('files-sidebar-width')).toBeNull();
     // Arrow keys move it too; never past 400 px.
     for (let i = 0; i < 8; i++) fireEvent.keyDown(divider, { key: 'ArrowRight' });
+    // The handle ends a keyboard step after the new size has rendered (a microtask).
+    await act(async () => {});
     expect(useSettingsStore.getState().filesSidebarWidth).toBe(400);
     act(() => useSettingsStore.setState({ filesSidebarWidth: 220 }));
     expect(column().style.width).toBe('220px');

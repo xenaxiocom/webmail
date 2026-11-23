@@ -100,7 +100,7 @@ export function EmojiPicker({ onPick, onClose, className }: { onPick: (emoji: st
         {sections.map((s) =>
           s.items.length ? (
             <div key={s.key}>
-              <div className="text-[11px] font-medium text-muted-foreground px-1 mb-1">{s.label}</div>
+              <div className="text-[0.6875rem] font-medium text-muted-foreground px-1 mb-1">{s.label}</div>
               <div className="grid grid-cols-8 gap-0.5">
                 {s.items.map((e) => (
                   <button key={`${s.key}-${e}`} type="button" onClick={() => pick(e)} className="flex h-8 w-8 items-center justify-center rounded hover:bg-accent text-lg leading-none" aria-label={e} title={companyEmojiUrl(e) ? e : undefined}>

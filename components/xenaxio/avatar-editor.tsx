@@ -6,7 +6,8 @@ import { type ChangeEvent, useRef, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { Camera, Trash2 } from "@/components/icons";
 import { withBasePath } from "@/lib/browser-navigation";
-import { generateAvatarColor, getInitials } from "@/lib/account-utils";
+import { generateAvatarColor } from "@/lib/account-utils";
+import { avatarInitials } from "@/components/ui/avatar";
 import { cn } from "@/lib/utils";
 import { type AvatarTarget, errorText, xenaxio } from "@/lib/xenaxio/api";
 import { useXenaxioAvatarStore } from "@/lib/xenaxio/avatars";
@@ -79,7 +80,7 @@ export function AvatarEditor({
         style={{ backgroundColor: current ? "transparent" : generateAvatarColor(email) }}
         title={label}
       >
-        {current ? <img src={withBasePath(current)} alt={t("avatar.alt", { name: label })} className="w-full h-full object-cover" /> : getInitials(name, email)}
+        {current ? <img src={withBasePath(current)} alt={t("avatar.alt", { name: label })} className="w-full h-full object-cover" /> : avatarInitials(name, email)}
       </div>
       <input ref={fileInput} type="file" accept="image/*" className="hidden" onChange={upload} aria-label={t("avatar.upload_for", { name: label })} />
       <div className="flex flex-wrap items-center gap-1">

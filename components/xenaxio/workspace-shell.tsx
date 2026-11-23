@@ -83,7 +83,7 @@ export function WorkspaceShell({
             on screen while the page scrolls: the way back to mail. */}
         {/* Step 73: the live demo's strip here too (Verwaltung, settings pages). */}
         <XenaxioDemoStrip />
-        <header className="sticky top-0 z-30 border-b border-border bg-background pt-[env(safe-area-inset-top)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
+        <header className="sticky top-0 z-30 border-b border-border bg-background pt-[var(--app-top-inset)] pl-[env(safe-area-inset-left)] pr-[env(safe-area-inset-right)]">
           <div className="mx-auto max-w-4xl px-4 h-14 flex items-center justify-between gap-3">
             <div className="flex items-center gap-2 min-w-0">
               {toMail ? (
