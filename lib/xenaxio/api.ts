@@ -589,6 +589,41 @@ export function auditQuery(f: AuditFilter): string {
   return s ? `?${s}` : "";
 }
 
+/** Step 153: one outgoing message of the company, as the admin sees it (no subject, no content). */
+export type OutgoingState = "delivered" | "deferred" | "failed" | "pending";
+export type OutgoingReason = "no_mailbox" | "no_domain" | "mailbox_full" | "sender_not_verified" | "rejected_as_spam" | "unreachable" | "other";
+
+export interface OutgoingEntry {
+  id: string;
+  at: string;
+  sender: string;
+  /** The login of the SMTP connection; null when sent through Xenaxio or not known. */
+  login: string | null;
+  user: { id: string; name: string; email: string } | null;
+  /** smtp: mail program, script or app over SMTP; xenaxio: web, assistant, MCP, flows; null: before this list existed. */
+  channel: "smtp" | "xenaxio" | null;
+  size: number | null;
+  recipients: { address: string; state: OutgoingState; at?: string; reply?: string; reason?: OutgoingReason }[];
+}
+
+export interface OutgoingFilter {
+  userId?: string;
+  sender?: string;
+  recipient?: string;
+  channel?: "smtp" | "xenaxio";
+  status?: "failed" | "deferred" | "pending" | "delivered";
+  from?: string;
+  to?: string;
+  before?: string;
+}
+
+export function outgoingQuery(f: OutgoingFilter): string {
+  const q = new URLSearchParams();
+  for (const [k, v] of Object.entries(f)) if (v !== undefined && v !== "") q.set(k, String(v));
+  const s = q.toString();
+  return s ? `?${s}` : "";
+}
+
 export interface OperatorTenant {
   id: string;
   name: string;
@@ -1604,6 +1639,8 @@ export const xenaxio = {
   },
 
   audit: (f: AuditFilter) => request<{ entries: AuditEntry[]; next: number | null }>("GET", `/api/admin/audit${auditQuery(f)}`),
+  /** Step 153: the company's outgoing mail (admin). */
+  outgoing: (f: OutgoingFilter) => request<{ entries: OutgoingEntry[]; next: string | null }>("GET", `/api/admin/outgoing${outgoingQuery(f)}`),
 
   operator: {
     me: () => request<{ operator: { id: string; email: string } }>("GET", "/api/operator/me"),
