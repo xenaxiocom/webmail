@@ -2,8 +2,10 @@
 // with an icon in its header (Ctrl/Cmd+Shift+D); XenRooms' column of companies
 // can be hidden too, and on a phone the companies open in a sheet. The order of
 // the companies stays as the person left it: switching only marks another one,
-// dragging moves them. All of it is how this device shows the chat, kept in
-// this browser (like the set of accounts itself), not a setting.
+// dragging moves them. The folded columns are how this device shows the chat,
+// kept in this browser. Step 152 R1d: the order of the companies is kept on the
+// platform too (lib/xenaxio/company-order.ts), so the XenRooms phone app shows the
+// same; this browser's copy carries when it changed, the newer one wins.
 import { create } from "zustand";
 import { createJSONStorage, persist } from "zustand/middleware";
 
@@ -14,10 +16,13 @@ interface ChatLayoutState {
   railHidden: boolean;
   /** XenRooms: the companies' user ids in the person's order. */
   companyOrder: string[];
+  /** When the person last changed the order (ms); 0 for the order made from the platform's list. */
+  companyOrderAt: number;
   toggleSidebar: () => void;
   setSidebarHidden: (hidden: boolean) => void;
   setRailHidden: (hidden: boolean) => void;
-  setCompanyOrder: (order: string[]) => void;
+  /** `at`: when the person chose it (dragging: now); omitted for a merely completed list. */
+  setCompanyOrder: (order: string[], at?: number) => void;
 }
 
 export const useChatLayout = create<ChatLayoutState>()(
@@ -26,17 +31,18 @@ export const useChatLayout = create<ChatLayoutState>()(
       sidebarHidden: false,
       railHidden: false,
       companyOrder: [],
+      companyOrderAt: 0,
       toggleSidebar: () => set((s) => ({ sidebarHidden: !s.sidebarHidden })),
       setSidebarHidden: (sidebarHidden) => set({ sidebarHidden }),
       setRailHidden: (railHidden) => set({ railHidden }),
-      setCompanyOrder: (companyOrder) => set({ companyOrder }),
+      setCompanyOrder: (companyOrder, at) => set((s) => ({ companyOrder, companyOrderAt: at ?? s.companyOrderAt })),
     }),
     {
       name: "xenaxio-chat-layout",
       version: 1,
       // Private mode or blocked storage: zustand keeps the defaults, nothing is remembered.
       storage: createJSONStorage(() => window.localStorage),
-      partialize: (s) => ({ sidebarHidden: s.sidebarHidden, railHidden: s.railHidden, companyOrder: s.companyOrder }),
+      partialize: (s) => ({ sidebarHidden: s.sidebarHidden, railHidden: s.railHidden, companyOrder: s.companyOrder, companyOrderAt: s.companyOrderAt }),
     },
   ),
 );

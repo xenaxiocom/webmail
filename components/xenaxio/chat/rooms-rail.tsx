@@ -24,6 +24,7 @@ import { moveInOrder, orderAccounts, useChatLayout } from "@/lib/xenaxio/chat/la
 import { useChatBadge } from "@/lib/xenaxio/chat/nav";
 import { badgeText, companyInitials, useOtherCompaniesBadge, useRoomsStore } from "@/lib/xenaxio/chat/rooms";
 import { useXT } from "@/lib/xenaxio/i18n";
+import { readServerOrder, writeServerOrder } from "@/lib/xenaxio/company-order";
 import { useXenaxioMe } from "@/lib/xenaxio/me-store";
 import { ROOMS_LOGO, ROOMS_NAME, roomsStart, usePortal } from "@/lib/xenaxio/portal";
 import { cn } from "@/lib/utils";
@@ -83,6 +84,16 @@ export function useOrderedCompanies(): BrowserAccount[] {
   const order = useChatLayout((s) => s.companyOrder);
   const setOrder = useChatLayout((s) => s.setCompanyOrder);
   const ordered = useMemo(() => orderAccounts(accounts, order), [accounts, order]);
+  // Step 152 R1d: the order on the platform (the phone app may have changed it) wins when newer.
+  useEffect(() => {
+    let cancelled = false;
+    void readServerOrder().then((stored) => {
+      if (!cancelled && stored && stored.at > useChatLayout.getState().companyOrderAt) setOrder(stored.order, stored.at);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [setOrder]);
   useEffect(() => {
     if (accounts.length === 0) return;
     const ids = ordered.map((a) => a.userId);
@@ -120,7 +131,11 @@ function useCompanies() {
   };
   const move = (dragId: string, overId: string) => {
     const next = moveInOrder(order, dragId, overId);
-    if (next) setOrder(next);
+    if (!next) return;
+    const at = Date.now();
+    setOrder(next, at);
+    // Step 152 R1d: kept on the platform, so the XenRooms phone app shows the same order.
+    if (me?.user.email) void writeServerOrder(me.user.email, { order: next, at });
   };
   const company = me?.tenant.name ?? "";
   // Administration stays in Xenaxio (the company's portal), in a new tab.
