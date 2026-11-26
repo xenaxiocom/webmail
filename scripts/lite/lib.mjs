@@ -100,6 +100,7 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/admin/resources",
   "/api/admin/ai",
   "/api/admin/audit",
+  "/api/admin/outgoing",
   "/api/operator",
   "/api/ai",
   // Step 9: consent screen for AI chats connecting by OAuth.
