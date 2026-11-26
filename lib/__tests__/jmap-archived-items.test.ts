@@ -1,4 +1,4 @@
-import { afterEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { JMAPClient } from '../jmap/client';
 import { jmapErrorType } from '../jmap/jmap-error';
 import { ACCOUNT, LICENSE_REFUSAL, archivedEmail, bigArchive, fakeArchiveServer } from '../recovery/__tests__/fixtures';
@@ -35,7 +35,16 @@ function respondWith(handler: (body: Body) => unknown) {
 const bodies = (spy: ReturnType<typeof respondWith>) => spy.mock.calls.map(([, init]) => JSON.parse((init as RequestInit).body as string) as Body);
 const queries = (spy: ReturnType<typeof respondWith>) => bodies(spy).flatMap((b) => b.methodCalls).filter(([m]) => m === 'x:ArchivedItem/query');
 
-afterEach(() => vi.restoreAllMocks());
+// The fixtures' items are kept until 2026-11-19 (archivedUntil); the client hides expired
+// items, so the clock is set inside that window, as the recovery tests pass NOW.
+beforeEach(() => {
+  vi.useFakeTimers({ toFake: ['Date'] });
+  vi.setSystemTime(new Date('2026-10-28T12:00:00Z'));
+});
+afterEach(() => {
+  vi.useRealTimers();
+  vi.restoreAllMocks();
+});
 
 describe('JMAPClient archived items', () => {
   it('advertises them only on Stalwart', () => {

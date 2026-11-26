@@ -101,6 +101,8 @@ export const LITE_API_STRING_ALLOWLIST = [
   "/api/admin/ai",
   "/api/admin/audit",
   "/api/admin/outgoing",
+  // Step 151 A: phones signed in with the Xenaxio app (Settings → Account, components/xenaxio/devices-setting.tsx).
+  "/api/mobile/devices",
   "/api/operator",
   "/api/ai",
   // Step 9: consent screen for AI chats connecting by OAuth.
