@@ -4498,5 +4498,19 @@
     "sign_out_text": "“{name}” will be signed out and lose access to your mailbox at once. You can sign in on it again at any time.",
     "signed_out": "“{name}” is signed out.",
     "sign_out_failed": "The phone could not be signed out. Please try again."
+  },
+  "mobile_connect": {
+    "title": "Companies for XenRooms on your phone",
+    "intro": "The app on your phone gets the companies you tick. Each company has its own sign-in there; you can sign out of each one later.",
+    "already": "already on the phone",
+    "none": "No company is signed in in this browser.",
+    "add": "Sign in to another company",
+    "confirm": "Add to the phone",
+    "confirm_n": "Add to the phone ({count})",
+    "cancel": "Cancel",
+    "working": "One moment …",
+    "back": "Back to the app …",
+    "invalid": "This link is invalid or has expired. Please start the sign-in in the app again.",
+    "failed": "The companies could not be added. Please try again."
   }
 }

@@ -43,7 +43,7 @@ const LOCALES = new Set(["de", "en"]);
 /** Top-level screens of the app; anything else is counted as "/other". */
 const SECTIONS = new Set([
   "apps", "auth", "book", "calendar", "chat", "connect", "contacts", "demo", "files", "flows", "login",
-  "mail", "meet", "meetings", "onboarding", "plugins", "pro", "rooms", "settings", "start", "workspace",
+  "mail", "meet", "meetings", "mobile", "onboarding", "plugins", "pro", "rooms", "settings", "start", "workspace",
 ]);
 /** Screens whose deeper parts are fixed page names (no ids or names inside). */
 const DEEP = new Map<string, number>([

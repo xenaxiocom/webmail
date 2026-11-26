@@ -34,7 +34,7 @@ type TileSize = "lg" | "md" | "sm";
 const BOX: Record<TileSize, string> = { lg: "h-10 w-10 text-sm", md: "h-9 w-9 text-xs", sm: "h-7 w-7 text-[0.6875rem]" };
 
 /** The company's logo or initials on its colour. */
-function CompanyMark({ account, size }: { account: BrowserAccount; size: TileSize }) {
+export function CompanyMark({ account, size }: { account: BrowserAccount; size: TileSize }) {
   const [broken, setBroken] = useState(false);
   const color = account.color && HEX.test(account.color) ? account.color : null;
   // Step 113: logos are often transparent — they sit on the app icon's background (white by default).

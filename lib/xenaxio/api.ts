@@ -1380,6 +1380,9 @@ export const xenaxio = {
   /** Step 51: `mcpUrl` is the company's own address; `sharedMcpUrl` the shared one. */
   /** Step 151 A: the phones signed in to the Xenaxio app; one is signed out alone. */
   mobileDevices: () => request<{ devices: MobileDevice[] }>("GET", "/api/mobile/devices"),
+  /** Step 152 R1: the companies the person ticked for XenRooms on a phone; the answer is the app's link. */
+  mobileConnect: (body: { redirect_uri: string; state: string; code_challenge: string; code_challenge_method: string; userIds: string[] }) =>
+    request<{ url: string }>("POST", "/api/mobile/authorize", body),
   signOutMobileDevice: (id: string) => request<{ ok: true }>("DELETE", `/api/mobile/devices/${encodeURIComponent(id)}`),
   mcpTokens: () => request<{ mcpUrl: string; sharedMcpUrl?: string; enabled: boolean; tokens: McpTokenInfo[] }>("GET", "/api/me/mcp-tokens"),
   createMcpToken: (name: string, days: number) => request<{ token: string; mcpUrl: string; info: McpTokenInfo }>("POST", "/api/me/mcp-tokens", { name, days }),
