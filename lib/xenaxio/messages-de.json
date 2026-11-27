@@ -4534,5 +4534,19 @@
     "sign_out_text": "„{name}“ wird abgemeldet und verliert sofort den Zugang zu Ihrem Postfach. Sie können sich dort jederzeit wieder anmelden.",
     "signed_out": "„{name}“ ist abgemeldet.",
     "sign_out_failed": "Das Telefon konnte nicht abgemeldet werden. Bitte versuchen Sie es erneut."
+  },
+  "mobile_connect": {
+    "title": "Firmen für XenRooms auf dem Telefon",
+    "intro": "Die App auf Ihrem Telefon bekommt die angehakten Firmen. Jede Firma hat dort eine eigene Anmeldung; Sie können sie später einzeln abmelden.",
+    "already": "schon auf dem Telefon",
+    "none": "In diesem Browser ist keine Firma angemeldet.",
+    "add": "Weitere Firma anmelden",
+    "confirm": "Auf das Telefon",
+    "confirm_n": "Auf das Telefon ({count})",
+    "cancel": "Abbrechen",
+    "working": "Einen Moment …",
+    "back": "Zurück zur App …",
+    "invalid": "Dieser Link ist ungültig oder abgelaufen. Bitte starten Sie die Anmeldung in der App erneut.",
+    "failed": "Die Firmen konnten nicht übertragen werden. Bitte versuchen Sie es erneut."
   }
 }

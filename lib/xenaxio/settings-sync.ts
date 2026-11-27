@@ -6,6 +6,7 @@
 import { apiFetch } from "@/lib/browser-navigation";
 import { mergeStoredSubscriptions } from "@/lib/calendar-subscription-sync";
 import { mergeStoredTemplates } from "@/lib/template-merge";
+import { keepOrder } from "@/lib/xenaxio/company-order";
 
 /** How long a tab may stay in the background before it reads the settings again. */
 export const SETTINGS_RELOAD_MS = 60_000;
@@ -33,7 +34,8 @@ export async function pushSettingsToPlatform(job: SettingsPush): Promise<Respons
     body.settings && typeof body.settings === "object" && !Array.isArray(body.settings)
       ? (body.settings as Record<string, unknown>)
       : null;
-  const settings = mergeStoredSubscriptions(stored, mergeStoredTemplates(stored, job.settings));
+  // Step 152 R1d: the companies' order may have been written by the XenRooms phone app meanwhile.
+  const settings = keepOrder(stored, mergeStoredSubscriptions(stored, mergeStoredTemplates(stored, job.settings)));
   return apiFetch("/api/settings", {
     method: "POST",
     credentials: "same-origin",
